@@ -45,8 +45,11 @@ export async function scrape(url: string, opts: ScrapeOptions = {}): Promise<Scr
       finalHtml = r.html
       finalUrl = r.finalUrl
       rendered = true
-    } catch {
-      // If static also failed, propagate below. Otherwise keep the thin static result.
+    } catch (err) {
+      // Surface the render failure so hard errors (e.g. missing Chromium system libs,
+      // browser crashes) don't hide behind the thin-static fallback — they look
+      // identical otherwise. If static also failed, we propagate below.
+      console.warn(JSON.stringify({ msg: 'render failed', url, error: (err as Error).message }))
     }
   }
 

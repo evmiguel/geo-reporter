@@ -29,6 +29,7 @@ const sparseHtml = `<html><head><title>SPA</title></head><body><div id="root"></
 beforeEach(() => {
   vi.mocked(fetchHtml).mockReset()
   vi.mocked(render).mockReset()
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 })
 
 afterEach(() => vi.restoreAllMocks())
