@@ -18,10 +18,15 @@ export function loadEnv(raw: NodeJS.ProcessEnv | Record<string, string | undefin
   return result.data
 }
 
-// Lazy cached env: parse `process.env` on first access rather than at module
-// import time. This keeps runtime semantics (loadEnv on first use) while
-// letting tests import `loadEnv` without triggering a parse against an
-// incomplete real `process.env`.
+// Lazy cached env: parse `process.env` on first property access rather than at
+// module import time. This is a dispatch-authorized deviation from the plan's
+// eager `export const env = loadEnv()` (required because vitest imports this
+// module before test env vars are set). Do NOT revert to eager — it will break
+// any test that imports from this module without a fully-populated process.env.
+//
+// Only property `get` is proxied. `Object.keys(env)`, spreads (`{ ...env }`),
+// `JSON.stringify(env)`, and `'KEY' in env` will NOT work as expected — call
+// `loadEnv()` directly if you need the full object.
 let cachedEnv: Env | null = null
 
 export const env: Env = new Proxy({} as Env, {
