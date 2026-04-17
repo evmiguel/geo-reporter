@@ -520,9 +520,9 @@ Target: ~85% line coverage on `src/core`, `src/seo`, `src/scraper`, `src/auth`, 
 This spec decomposes into the following implementation plans (to be written as sibling docs under `v3/docs/superpowers/plans/`):
 
 1. **Plan 1 — Foundation**: v3/ package scaffolding, Drizzle schema, Postgres migrations, Redis wiring, BullMQ producer/worker skeleton, `/healthz`, CI.
-2. **Plan 2 — Scraper**: `scraper/` module with static fetch + Playwright fallback + all extractors + fixture-based tests. Standalone; no API.
-3. **Plan 3 — SEO evaluator**: `seo/signals/*` with the 10 checks + composite scorer. Fixture tests. *(Reordered ahead of the scoring engine post-Plan-1: SEO is the smallest consumer of scrape output, validates the scrape contract cheaply, and gives a shippable end-to-end demo — paste URL → scorecard — before we commit to LLM engineering.)*
-4. **Plan 4 — Scoring engine (core seeded from v1)**: port + adapt providers, prompts, judge, scoring, types. Add the new `accuracy/` submodule (generator + verifier). No HTTP.
+2. **Plan 2 — Scraper**: `scraper/` module with static fetch + Playwright fallback + all extractors + fixture-based tests. Library-only; no Hono routes.
+3. **Plan 3 — SEO evaluator**: `seo/signals/*` with the 10 checks + composite scorer. Fixture tests. Library-only; no Hono routes. *(Reordered ahead of the scoring engine post-Plan-1: SEO is the smallest consumer of scrape output, validates the scrape contract cheaply, and gives a shippable end-to-end demo — paste URL → scorecard — before we commit to LLM engineering.)*
+4. **Plan 4 — Scoring engine (core seeded from v1)**: port + adapt providers, prompts, judge, scoring, types. Add the new `accuracy/` submodule (generator + verifier). Library-only; no Hono routes (does make outbound HTTP to LLM providers).
 5. **Plan 5 — Grade pipeline worker**: wire scraper + core engine + SEO + judge into `queue/workers/run-grade.ts`. Pub/sub progress events. Free vs paid tier branching.
 6. **Plan 6 — Web service (scoring UX)**: Hono app, rate-limit middleware with rolling 24h Redis sorted set, `POST /grades`, SSE endpoint, React landing + live-grade pages. End-to-end free grade works.
 7. **Plan 7 — Auth (magic link)**: email issuance + verification + session cookie + email-tier quota lift.
