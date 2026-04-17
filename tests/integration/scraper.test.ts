@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer, type Server } from 'node:http'
-import { AddressInfo } from 'node:net'
+import type { AddressInfo } from 'node:net'
 import { scrape, shutdownBrowserPool } from '../../src/scraper/index.ts'
 
 const RICH = `<!doctype html>
