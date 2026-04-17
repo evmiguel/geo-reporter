@@ -18,3 +18,5 @@ export {
   type ReportJob,
   type PdfJob,
 } from './queue/queues.ts'
+export { scrape, shutdownBrowserPool, FetchError } from './scraper/index.ts'
+export type { ScrapeResult, ScrapeOptions, StructuredData } from './scraper/index.ts'
