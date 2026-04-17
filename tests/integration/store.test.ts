@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { PostgresStore } from '../../src/store/postgres.ts'
+import { cookies } from '../../src/db/schema.ts'
 import { startTestDb, type TestDb } from './setup.ts'
 
 let ctx: TestDb
@@ -74,5 +76,34 @@ describe('PostgresStore', () => {
     await store.createReport({ gradeId: g.id, token: 'abc' })
     const r = await store.getReport(g.id)
     expect(r?.token).toBe('abc')
+  })
+
+  it('upsertCookie anonymous touch does not clobber existing userId', async () => {
+    const user = await store.upsertUser('cookie-owner@b.com')
+    await store.upsertCookie('cookie-1') // anonymous
+    const promoted = await store.upsertCookie('cookie-1', user.id) // promotion
+    expect(promoted.userId).toBe(user.id)
+    await store.upsertCookie('cookie-1') // anonymous again — must not clobber
+    const [row] = await ctx.db
+      .select()
+      .from(cookies)
+      .where(eq(cookies.cookie, 'cookie-1'))
+      .limit(1)
+    expect(row?.userId).toBe(user.id)
+  })
+
+  it('createRecommendations (non-empty) + listRecommendations ordered by rank', async () => {
+    const g = await store.createGrade({ url: 'https://r.com', domain: 'r.com', tier: 'paid' })
+    await store.createRecommendations([
+      { gradeId: g.id, rank: 2, title: 'Second', category: 'seo', impact: 3, effort: 2, rationale: '...', how: '...' },
+      { gradeId: g.id, rank: 1, title: 'First', category: 'seo', impact: 5, effort: 1, rationale: '...', how: '...' },
+    ])
+    const recs = await store.listRecommendations(g.id)
+    expect(recs.map((r) => r.rank)).toEqual([1, 2])
+    expect(recs[0]?.title).toBe('First')
+  })
+
+  it('createRecommendations (empty) is a no-op', async () => {
+    await expect(store.createRecommendations([])).resolves.toBeUndefined()
   })
 })

@@ -4,6 +4,7 @@ import * as schema from '../db/schema.ts'
 import type {
   GradeStore,
   Grade,
+  GradeUpdate,
   NewGrade,
   Probe,
   NewProbe,
@@ -31,9 +32,8 @@ export class PostgresStore implements GradeStore {
     return row ?? null
   }
 
-  async updateGrade(id: string, patch: Partial<Grade>): Promise<void> {
-    const { id: _omit, ...rest } = patch
-    await this.db.update(schema.grades).set({ ...rest, updatedAt: new Date() }).where(eq(schema.grades.id, id))
+  async updateGrade(id: string, patch: GradeUpdate): Promise<void> {
+    await this.db.update(schema.grades).set({ ...patch, updatedAt: new Date() }).where(eq(schema.grades.id, id))
   }
 
   async createProbe(input: NewProbe): Promise<Probe> {
@@ -68,10 +68,27 @@ export class PostgresStore implements GradeStore {
   }
 
   async upsertCookie(cookie: string, userId?: string): Promise<Cookie> {
+    if (userId === undefined) {
+      // Anonymous touch: create if missing, never overwrite an existing userId.
+      const [inserted] = await this.db
+        .insert(schema.cookies)
+        .values({ cookie })
+        .onConflictDoNothing({ target: schema.cookies.cookie })
+        .returning()
+      if (inserted) return inserted
+      const [existing] = await this.db
+        .select()
+        .from(schema.cookies)
+        .where(eq(schema.cookies.cookie, cookie))
+        .limit(1)
+      if (!existing) throw new Error('upsertCookie: conflict row disappeared')
+      return existing
+    }
+    // Explicit promotion path.
     const [row] = await this.db
       .insert(schema.cookies)
-      .values({ cookie, userId: userId ?? null })
-      .onConflictDoUpdate({ target: schema.cookies.cookie, set: { userId: userId ?? null } })
+      .values({ cookie, userId })
+      .onConflictDoUpdate({ target: schema.cookies.cookie, set: { userId } })
       .returning()
     if (!row) throw new Error('upsertCookie returned no row')
     return row

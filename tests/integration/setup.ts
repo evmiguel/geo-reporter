@@ -1,14 +1,13 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import postgres from 'postgres'
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import * as schema from '../../src/db/schema.ts'
-
-export type TestDbClient = PostgresJsDatabase<typeof schema>
+import type { Db } from '../../src/db/client.ts'
 
 export interface TestDb {
   container: StartedPostgreSqlContainer
-  db: TestDbClient
+  db: Db
   url: string
   stop: () => Promise<void>
 }
