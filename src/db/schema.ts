@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, text, uuid, integer, boolean, jsonb, timestamp, unique } from 'drizzle-orm/pg-core'
+import { pgTable, text, uuid, integer, boolean, jsonb, timestamp, unique, index } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -26,7 +26,10 @@ export const grades = pgTable('grades', {
   scores: jsonb('scores'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (t) => ({
+  byUser: index('grades_user_id_idx').on(t.userId, t.createdAt.desc()),
+  byCookie: index('grades_cookie_idx').on(t.cookie, t.createdAt.desc()),
+}))
 
 export const scrapes = pgTable('scrapes', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -50,7 +53,9 @@ export const probes = pgTable('probes', {
   score: integer('score'),
   metadata: jsonb('metadata').notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (t) => ({
+  byGrade: index('probes_grade_id_idx').on(t.gradeId),
+}))
 
 export const recommendations = pgTable('recommendations', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -63,7 +68,9 @@ export const recommendations = pgTable('recommendations', {
   rationale: text('rationale').notNull(),
   how: text('how').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (t) => ({
+  byGrade: index('recommendations_grade_id_idx').on(t.gradeId),
+}))
 
 export const reports = pgTable('reports', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -81,7 +88,9 @@ export const stripePayments = pgTable('stripe_payments', {
   currency: text('currency').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (t) => ({
+  byGrade: index('stripe_payments_grade_id_idx').on(t.gradeId),
+}))
 
 export const magicTokens = pgTable('magic_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
