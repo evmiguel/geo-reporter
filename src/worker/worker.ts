@@ -2,6 +2,7 @@ import { env } from '../config/env.ts'
 import { closeDb } from '../db/client.ts'
 import { createRedis } from '../queue/redis.ts'
 import { registerHealthWorker } from '../queue/workers/health.ts'
+import { shutdownBrowserPool } from '../scraper/render.ts'
 
 const connection = createRedis(env.REDIS_URL)
 const workers = [registerHealthWorker(connection)]
@@ -13,6 +14,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   await Promise.all(workers.map((w) => w.close()))
   await connection.quit()
   await closeDb()
+  await shutdownBrowserPool()
   process.exit(0)
 }
 process.on('SIGTERM', shutdown)
