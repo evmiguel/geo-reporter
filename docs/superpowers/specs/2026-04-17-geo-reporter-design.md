@@ -521,8 +521,8 @@ This spec decomposes into the following implementation plans (to be written as s
 
 1. **Plan 1 — Foundation**: v3/ package scaffolding, Drizzle schema, Postgres migrations, Redis wiring, BullMQ producer/worker skeleton, `/healthz`, CI.
 2. **Plan 2 — Scraper**: `scraper/` module with static fetch + Playwright fallback + all extractors + fixture-based tests. Standalone; no API.
-3. **Plan 3 — Scoring engine (core seeded from v1)**: port + adapt providers, prompts, judge, scoring, types. Add the new `accuracy/` submodule (generator + verifier). No HTTP.
-4. **Plan 4 — SEO evaluator**: `seo/signals/*` with the 10 checks + composite scorer. Fixture tests.
+3. **Plan 3 — SEO evaluator**: `seo/signals/*` with the 10 checks + composite scorer. Fixture tests. *(Reordered ahead of the scoring engine post-Plan-1: SEO is the smallest consumer of scrape output, validates the scrape contract cheaply, and gives a shippable end-to-end demo — paste URL → scorecard — before we commit to LLM engineering.)*
+4. **Plan 4 — Scoring engine (core seeded from v1)**: port + adapt providers, prompts, judge, scoring, types. Add the new `accuracy/` submodule (generator + verifier). No HTTP.
 5. **Plan 5 — Grade pipeline worker**: wire scraper + core engine + SEO + judge into `queue/workers/run-grade.ts`. Pub/sub progress events. Free vs paid tier branching.
 6. **Plan 6 — Web service (scoring UX)**: Hono app, rate-limit middleware with rolling 24h Redis sorted set, `POST /grades`, SSE endpoint, React landing + live-grade pages. End-to-end free grade works.
 7. **Plan 7 — Auth (magic link)**: email issuance + verification + session cookie + email-tier quota lift.
@@ -537,7 +537,7 @@ Each plan is independently shippable enough to keep the main branch deployable a
 ## 15. Open questions for implementation-time
 
 - **Email provider:** Resend vs Postmark. Pick at implementation of Plan 7 based on deliverability and cost for low volume.
-- **Judge model for Coverage/Accuracy verifier:** default to a mid-tier Sonnet/4o-class model. Benchmark quality during Plan 3 against a sample set.
+- **Judge model for Coverage/Accuracy verifier:** default to a mid-tier Sonnet/4o-class model. Benchmark quality during Plan 4 (scoring engine) against a sample set.
 - **Landing-page proof section:** which 3 sample grades to showcase. TBD; keep the landing template data-driven so swapping is cheap.
 - **Refund UX:** MVP keeps refunded reports accessible. Revisit after first month of real payments.
 - **Abuse backstop:** hold off on Turnstile/hCaptcha until there's observed abuse; stub the middleware seam so adding it later is a config change.
