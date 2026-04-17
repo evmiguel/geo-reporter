@@ -240,12 +240,19 @@ Each signal returns `{ pass: boolean, weight: number, detail: string }`. Per-sig
 | JSON-LD block parseable, type is one of Organization/Product/WebSite | "No JSON-LD found" / "JSON-LD is invalid JSON" |
 | Open Graph: `og:title`, `og:description`, `og:image` all present | lists missing ones |
 | Twitter card `twitter:card` present | — |
-| `robots.txt` reachable and does not disallow `GPTBot`/`ClaudeBot`/`PerplexityBot` via `/` | lists which user-agent is blocked |
+| `robots.txt` doesn't disallow `GPTBot`/`ClaudeBot`/`PerplexityBot` via `/` | lists which user-agent is blocked |
 | `sitemap.xml` reachable (200) | — |
 | `llms.txt` reachable (200) | — |
 | Exactly one `<h1>` and at least one `<h2>` | — |
 
 Per-signal failures surface as specific recommendations in the paid report ("Add `og:image` — your homepage has none").
+
+**Interpretation calls locked in during Plan 3 brainstorming (2026-04-17):**
+
+- **Title "non-generic":** the whole trimmed title (case-insensitive) must not exactly match `home`, `index`, `untitled`, `welcome`, or `default`. Titles that *contain* those words (e.g. `Home | Acme Widgets`) pass. The check is equality, not substring, to keep false-fails low.
+- **Robots.txt absent:** a 404 on `/robots.txt` counts as **pass**, not fail. No robots.txt means no crawl restrictions — that's the permissive default and we're grading whether LLMs can crawl, not whether the site ships a robots file.
+- **JSON-LD `@graph` traversal:** a block may be a single `@type` object, an array of objects, or a `@graph` wrapper containing multiple objects. Pass if any `@type` anywhere in the block matches `Organization`, `Product`, or `WebSite`.
+- **Robots parsing library:** `robots-parser` (npm). Handles the edge cases (wildcard UA, Allow vs Disallow precedence, most-specific-match) that a hand-rolled check would get wrong.
 
 ---
 
