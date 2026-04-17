@@ -6,5 +6,9 @@ import * as schema from './schema.ts'
 
 export type Db = PostgresJsDatabase<typeof schema>
 
-const sql = postgres(env.DATABASE_URL, { prepare: false, max: 10 })
+export const sql = postgres(env.DATABASE_URL, { prepare: false, max: 10 })
 export const db: Db = drizzle(sql, { schema })
+
+export async function closeDb(): Promise<void> {
+  await sql.end({ timeout: 5 })
+}

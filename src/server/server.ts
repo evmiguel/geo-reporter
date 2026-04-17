@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server'
 import { sql } from 'drizzle-orm'
 import { env } from '../config/env.ts'
-import { db } from '../db/client.ts'
+import { db, closeDb } from '../db/client.ts'
 import { createRedis } from '../queue/redis.ts'
 import { buildApp } from './app.ts'
 
@@ -24,6 +24,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   console.log(JSON.stringify({ msg: 'server shutting down', signal }))
   server.close()
   await redis.quit()
+  await closeDb()
   process.exit(0)
 }
 process.on('SIGTERM', shutdown)
