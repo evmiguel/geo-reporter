@@ -1,4 +1,5 @@
-import type { GroundTruth } from './ground-truth.ts'
+import type { GroundTruth, ProbeForJudge } from './ground-truth.ts'
+import { isSparseGroundTruth } from './ground-truth.ts'
 
 export function promptRecognition(domain: string): [string, string] {
   return [
@@ -50,4 +51,87 @@ export function promptAccuracyGenerator(gt: GroundTruth): string {
     gt.bodyExcerpt,
     '--- End content ---',
   ].join('\n')
+}
+
+export interface BuiltJudgePrompt {
+  prompt: string
+  probesByKey: Map<string, ProbeForJudge>
+}
+
+export function promptJudge(gt: GroundTruth, probes: ProbeForJudge[]): BuiltJudgePrompt {
+  const probesByKey = new Map<string, ProbeForJudge>()
+  probes.forEach((p, i) => probesByKey.set(p.key || `probe_${i + 1}`, p))
+  const sparse = isSparseGroundTruth(gt)
+
+  const header = sparse
+    ? [
+        'You are evaluating how well an LLM understands a specific website.',
+        `The website is ${gt.url} (title: "${gt.title || gt.domain}").`,
+        '',
+        'IMPORTANT: the scrape is essentially empty (JavaScript-rendered site',
+        'or auth wall). Use YOUR knowledge of the site as the source of truth.',
+      ]
+    : [
+        `You are evaluating how well several LLMs understand the website at ${gt.url}.`,
+        '',
+        'Use the scraped homepage below as primary grounding. Do NOT penalize',
+        'responses for being more comprehensive than the scrape — homepages',
+        'are marketing copy, not the full picture of what an entity is.',
+      ]
+
+  const scoringRubric = [
+    '',
+    'For each probe response below, score:',
+    '',
+    '- accuracy (0-100): Are the facts in the response substantively correct',
+    '  about this entity? Score high (80-100) for correct core facts; low for',
+    '  hallucinations, misattributions, or refusals. Score 60 for incomplete',
+    '  but accurate responses.',
+    '',
+    '- coverage (0-100): How comprehensive is the response? Does it cover',
+    '  what the site does, audience, key products, scale? Score high for',
+    '  substantive answers; low for one-line dismissals.',
+    '',
+    'Return ONLY a JSON object keyed by probe ID, with this shape:',
+    '{',
+    '  "probe_N": { "accuracy": N, "coverage": N, "notes": "..." }',
+    '  // ...one entry per probe ID listed below...',
+    '}',
+    'Include every probe ID listed below. Do not invent additional keys.',
+  ]
+
+  const siteBlock = sparse
+    ? [
+        '',
+        '--- Site (sparse scrape) ---',
+        `URL: ${gt.url}`,
+        `Domain: ${gt.domain}`,
+        `Title: ${gt.title || '(none)'}`,
+        '--- End site ---',
+      ]
+    : [
+        '',
+        '--- Site under evaluation ---',
+        `URL: ${gt.url}`,
+        `Domain: ${gt.domain}`,
+        `Title: ${gt.title || '(none)'}`,
+        `Scraped description: ${gt.description || '(none)'}`,
+        `Scraped H1: ${gt.h1 || '(none)'}`,
+        'Scraped body excerpt (may be sparse for JS-rendered sites):',
+        gt.bodyExcerpt || '(empty)',
+        '--- End site ---',
+      ]
+
+  const lines: string[] = [...header, ...scoringRubric, ...siteBlock, '', '--- Responses to evaluate ---']
+  for (const [key, probe] of probesByKey) {
+    lines.push('')
+    lines.push(`${key}:`)
+    lines.push(`  Provider: ${probe.provider}`)
+    lines.push(`  Category: ${probe.category}`)
+    lines.push(`  Prompt: ${probe.prompt}`)
+    lines.push(`  Response: ${probe.response || '(empty)'}`)
+  }
+  lines.push('')
+  lines.push('--- End responses ---')
+  return { prompt: lines.join('\n'), probesByKey }
 }
