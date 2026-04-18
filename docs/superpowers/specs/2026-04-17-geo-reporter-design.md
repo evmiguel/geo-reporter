@@ -189,6 +189,16 @@ v3/
 8. "Download PDF" link hits `GET /report/:id.pdf?t=<token>`. Server, running in the web process, calls into a tiny Playwright helper that takes the same token, opens the HTML URL (with `X-Report-Internal-Key` header), and returns `page.pdf()` as the response body.
    - Because Playwright lives in the worker service, the web service emits a `render-pdf` job and waits on its completion (BullMQ supports this). Alternatively, a dedicated "pdf" worker subscribes just to that queue. MVP: re-use the main worker.
 
+**Interpretation calls locked in during Plan 5 brainstorming (2026-04-17):** see the full sub-spec at [`2026-04-17-geo-reporter-plan-5-grade-pipeline-design.md`](./2026-04-17-geo-reporter-plan-5-grade-pipeline-design.md). Summary:
+
+- **Dev CLI + pub/sub pair:** ship `scripts/enqueue-grade.ts` and `src/queue/events.ts` (with BOTH publisher and subscriber helpers) so the worker is demo-able end-to-end before Plan 6's HTTP layer exists.
+- **Specialty provider roles:** Claude plays the Coverage judge, Accuracy generator, and Accuracy verifier. Self-judging bias accepted for MVP.
+- **Persistence timing:** write-through — each probe row lands in Postgres as its LLM call resolves; `grades` row finalized last. On BullMQ retry, worker calls `clearGradeArtifacts(gradeId)` first for a clean slate.
+- **Category orchestration:** SEO runs first (synchronous, instant first progress tick); the five LLM categories then run in parallel via `Promise.all`.
+- **SSE event schema:** per-probe granularity — `running`, `scraped`, `probe.started`, `probe.completed`, `category.completed`, `done`, `failed` — published on Redis channel `grade:<id>`.
+- **Probe-row mapping:** Accuracy = 1 generator row + N answer rows (the generator visible as a first-class probe). Coverage = 2N rows with per-probe judge accuracy+coverage averaged into each row's `score`; no separate judge-summary row. `provider=null` remains reserved for SEO signals + accuracy-skipped placeholders.
+- **Error policy — always finalize:** hard-fail only on DB/Redis down, scrape producing < 100 chars even after Playwright, or every LLM call failing. Per-probe errors record to the row and keep going; partial grades are preferred over blank failure pages.
+
 ---
 
 ## 5. Scoring engine
