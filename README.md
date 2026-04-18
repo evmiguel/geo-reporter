@@ -2,13 +2,15 @@
 
 A public, paywalled web app that grades websites on how well LLMs know them. Scrapes the site, runs LLM probes across six categories (Discoverability, Recognition, Accuracy, Coverage, Citation, SEO), and produces an HTML + PDF report with recommendations.
 
-**Status:** pipeline + HTTP surface shipped. The scoring pipeline runs; the Hono HTTP API is live (`POST /grades`, `GET /grades/:id`, SSE at `GET /grades/:id/events`) with rate limiting and anonymous cookies. The React frontend, auth, Stripe, report rendering, and deploy are still ahead — see [Roadmap](#roadmap).
+**Status:** pipeline + HTTP + React UI shipped. The scoring pipeline runs, the Hono HTTP API is live, and the React terminal-aesthetic frontend consumes it live via SSE. Auth, Stripe, report rendering, and deploy are still ahead — see [Roadmap](#roadmap).
 
-**You can grade a real website end-to-end today** in two ways:
-1. [**HTTP**](#running-a-grade-via-http) — `curl`-testable. Same path the React UI will use when Plan 6b lands.
-2. [**Dev CLI**](#running-a-grade-from-the-cli) — `pnpm enqueue-grade <url>`, skips rate limit + cookie plumbing.
+**You can grade a real website end-to-end today** in three ways:
 
-Both require API keys for the four supported LLM providers.
+1. [**Browser**](#grading-in-the-browser) (recommended) — `pnpm dev:web`, paste a URL at `http://localhost:5173`, watch the live scorecard fill in.
+2. [**HTTP**](#grading-via-http-curl) — `curl`-testable. Same endpoints the React UI uses.
+3. [**Dev CLI**](#grading-via-cli-smoke-test) — `pnpm enqueue-grade <url>`, skips rate limit + cookie plumbing.
+
+All three require API keys for the four supported LLM providers.
 
 For the full architecture and the 17 locked-in design decisions, see [`docs/superpowers/specs/2026-04-17-geo-reporter-design.md`](docs/superpowers/specs/2026-04-17-geo-reporter-design.md). For working conventions and footguns, see [`CLAUDE.md`](CLAUDE.md). For deferred items needed before shipping to real users, see [`docs/production-checklist.md`](docs/production-checklist.md).
 
@@ -71,32 +73,54 @@ EOF
 pnpm db:migrate
 ```
 
-Then in two terminals:
+Quick sanity check: start the server and hit `/healthz`.
 
 ```bash
-pnpm dev:server   # http://localhost:7777  — Hono HTTP + SSE
-pnpm dev:worker   # idles waiting for run-grade jobs
+pnpm dev:server   # http://localhost:7777 — Hono HTTP + SSE
 ```
 
 `curl http://localhost:7777/healthz` should return `{"ok":true,"db":true,"redis":true}`.
 
-## Running a grade via HTTP
+## Grading in the browser
 
-This is the path the React UI will take when Plan 6b ships. Everything is `curl`-testable today.
+**Three terminals:**
 
-### Three-terminal workflow
-
-**Terminal 1 — server:**
 ```bash
+# Terminal 1 — Hono API on :7777
 pnpm dev:server
-```
-Expected: `{"msg":"server listening","port":7777}`. Leave it running.
 
-**Terminal 2 — worker:**
-```bash
+# Terminal 2 — BullMQ worker (listens for run-grade jobs)
 pnpm dev:worker
+
+# Terminal 3 — Vite dev server on :5173 (HMR + proxy to :7777)
+pnpm dev:web
 ```
-Expected: `{"msg":"worker started","workers":2}`. Leave it running.
+
+**Open http://localhost:5173**, paste a URL, hit the "grade" button. You'll watch the live scorecard fill in over 30–90 seconds.
+
+The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser sees a single origin. Cookies, SSE, and rate limiting behave identically to production.
+
+### What you'll see
+
+- **Landing `/`** — URL input; submit navigates to `/g/:id`.
+- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. `Checkout — coming soon` CTA is disabled until Plan 8.
+- **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic` which 404s until Plan 7 ships (displays a "coming soon" message).
+- **404 `*`** — any unknown route.
+
+### Production build
+
+```bash
+pnpm build
+node dist/server.js
+```
+
+One process serves API + SSE + the built React app on port 7777. No Vite dev server — Hono's `serveStatic` catch-all returns `index.html` for any unmatched GET so React Router handles deep links like `/g/:id` on page refresh.
+
+## Grading via HTTP (curl)
+
+Everything the React UI does is `curl`-testable. Useful for scripted smoke tests or when you want to see the raw SSE wire format.
+
+**Terminals 1 and 2** — same as the browser flow above (`pnpm dev:server`, `pnpm dev:worker`).
 
 **Terminal 3 — create a grade + watch the live stream:**
 
@@ -135,44 +159,9 @@ data: {"type":"category.completed","category":"seo","score":90}
 data: {"type":"done","overall":77,"letter":"C+","scores":{"discoverability":80,...}}
 ```
 
-The stream closes when the grade finishes (`done` or `failed`). A free-tier grade typically writes 25 probe rows and takes 30–90 seconds depending on provider latency.
+The stream closes when the grade finishes (`done` or `failed`). A free-tier grade typically writes 25 probe rows and takes 30–90 seconds.
 
-**Reconnect after a drop**: just re-run the `curl /events` command. The endpoint rehydrates past state from the database, then resumes live events — no duplicates if the grade is still running, a single synthesized `done` event if it already finished.
-
-## Running the React dev loop
-
-Three terminals:
-
-```bash
-# Terminal 1
-pnpm dev:server
-
-# Terminal 2
-pnpm dev:worker
-
-# Terminal 3
-pnpm dev:web
-```
-
-Open http://localhost:5173. Paste a URL, hit "grade", watch the live scorecard fill in as probes resolve.
-
-The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser sees a single origin. Cookies, SSE, and rate limiting behave identically to production.
-
-### What you'll see
-
-- **Landing `/`** — URL input; submit navigates to `/g/:id`.
-- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar.
-- **EmailGate `/email`** — shown on 429. The form hits `/auth/magic` which 404s until Plan 7 ships (displays a "coming soon" message).
-- **404 `*`** — any unknown route.
-
-### Production build
-
-```bash
-pnpm build
-node dist/server.js
-```
-
-One process serves API + SSE + the built React app on port 7777.
+**Reconnect after a drop**: just re-run the `curl /events` command. The endpoint rehydrates past state from the database, then resumes live events.
 
 ### Fetch the final scorecard
 
@@ -195,9 +184,11 @@ Free tier is 3 grades per (IP, cookie) per rolling 24h. The 4th returns:
 ```
 (The `email` pathway unlocks an extra 10 grades once Plan 7 ships the magic-link verify flow. Until then, swap cookies or wait.)
 
-## Running a grade from the CLI
+## Grading via CLI (smoke test)
 
-The dev CLI (`scripts/enqueue-grade.ts`) skips the HTTP layer — no rate limit, no cookie dance. Useful for quick smoke tests when you're iterating on the worker.
+The dev CLI (`scripts/enqueue-grade.ts`) skips the HTTP layer — no rate limit, no cookie dance. Useful when iterating on the worker.
+
+**Terminal 1** — start the worker: `pnpm dev:worker` (server is optional for this flow).
 
 **Terminal 2 — enqueue a grade:**
 ```bash
@@ -248,8 +239,10 @@ Judge / generator / verifier always use Claude regardless of tier (see `docs/sup
 
 - **`Invalid environment: DATABASE_URL: Required`** → no `.env` file, or env vars not loaded. The dev scripts pass `--env-file-if-exists=.env` to Node so `.env` at the repo root is auto-loaded; check it's there.
 - **Worker logs `buildProviders: ANTHROPIC_API_KEY is not set`** → missing key(s) in `.env`. The worker won't boot in production without all four; dev defers the check to provider use.
+- **Browser shows blank page at `http://localhost:5173`** → Vite dev server not running. `pnpm dev:web` must be running alongside `dev:server` + `dev:worker`.
+- **Browser POST /grades fails with connection refused** → `pnpm dev:server` isn't running. Vite proxies `/grades/*` to port 7777; if nothing's there, the proxy 502s.
 - **`POST /grades` returns 400** → URL validation rejected it. Must be `http://` or `https://`. Full SSRF defense (DNS pinning, private-IP blocking) is on the production checklist; for local dev, `http://localhost:...` URLs are allowed.
-- **`GET /grades/:id/events` returns 403** → cookie mismatch. The SSE endpoint requires the same cookie that created the grade. If you used `-c cookies.txt` in the POST, pass `-b cookies.txt` to the SSE request.
+- **`GET /grades/:id/events` returns 403** → cookie mismatch. The SSE endpoint requires the same cookie that created the grade. If you used `-c cookies.txt` in the POST, pass `-b cookies.txt` to the SSE request. In the browser, cookies are automatic.
 - **SSE stream hangs immediately then closes** → grade already finished (status `done` or `failed`). The endpoint synthesizes one terminal event and closes. Call `GET /grades/:id` for the final JSON.
 - **Grade finalizes with `status='done'` but `scores.accuracy` is `null`** → expected. Happens when the scrape is sparse (< 500 chars) or the verifier can't judge from the scrape. Check `probes` rows with `category='accuracy' AND provider IS NULL` for the `reason` in metadata (`insufficient_scrape` | `all_null` | `all_failed`).
 - **Grade finalizes with `status='failed'`** → look at the last `failed` event on the SSE stream (or Redis channel) for the error message. Typically a scrape producing < 100 chars of text (even after Playwright fallback).
@@ -258,7 +251,7 @@ Judge / generator / verifier always use Claude regardless of tier (see `docs/sup
 ## Commands
 
 ```
-pnpm dev:server          # Hono HTTP under tsx watch
+pnpm dev:server          # Hono HTTP under tsx watch (:7777)
 pnpm dev:worker          # BullMQ run-grade + health workers under tsx watch
 pnpm dev:web             # Vite dev server on :5173, HMR, proxies to :7777
 pnpm web:build           # vite build → dist/web/
@@ -266,8 +259,8 @@ pnpm web:preview         # vite preview (serve dist/web)
 pnpm enqueue-grade <url> [--paid]   # dev CLI: enqueue a grade job, bypassing HTTP
 pnpm test                # unit tests (tests/unit/**)
 pnpm test:integration    # testcontainers-backed integration tests
-pnpm typecheck           # tsc --noEmit
-pnpm build               # tsup → dist/server.js + dist/worker.js
+pnpm typecheck           # tsc --noEmit (both server + web tsconfigs)
+pnpm build               # tsup + vite → dist/server.js + dist/worker.js + dist/web/
 pnpm db:generate         # regenerate a migration after schema edits
 pnpm db:migrate          # apply migrations to $DATABASE_URL
 ```
@@ -284,25 +277,31 @@ src/
   llm/                   # library: 4 direct providers + MockProvider + factory + prompts + judge + flows
   scoring/               # library: pure heuristic scorers + letter grade + weights + composite
   accuracy/              # library: novel generator → blind-probe → per-provider verifier flow
-  web/                   # React frontend: pages, components, hooks, reducer
   queue/
     events.ts            #   pub/sub helpers: publishGradeEvent + subscribeToGrade
     queues.ts            #   BullMQ queue factories
     redis.ts             #   ioredis factory
     workers/run-grade/   #   the main grade pipeline worker
   server/
-    app.ts               #   buildApp(ServerDeps) — composes middleware + routes
+    app.ts               #   buildApp(ServerDeps) — composes middleware + routes + serveStatic
     server.ts            #   entrypoint: builds deps from env, starts @hono/node-server
     deps.ts              #   ServerDeps injection interface
     middleware/          #   clientIp, cookie, rate-limit
     routes/              #   grades (POST + GET), grades-events (SSE)
+  web/
+    main.tsx + App.tsx   #   React root + Router + layout
+    styles.css           #   Tailwind v4 @import + @theme block with v1's color tokens
+    pages/               #   LandingPage, LiveGradePage, EmailGatePage, NotFoundPage
+    components/          #   Header, UrlForm, StatusBar, CategoryTile, ProbeLogRow, GradeLetter
+    hooks/               #   useCreateGrade, useGradeEvents (EventSource → reducer)
+    lib/                 #   types, grade-reducer (pure), api (typed fetch wrappers)
   worker/worker.ts       # BullMQ worker entrypoint — registers health + run-grade
-  index.ts               # public re-export surface
+  index.ts               # public re-export surface (library consumers)
 scripts/
   enqueue-grade.ts       # dev CLI
 tests/
-  unit/                  # included by pnpm test (286 tests)
-  integration/           # testcontainers + MockProvider (35 tests)
+  unit/                  # 314 tests, pnpm test
+  integration/           # 35 tests, pnpm test:integration (testcontainers)
 docs/
   production-checklist.md   # deferred items to resolve before launch
   superpowers/
