@@ -126,3 +126,56 @@ async function runOneHeuristicProbe(a: HeuristicProbeArgs): Promise<number | nul
     return null
   }
 }
+
+import { runSelfGenProbe } from '../../../llm/flows/self-gen.ts'
+import { scoreDiscoverability } from '../../../scoring/discoverability.ts'
+import { toGroundTruth } from '../../../llm/ground-truth.ts'
+
+export async function runDiscoverabilityCategory(args: ScrapedCategoryArgs): Promise<number | null> {
+  const { gradeId, grade, scrape, probers, deps } = args
+  const gt = toGroundTruth(grade.url, scrape)
+  const probeScores: (number | null)[] = []
+
+  for (const provider of probers) {
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.started', category: 'discoverability', provider: provider.id, label: 'self-gen',
+    })
+    const start = Date.now()
+    try {
+      const r = await runSelfGenProbe({
+        provider, groundTruth: gt,
+        scorer: ({ text, brand, domain }) => scoreDiscoverability({ text, brand, domain }),
+      })
+      await deps.store.createProbe({
+        gradeId, category: 'discoverability', provider: provider.id,
+        prompt: r.probe.prompt, response: r.probe.response, score: r.score,
+        metadata: {
+          label: 'self-gen',
+          generator: { prompt: r.generator.prompt, response: r.generator.response, latencyMs: r.generator.latencyMs, inputTokens: r.generator.inputTokens, outputTokens: r.generator.outputTokens },
+          latencyMs: r.probe.latencyMs, inputTokens: r.probe.inputTokens, outputTokens: r.probe.outputTokens,
+          rationale: r.scoreRationale,
+        },
+      })
+      await publishGradeEvent(deps.redis, gradeId, {
+        type: 'probe.completed', category: 'discoverability', provider: provider.id, label: 'self-gen',
+        score: r.score, durationMs: Date.now() - start, error: null,
+      })
+      probeScores.push(r.score)
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err)
+      await deps.store.createProbe({
+        gradeId, category: 'discoverability', provider: provider.id,
+        prompt: '', response: '', score: null, metadata: { label: 'self-gen', error },
+      })
+      await publishGradeEvent(deps.redis, gradeId, {
+        type: 'probe.completed', category: 'discoverability', provider: provider.id, label: 'self-gen',
+        score: null, durationMs: Date.now() - start, error,
+      })
+      probeScores.push(null)
+    }
+  }
+
+  const score = collapseToCategoryScore(probeScores)
+  await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'discoverability', score })
+  return score
+}

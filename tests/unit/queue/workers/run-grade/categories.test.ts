@@ -244,3 +244,43 @@ describe('runCitationCategory', () => {
     expect((rows[0]?.metadata as { error?: string }).error).toBe('timeout')
   })
 })
+
+// Task 7: Discoverability Tests
+import { runDiscoverabilityCategory } from '../../../../../src/queue/workers/run-grade/categories.ts'
+
+describe('runDiscoverabilityCategory', () => {
+  it('runs self-gen flow per provider and writes N probe rows', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({
+      id: 'claude',
+      responses: (prompt) => prompt.includes('Do NOT reference')
+        ? 'What is the best payment processor?'
+        : 'Stripe is the leading payment processor used worldwide.',
+    })
+    const gpt = new MockProvider({
+      id: 'gpt',
+      responses: (prompt) => prompt.includes('Do NOT reference')
+        ? 'Which payment platform is the industry standard?'
+        : 'Stripe is the industry standard for payments.',
+    })
+    const score = await runDiscoverabilityCategory({ gradeId: 'g-disc', grade: { ...GRADE, id: 'g-disc' }, scrape: SCRAPE, probers: [claude, gpt], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+
+    const rows = store.probes.filter((p) => p.category === 'discoverability')
+    expect(rows).toHaveLength(2)
+    expect(rows.every((r) => (r.metadata as { generator?: unknown }).generator !== undefined)).toBe(true)
+    expect(score).toBeGreaterThanOrEqual(0)
+  })
+
+  it('records error on provider failure', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const broken = new MockProvider({ id: 'claude', responses: {}, failWith: 'down' })
+    const score = await runDiscoverabilityCategory({ gradeId: 'g-disc', grade: { ...GRADE, id: 'g-disc' }, scrape: SCRAPE, probers: [broken], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+    expect(score).toBeNull()
+    const rows = store.probes.filter((p) => p.category === 'discoverability')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.score).toBeNull()
+    expect((rows[0]?.metadata as { error?: string }).error).toBe('down')
+  })
+})
