@@ -20,3 +20,5 @@ export {
 } from './queue/queues.ts'
 export { scrape, shutdownBrowserPool, FetchError } from './scraper/index.ts'
 export type { ScrapeResult, ScrapeOptions, StructuredData } from './scraper/index.ts'
+export { evaluateSeo, SIGNAL_WEIGHT } from './seo/index.ts'
+export type { SeoResult, SignalResult, SignalName } from './seo/index.ts'
