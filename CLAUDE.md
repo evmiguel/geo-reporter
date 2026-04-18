@@ -43,7 +43,7 @@ Local dev: `docker compose up -d` for Postgres (:54320) + Redis (:63790). Integr
   git -c user.email='erika@erikamiguel.com' -c user.name='Erika Miguel' commit ...
   ```
 - **File responsibility:** each file has one job. Scraper, core engine, SEO signals, report generation live in separate modules that don't cross-import.
-- **Test discipline:** TDD for anything with logic; integration tests hit real Postgres + Redis via testcontainers (not mocks). Integration suite is excluded from `pnpm test` via `vitest.config.ts` (include `tests/unit/**`) and included via `vitest.integration.config.ts` (60s timeouts, forked pool).
+- **Test discipline:** TDD for anything with logic; integration tests hit real Postgres + Redis via testcontainers (not mocks). Integration suite is excluded from `pnpm test` via `vitest.config.ts` (include `tests/unit/**`) and included via `vitest.integration.config.ts` (60s timeouts, threads pool with `singleThread: true` so testcontainers lifecycle doesn't interleave across files).
 - **Store seam:** all DB access goes through `GradeStore` (`src/store/types.ts`). `PostgresStore` is the only implementation; do not `import { db }` directly from feature code — keeps the seam swappable.
 
 ## Footguns from Plan 1 execution

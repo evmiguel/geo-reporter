@@ -1,7 +1,18 @@
-import { evaluateSeo, SIGNAL_WEIGHT } from '../../../seo/index.ts'
+import { runAccuracy } from '../../../accuracy/index.ts'
+import { runCoverageFlow } from '../../../llm/flows/coverage.ts'
+import { runSelfGenProbe } from '../../../llm/flows/self-gen.ts'
+import { runStaticProbe } from '../../../llm/flows/static-probe.ts'
+import { toGroundTruth } from '../../../llm/ground-truth.ts'
+import { promptCitation, promptRecognition } from '../../../llm/prompts.ts'
+import type { Provider, ProviderId } from '../../../llm/providers/types.ts'
 import type { ScrapeResult } from '../../../scraper/index.ts'
-import type { RunGradeDeps } from './deps.ts'
+import { scoreCitation } from '../../../scoring/citation.ts'
+import { scoreDiscoverability } from '../../../scoring/discoverability.ts'
+import { scoreRecognition } from '../../../scoring/recognition.ts'
+import { evaluateSeo, SIGNAL_WEIGHT } from '../../../seo/index.ts'
+import type { Grade } from '../../../store/types.ts'
 import { publishGradeEvent } from '../../events.ts'
+import type { RunGradeDeps } from './deps.ts'
 
 export function collapseToCategoryScore(scores: (number | null)[]): number | null {
   const numeric = scores.filter((s): s is number => s !== null)
@@ -38,13 +49,6 @@ export async function runSeoCategory(args: CategoryArgs): Promise<number> {
   await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'seo', score: result.score })
   return result.score
 }
-
-import { promptRecognition, promptCitation } from '../../../llm/prompts.ts'
-import { runStaticProbe } from '../../../llm/flows/static-probe.ts'
-import { scoreRecognition } from '../../../scoring/recognition.ts'
-import { scoreCitation } from '../../../scoring/citation.ts'
-import type { Provider } from '../../../llm/providers/types.ts'
-import type { Grade } from '../../../store/types.ts'
 
 // Widens CategoryArgs with grade + probers for prober-using adapters.
 export interface ScrapedCategoryArgs extends CategoryArgs {
@@ -127,10 +131,6 @@ async function runOneHeuristicProbe(a: HeuristicProbeArgs): Promise<number | nul
   }
 }
 
-import { runSelfGenProbe } from '../../../llm/flows/self-gen.ts'
-import { scoreDiscoverability } from '../../../scoring/discoverability.ts'
-import { toGroundTruth } from '../../../llm/ground-truth.ts'
-
 export async function runDiscoverabilityCategory(args: ScrapedCategoryArgs): Promise<number | null> {
   const { gradeId, grade, scrape, probers, deps } = args
   const gt = toGroundTruth(grade.url, scrape)
@@ -179,9 +179,6 @@ export async function runDiscoverabilityCategory(args: ScrapedCategoryArgs): Pro
   await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'discoverability', score })
   return score
 }
-
-import { runCoverageFlow } from '../../../llm/flows/coverage.ts'
-import type { ProviderId } from '../../../llm/providers/types.ts'
 
 export interface CoverageCategoryArgs extends ScrapedCategoryArgs {
   judge: Provider
@@ -262,8 +259,6 @@ export async function runCoverageCategory(args: CoverageCategoryArgs): Promise<n
   await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'coverage', score })
   return score
 }
-
-import { runAccuracy } from '../../../accuracy/index.ts'
 
 export interface AccuracyCategoryArgs extends ScrapedCategoryArgs {
   generator: Provider
