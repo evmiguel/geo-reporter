@@ -33,6 +33,10 @@ Living document of items deferred from plan execution that must be resolved befo
 - [ ] **SSE client hydration stress test.** Plan 6a ships "always hydrate on connect" — SELECT probes + scrape + grade row, synthesize past events, then subscribe. For a grade with 39 probes (paid tier), that's 41 synthesized events fired in quick succession. Verify the frontend (Plan 6b) doesn't drop frames or over-render; batch synthesized events into one frame if needed.
 - [ ] **Error page polish.** Plan 6a returns `429 { paywall, limit, used, retryAfter }` on rate-limit hit. Plan 6b's frontend must render this with a human-readable wait time and a clear "verify your email for 10 more grades" CTA. UX copy not yet drafted.
 
+## Dev UX
+
+- [ ] **`enqueue-grade` CLI: stream events inline.** Current `scripts/enqueue-grade.ts` enqueues the job, prints the gradeId + a `redis-cli psubscribe` hint, and exits. Because Redis pub/sub doesn't replay, the user races the worker — for a 7s grade, `redis-cli subscribe` pasted after enqueue misses every event. Enhancement: use the existing `subscribeToGrade` helper from `src/queue/events.ts` to stream events to stdout until `done`/`failed`, then exit. Eliminates the three-terminal dance. ~20 lines. Deferred during Plan 6a brainstorm to keep scope focused on the HTTP surface.
+
 ---
 
 ## Policy
