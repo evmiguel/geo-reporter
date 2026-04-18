@@ -5,6 +5,11 @@ export default defineConfig({
     include: ['tests/integration/**/*.test.ts'],
     testTimeout: 60_000,
     hookTimeout: 60_000,
-    pool: 'forks',
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
   },
 })
