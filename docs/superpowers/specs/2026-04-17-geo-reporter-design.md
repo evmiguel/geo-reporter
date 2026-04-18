@@ -228,6 +228,16 @@ Edge cases:
 - Generator produces a question the scrape doesn't actually answer → verifier returns all `null` → accuracy falls back to v1's pre-scrape method for that grade, flagged in the report.
 - Scrape is empty or < 500 chars → accuracy = `null`, reported as "Insufficient scrape — accuracy unscored"; overall grade recomputed without the accuracy slice.
 
+**Interpretation calls locked in during Plan 4 brainstorming (2026-04-17):** see the full sub-spec at [`2026-04-17-geo-reporter-plan-4-scoring-engine-design.md`](./2026-04-17-geo-reporter-plan-4-scoring-engine-design.md). Summary:
+
+- **Provider set:** 4 direct clients (Anthropic, OpenAI, Gemini, Perplexity) + `MockProvider`. OpenRouter is out of scope — BullMQ retries cover its fallback role.
+- **Module layout:** three top-level siblings — `src/llm/` (network-touching), `src/scoring/` (pure math), `src/accuracy/` (novel flow). Enforces the network-vs-pure boundary at the filesystem level.
+- **Scrape → judge bridge:** flat `GroundTruth` type stays (ported from v1); one `toGroundTruth(url, scrape)` helper is the only code that touches `ScrapeResult`. Judge and prompts remain near-verbatim from v1.
+- **Accuracy verifier:** one verifier call **per provider**, in parallel. Batched alternative rejected — a single bad parse zeroing the whole category is a credibility risk not worth saving 1–3 cheap-model calls.
+- **Sparse/dense judge:** one unified judge prompt with a conditional clause, replacing v1's two ~80%-duplicated builders. `isSparseGroundTruth(gt)` picks the branch.
+- **Cost tracking:** providers return `{ inputTokens, outputTokens }` only. Dollar math and `prices.ts` dropped — price tables drift and don't belong in a library module.
+- **Flow functions in Plan 4:** `runStaticProbe`, `runSelfGenProbe`, `runCoverageFlow`, `runAccuracy` live in Plan 4 (not Plan 5). Plan 5 becomes pipeline plumbing over a testable engine, not a bundle of category-specific logic.
+
 ### 5.4 SEO rubric (10 signals)
 
 Each signal returns `{ pass: boolean, weight: number, detail: string }`. Per-signal weights are uniform at 10 for MVP; the category score is a simple `passed_weight / total_weight × 100`.
