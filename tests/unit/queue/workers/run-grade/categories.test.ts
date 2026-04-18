@@ -1,74 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { collapseToCategoryScore } from '../../../../../src/queue/workers/run-grade/categories.ts'
-import type { GradeStore, Grade, Probe, Scrape, NewGrade, NewProbe, NewScrape, GradeUpdate, User, Cookie, Recommendation, NewRecommendation, Report, NewReport } from '../../../../../src/store/types.ts'
 import type Redis from 'ioredis'
 import type { GradeEvent } from '../../../../../src/queue/events.ts'
-
-function makeFakeStore(): GradeStore & {
-  gradesMap: Map<string, Grade>
-  scrapesMap: Map<string, Scrape>
-  probes: Probe[]
-  clearedFor: string[]
-} {
-  const gradesMap = new Map<string, Grade>()
-  const scrapesMap = new Map<string, Scrape>()
-  const probes: Probe[] = []
-  const clearedFor: string[] = []
-
-  return {
-    gradesMap, scrapesMap, probes, clearedFor,
-    async createGrade(input: NewGrade): Promise<Grade> {
-      const id = input.id ?? crypto.randomUUID()
-      const now = new Date()
-      const g: Grade = {
-        id, url: input.url, domain: input.domain, tier: input.tier,
-        cookie: input.cookie ?? null, userId: input.userId ?? null,
-        status: input.status ?? 'queued',
-        overall: input.overall ?? null, letter: input.letter ?? null, scores: input.scores ?? null,
-        createdAt: now, updatedAt: now,
-      }
-      gradesMap.set(id, g)
-      return g
-    },
-    async getGrade(id: string): Promise<Grade | null> { return gradesMap.get(id) ?? null },
-    async updateGrade(id: string, patch: GradeUpdate): Promise<void> {
-      const g = gradesMap.get(id)
-      if (!g) return
-      gradesMap.set(id, { ...g, ...patch, updatedAt: new Date() })
-    },
-    async createProbe(input: NewProbe): Promise<Probe> {
-      const p: Probe = {
-        id: crypto.randomUUID(), gradeId: input.gradeId, category: input.category,
-        provider: input.provider ?? null, prompt: input.prompt, response: input.response,
-        score: input.score ?? null, metadata: input.metadata ?? {}, createdAt: new Date(),
-      }
-      probes.push(p)
-      return p
-    },
-    async listProbes(gradeId: string): Promise<Probe[]> { return probes.filter((p) => p.gradeId === gradeId) },
-    async createScrape(input: NewScrape): Promise<Scrape> {
-      const s: Scrape = {
-        id: crypto.randomUUID(), gradeId: input.gradeId, rendered: input.rendered ?? false,
-        html: input.html, text: input.text, structured: input.structured,
-        fetchedAt: input.fetchedAt ?? new Date(),
-      }
-      scrapesMap.set(input.gradeId, s)
-      return s
-    },
-    async getScrape(gradeId: string): Promise<Scrape | null> { return scrapesMap.get(gradeId) ?? null },
-    async clearGradeArtifacts(gradeId: string): Promise<void> {
-      clearedFor.push(gradeId)
-      scrapesMap.delete(gradeId)
-      for (let i = probes.length - 1; i >= 0; i--) if (probes[i]?.gradeId === gradeId) probes.splice(i, 1)
-    },
-    async upsertUser(_email: string): Promise<User> { return { id: crypto.randomUUID(), email: _email, createdAt: new Date() } },
-    async upsertCookie(cookie: string, userId?: string): Promise<Cookie> { return { cookie, userId: userId ?? null, createdAt: new Date() } },
-    async createRecommendations(_rows: NewRecommendation[]): Promise<void> {},
-    async listRecommendations(_gradeId: string): Promise<Recommendation[]> { return [] },
-    async createReport(input: NewReport): Promise<Report> { return { id: crypto.randomUUID(), gradeId: input.gradeId, token: input.token, createdAt: new Date() } },
-    async getReport(_gradeId: string): Promise<Report | null> { return null },
-  }
-}
+import { makeFakeStore } from '../../../_helpers/fake-store.ts'
+import type { Grade } from '../../../../../src/store/types.ts'
 
 function makeStubRedis(): Redis & { published: { channel: string; message: string }[] } {
   const published: { channel: string; message: string }[] = []

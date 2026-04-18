@@ -36,6 +36,7 @@ export interface GradeStore {
   // Users / cookies (placeholder; expanded in auth plan)
   upsertUser(email: string): Promise<User>
   upsertCookie(cookie: string, userId?: string): Promise<Cookie>
+  getCookie(cookie: string): Promise<Cookie | null>
 
   // Recommendations (expanded in report plan)
   createRecommendations(rows: NewRecommendation[]): Promise<void>

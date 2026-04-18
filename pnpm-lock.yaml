@@ -11,6 +11,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.14
         version: 1.19.14(hono@4.12.14)
+      '@hono/zod-validator':
+        specifier: ^0.2.2
+        version: 0.2.2(hono@4.12.14)(zod@3.25.76)
       bullmq:
         specifier: ^5.12.0
         version: 5.74.1
@@ -667,6 +670,12 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/zod-validator@0.2.2':
+    resolution: {integrity: sha512-dSDxaPV70Py8wuIU2QNpoVEIOSzSXZ/6/B/h4xA7eOMz7+AarKTSGV8E6QwrdcCbBLkpqfJ4Q2TmBO0eP1tCBQ==}
+    peerDependencies:
+      hono: '>=3.9.0'
+      zod: ^3.19.1
 
   '@ioredis/commands@1.5.1':
     resolution: {integrity: sha512-JH8ZL/ywcJyR9MmJ5BNqZllXNZQqQbnVZOqpPQqE1vHiFgAw4NHbvE0FOduNU8IX9babitBT46571OnPTT0Zcw==}
@@ -2395,6 +2404,11 @@ snapshots:
   '@hono/node-server@1.19.14(hono@4.12.14)':
     dependencies:
       hono: 4.12.14
+
+  '@hono/zod-validator@0.2.2(hono@4.12.14)(zod@3.25.76)':
+    dependencies:
+      hono: 4.12.14
+      zod: 3.25.76
 
   '@ioredis/commands@1.5.1': {}
 

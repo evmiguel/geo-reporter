@@ -101,6 +101,11 @@ export class PostgresStore implements GradeStore {
     return row
   }
 
+  async getCookie(cookie: string): Promise<Cookie | null> {
+    const [row] = await this.db.select().from(schema.cookies).where(eq(schema.cookies.cookie, cookie)).limit(1)
+    return row ?? null
+  }
+
   async createRecommendations(rows: NewRecommendation[]): Promise<void> {
     if (rows.length === 0) return
     await this.db.insert(schema.recommendations).values(rows)
