@@ -16,20 +16,22 @@ export interface MockCall {
 
 export class MockProvider implements Provider {
   readonly id: ProviderId
-  readonly calls: MockCall[] = []
+  readonly calls: ReadonlyArray<MockCall>
+  private readonly _calls: MockCall[] = []
   private readonly responses: MockResponses
   private readonly failWith: string | undefined
   private readonly latencyMs: number
 
   constructor(opts: MockProviderOptions) {
     this.id = opts.id
+    this.calls = this._calls
     this.responses = opts.responses
     this.failWith = opts.failWith
     this.latencyMs = opts.latencyMs ?? 0
   }
 
   async query(prompt: string, opts: QueryOpts = {}): Promise<QueryResult> {
-    this.calls.push({ prompt, opts })
+    this._calls.push({ prompt, opts })
 
     if (this.failWith) throw new Error(this.failWith)
 
@@ -47,12 +49,17 @@ export class MockProvider implements Provider {
     }
 
     if (this.latencyMs > 0) {
+      const signal = opts.signal
       await new Promise<void>((resolve, reject) => {
-        const t = setTimeout(resolve, this.latencyMs)
-        opts.signal?.addEventListener('abort', () => {
+        const onAbort = (): void => {
           clearTimeout(t)
           reject(new Error('aborted'))
-        })
+        }
+        const t = setTimeout(() => {
+          signal?.removeEventListener('abort', onAbort)
+          resolve()
+        }, this.latencyMs)
+        signal?.addEventListener('abort', onAbort, { once: true })
       })
     }
 

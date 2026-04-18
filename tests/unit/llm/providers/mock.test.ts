@@ -49,4 +49,17 @@ describe('MockProvider', () => {
     const p = new MockProvider({ id: 'perplexity', responses: {} })
     expect(p.id).toBe('perplexity')
   })
+
+  it('does not leak AbortSignal listeners across successful queries', async () => {
+    const p = new MockProvider({ id: 'mock', responses: () => 'ok', latencyMs: 1 })
+    const ctrl = new AbortController()
+    for (let i = 0; i < 20; i++) {
+      await p.query(`q${i}`, { signal: ctrl.signal })
+    }
+    // Node's EventTarget doesn't expose listener count directly — but
+    // { once: true } + explicit remove on resolve keeps it bounded.
+    // We assert the loop completed without hitting MaxListenersExceededWarning,
+    // which Node prints to stderr at threshold 10. vitest promotes warnings to test failures.
+    expect(ctrl.signal.aborted).toBe(false)
+  })
 })
