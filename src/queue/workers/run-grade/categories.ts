@@ -297,11 +297,12 @@ export async function runAccuracyCategory(args: AccuracyCategoryArgs): Promise<n
     return null
   }
 
+  let generatorProbeId: string | null = null
   if (result.generator) {
     await publishGradeEvent(deps.redis, gradeId, {
       type: 'probe.started', category: 'accuracy', provider: generator.id, label: 'generator',
     })
-    await deps.store.createProbe({
+    const generatorRow = await deps.store.createProbe({
       gradeId, category: 'accuracy', provider: generator.id,
       prompt: result.generator.prompt, response: result.generator.response, score: null,
       metadata: {
@@ -311,6 +312,7 @@ export async function runAccuracyCategory(args: AccuracyCategoryArgs): Promise<n
         outputTokens: result.generator.outputTokens,
       },
     })
+    generatorProbeId = generatorRow.id
     await publishGradeEvent(deps.redis, gradeId, {
       type: 'probe.completed', category: 'accuracy', provider: generator.id, label: 'generator',
       score: null, durationMs: result.generator.latencyMs, error: null,
@@ -333,6 +335,7 @@ export async function runAccuracyCategory(args: AccuracyCategoryArgs): Promise<n
       prompt: question, response: probe.answer, score,
       metadata: {
         role: 'verify',
+        generatorProbeId,
         confidence: verification?.confidence ?? null,
         rationale: verification?.rationale ?? null,
         degraded: verification?.degraded ?? false,

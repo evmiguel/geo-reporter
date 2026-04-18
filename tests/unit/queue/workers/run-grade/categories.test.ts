@@ -390,6 +390,8 @@ describe('runAccuracyCategory', () => {
     expect(verifyRows).toHaveLength(2)
     expect(verifyRows.every((r) => r.score === 100)).toBe(true)
     expect(score).toBe(100)
+    const generatorId = genRow!.id
+    expect(verifyRows.every((r) => (r.metadata as { generatorProbeId?: string }).generatorProbeId === generatorId)).toBe(true)
   })
 
   it('insufficient_scrape path: writes a skipped placeholder row, returns null', async () => {
