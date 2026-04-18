@@ -5,7 +5,10 @@ import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
+import * as schema from '../../src/db/schema.ts'
 import { buildApp } from '../../src/server/app.ts'
+import type { ServerDeps } from '../../src/server/deps.ts'
+import { PostgresStore } from '../../src/store/postgres.ts'
 import { createRedis } from '../../src/queue/redis.ts'
 
 let pg: StartedPostgreSqlContainer
@@ -16,9 +19,10 @@ beforeAll(async () => {
   pg = await new PostgreSqlContainer('postgres:16-alpine').start()
   redisContainer = await new GenericContainer('redis:7-alpine').withExposedPorts(6379).start()
   const pgClient = postgres(pg.getConnectionUri(), { prepare: false, max: 2 })
-  const db = drizzle(pgClient)
+  const db = drizzle(pgClient, { schema })
   await migrate(db, { migrationsFolder: './src/db/migrations' })
   const redis = createRedis(`redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`)
+  const store = new PostgresStore(db)
 
   stop = async () => {
     await pgClient.end({ timeout: 5 })
@@ -27,12 +31,17 @@ beforeAll(async () => {
     await redisContainer.stop()
   }
 
-  ;(globalThis as any).__app = buildApp({
+  const deps: ServerDeps = {
+    store,
+    redis,
+    redisFactory: () => createRedis(`redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`),
     pingDb: async () => {
       try { await db.execute(sql`select 1`); return true } catch { return false }
     },
     pingRedis: async () => (await redis.ping()) === 'PONG',
-  })
+    env: { NODE_ENV: 'test' },
+  }
+  ;(globalThis as any).__app = buildApp(deps)
 }, 60_000)
 
 afterAll(async () => {

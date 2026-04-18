@@ -1,21 +1,35 @@
 import { describe, expect, it } from 'vitest'
 import { buildApp } from '../../../src/server/app.ts'
+import type { ServerDeps } from '../../../src/server/deps.ts'
+import { makeFakeStore } from '../_helpers/fake-store.ts'
+import type Redis from 'ioredis'
 
-const okDeps = {
-  pingDb: async () => true,
-  pingRedis: async () => true,
+function makeStubRedis(): Redis {
+  return {} as unknown as Redis
+}
+
+function makeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
+  return {
+    store: makeFakeStore(),
+    redis: makeStubRedis(),
+    redisFactory: () => makeStubRedis(),
+    pingDb: async () => true,
+    pingRedis: async () => true,
+    env: { NODE_ENV: 'test' },
+    ...overrides,
+  }
 }
 
 describe('/healthz (unit)', () => {
   it('returns ok when both deps are healthy', async () => {
-    const app = buildApp(okDeps)
+    const app = buildApp(makeDeps())
     const res = await app.request('/healthz')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true, db: true, redis: true })
   })
 
   it('returns 503 when db fails', async () => {
-    const app = buildApp({ ...okDeps, pingDb: async () => false })
+    const app = buildApp(makeDeps({ pingDb: async () => false }))
     const res = await app.request('/healthz')
     expect(res.status).toBe(503)
     const body = (await res.json()) as { ok: boolean; db: boolean; redis: boolean }
@@ -24,7 +38,7 @@ describe('/healthz (unit)', () => {
   })
 
   it('returns 503 when redis throws', async () => {
-    const app = buildApp({ ...okDeps, pingRedis: async () => { throw new Error('boom') } })
+    const app = buildApp(makeDeps({ pingRedis: async () => { throw new Error('boom') } }))
     const res = await app.request('/healthz')
     expect(res.status).toBe(503)
     const body = (await res.json()) as { ok: boolean; db: boolean; redis: boolean }

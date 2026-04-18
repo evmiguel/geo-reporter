@@ -1,11 +1,7 @@
 import { Hono } from 'hono'
+import type { ServerDeps } from './deps.ts'
 
-export interface AppDeps {
-  pingDb: () => Promise<boolean>
-  pingRedis: () => Promise<boolean>
-}
-
-export function buildApp(deps: AppDeps): Hono {
+export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
 
   app.get('/healthz', async (c) => {
