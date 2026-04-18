@@ -31,6 +31,10 @@ export async function checkRateLimit(
   const key = bucketKey(ip, cookie)
   const cutoff = now - WINDOW_MS
 
+  // Rolling window is half-open: (cutoff, now]. An entry with score exactly
+  // equal to `cutoff` (placed exactly WINDOW_MS ago) stays in the bucket;
+  // only scores STRICTLY less than cutoff are expired. ZREMRANGEBYSCORE is
+  // inclusive on both ends by default, so we expire through `cutoff - 1`.
   await redis.zremrangebyscore(key, '-inf', String(cutoff - 1))
   const used = await redis.zcard(key)
 

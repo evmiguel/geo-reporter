@@ -35,6 +35,7 @@ Living document of items deferred from plan execution that must be resolved befo
 
 ## Dev UX
 
+- [ ] **SSE integration-test fixture duplication.** Plan 6a Task 9 split the SSE live-lifecycle test into two files (`tests/integration/grades-events-live-full-run.test.ts` and `...-reconnect.test.ts`) to avoid cross-test BullMQ/Redis pollution on the shared `grade` queue name. The split is correct but the `FIXTURE_SCRAPE`, `happyClaude`, `happyGpt`, and `readSseUntilDone` helpers are now duplicated verbatim between the two files. Extract to `tests/integration/_helpers/sse-fixture.ts` before Plan 7 adds more integration tests (which would otherwise duplicate again). ~30 line helper. Caught in Plan 6a final review.
 - [ ] **`enqueue-grade` CLI: stream events inline.** Current `scripts/enqueue-grade.ts` enqueues the job, prints the gradeId + a `redis-cli psubscribe` hint, and exits. Because Redis pub/sub doesn't replay, the user races the worker — for a 7s grade, `redis-cli subscribe` pasted after enqueue misses every event. Enhancement: use the existing `subscribeToGrade` helper from `src/queue/events.ts` to stream events to stdout until `done`/`failed`, then exit. Eliminates the three-terminal dance. ~20 lines. Deferred during Plan 6a brainstorm to keep scope focused on the HTTP surface.
 
 ## Product iterations (post-merge signal quality)
