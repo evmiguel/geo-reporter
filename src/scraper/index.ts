@@ -14,7 +14,7 @@ import {
 } from './discovery.ts'
 import type { ScrapeOptions, ScrapeResult, StructuredData } from './types.ts'
 
-export type { ScrapeResult, ScrapeOptions, StructuredData } from './types.ts'
+export type { ScrapeResult, ScrapeOptions, StructuredData, OpenGraph } from './types.ts'
 export { FetchError } from './fetch.ts'
 export { shutdownBrowserPool } from './render.ts'
 
