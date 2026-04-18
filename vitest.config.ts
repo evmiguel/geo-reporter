@@ -5,5 +5,8 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.ts'],
     exclude: ['tests/integration/**'],
     testTimeout: 5_000,
+    environmentMatchGlobs: [
+      ['tests/unit/web/**', 'happy-dom'],
+    ],
   },
 })

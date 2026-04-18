@@ -8,9 +8,12 @@
   },
   "packageManager": "pnpm@9.6.0",
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && pnpm web:build",
     "dev:server": "tsx watch --env-file-if-exists=.env src/server/server.ts",
     "dev:worker": "tsx watch --env-file-if-exists=.env src/worker/worker.ts",
+    "dev:web": "vite",
+    "web:build": "vite build",
+    "web:preview": "vite preview",
     "enqueue-grade": "tsx --env-file-if-exists=.env scripts/enqueue-grade.ts",
     "start:server": "node dist/server.js",
     "start:worker": "node dist/worker.js",
@@ -20,7 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",
@@ -32,17 +35,30 @@
     "ioredis": "^5.4.0",
     "playwright": "^1.47.0",
     "postgres": "^3.4.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
     "robots-parser": "^3.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
     "@testcontainers/postgresql": "^10.13.0",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^20.12.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
     "drizzle-kit": "^0.24.0",
+    "happy-dom": "^15.7.4",
+    "tailwindcss": "^4.0.0",
     "testcontainers": "^10.13.0",
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
+    "vite": "^5.4.8",
     "vitest": "^2.1.0"
   }
 }
