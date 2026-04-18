@@ -33,6 +33,10 @@ Living document of items deferred from plan execution that must be resolved befo
 - [ ] **SSE client hydration stress test.** Plan 6a ships "always hydrate on connect" — SELECT probes + scrape + grade row, synthesize past events, then subscribe. For a grade with 39 probes (paid tier), that's 41 synthesized events fired in quick succession. Verify the frontend (Plan 6b) doesn't drop frames or over-render; batch synthesized events into one frame if needed.
 - [ ] **Error page polish.** Plan 6a returns `429 { paywall, limit, used, retryAfter }` on rate-limit hit. Plan 6b's frontend must render this with a human-readable wait time and a clear "verify your email for 10 more grades" CTA. UX copy not yet drafted.
 
+## Deploy / ops (post-Plan 10 hardening)
+
+- [ ] **Move frontend static assets to a CDN.** Plan 6b ships the React bundle out of the same Hono process (`serveStatic` over `dist/web/`). Fine for MVP but every page load eats worker CPU serving static JS/CSS and pays geographic latency. For launch, deploy `dist/web/` to Cloudflare Pages / Vercel / Fastly (or Railway's CDN if available); keep Hono for API + SSE only. Cookie domain becomes `.geo-reporter.com` so both subdomains share auth (anonymous cookie + eventual session cookie). CORS tightens: `credentials: true` with an explicit `origin: 'https://geo-reporter.com'` allow-list; the dev-only `localhost:5173` branch stays. Deferred during Plan 6b brainstorm Q4.
+
 ## Dev UX
 
 - [ ] **SSE integration-test fixture duplication.** Plan 6a Task 9 split the SSE live-lifecycle test into two files (`tests/integration/grades-events-live-full-run.test.ts` and `...-reconnect.test.ts`) to avoid cross-test BullMQ/Redis pollution on the shared `grade` queue name. The split is correct but the `FIXTURE_SCRAPE`, `happyClaude`, `happyGpt`, and `readSseUntilDone` helpers are now duplicated verbatim between the two files. Extract to `tests/integration/_helpers/sse-fixture.ts` before Plan 7 adds more integration tests (which would otherwise duplicate again). ~30 line helper. Caught in Plan 6a final review.
