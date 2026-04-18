@@ -157,3 +157,90 @@ describe('runSeoCategory', () => {
     expect(score).toBeGreaterThan(0)
   })
 })
+
+// Task 6: Recognition + Citation Tests
+import { runRecognitionCategory, runCitationCategory } from '../../../../../src/queue/workers/run-grade/categories.ts'
+import { MockProvider } from '../../../../../src/llm/providers/mock.ts'
+
+const GRADE: Grade = {
+  id: 'g-rec', url: 'https://stripe.com', domain: 'stripe.com', tier: 'free',
+  cookie: null, userId: null, status: 'running',
+  overall: null, letter: null, scores: null,
+  createdAt: new Date(), updatedAt: new Date(),
+}
+
+describe('runRecognitionCategory', () => {
+  it('runs 2 prompts × N providers and writes 2N probe rows', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Stripe is a leading payment processor founded in 2010, used by millions of businesses worldwide.' })
+    const gpt = new MockProvider({ id: 'gpt', responses: () => 'Stripe is a payment service.' })
+    const score = await runRecognitionCategory({ gradeId: 'g-rec', grade: GRADE, scrape: SCRAPE, probers: [claude, gpt], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+
+    const rows = store.probes.filter((p) => p.category === 'recognition')
+    expect(rows).toHaveLength(4)
+    expect(rows.map((r) => r.provider).sort()).toEqual(['claude', 'claude', 'gpt', 'gpt'])
+    expect(score).not.toBeNull()
+  })
+
+  it('records error in metadata when a provider throws; score is null for that probe', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Stripe is a leading payment processor.' })
+    const broken = new MockProvider({ id: 'gpt', responses: {}, failWith: 'rate limit' })
+    await runRecognitionCategory({ gradeId: 'g-rec', grade: GRADE, scrape: SCRAPE, probers: [claude, broken], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+
+    const brokenRows = store.probes.filter((p) => p.category === 'recognition' && p.provider === 'gpt')
+    expect(brokenRows).toHaveLength(2)
+    expect(brokenRows.every((r) => r.score === null)).toBe(true)
+    expect(brokenRows.every((r) => (r.metadata as { error?: string }).error === 'rate limit')).toBe(true)
+  })
+
+  it('returns null score when every provider fails for every prompt', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const a = new MockProvider({ id: 'claude', responses: {}, failWith: 'down' })
+    const b = new MockProvider({ id: 'gpt', responses: {}, failWith: 'down' })
+    const score = await runRecognitionCategory({ gradeId: 'g-rec', grade: GRADE, scrape: SCRAPE, probers: [a, b], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+    expect(score).toBeNull()
+  })
+
+  it('emits category.completed with the collapsed score', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Stripe is the leading payment processor used worldwide by millions, founded in 2010.' })
+    const gpt = new MockProvider({ id: 'gpt', responses: () => 'Stripe is a leading payment processor used globally.' })
+    const score = await runRecognitionCategory({ gradeId: 'g-rec', grade: GRADE, scrape: SCRAPE, probers: [claude, gpt], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+
+    const events = parseEvents(redis, 'g-rec')
+    const cat = events.find((e) => e.type === 'category.completed' && e.category === 'recognition')
+    expect(cat).toBeDefined()
+    if (cat?.type === 'category.completed') expect(cat.score).toBe(score)
+  })
+})
+
+describe('runCitationCategory', () => {
+  it('runs 1 prompt per provider and writes N probe rows', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Visit https://stripe.com' })
+    const gpt = new MockProvider({ id: 'gpt', responses: () => 'See stripe.com' })
+    const score = await runCitationCategory({ gradeId: 'g-cit', grade: { ...GRADE, id: 'g-cit', url: 'https://stripe.com' }, scrape: SCRAPE, probers: [claude, gpt], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+
+    const rows = store.probes.filter((p) => p.category === 'citation')
+    expect(rows).toHaveLength(2)
+    expect(score).toBe(75) // round((100 + 50) / 2)
+  })
+
+  it('records error on provider failure', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const broken = new MockProvider({ id: 'claude', responses: {}, failWith: 'timeout' })
+    await runCitationCategory({ gradeId: 'g-cit', grade: { ...GRADE, id: 'g-cit' }, scrape: SCRAPE, probers: [broken], deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE } })
+
+    const rows = store.probes.filter((p) => p.category === 'citation')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.score).toBeNull()
+    expect((rows[0]?.metadata as { error?: string }).error).toBe('timeout')
+  })
+})

@@ -38,3 +38,91 @@ export async function runSeoCategory(args: CategoryArgs): Promise<number> {
   await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'seo', score: result.score })
   return result.score
 }
+
+import { promptRecognition, promptCitation } from '../../../llm/prompts.ts'
+import { runStaticProbe } from '../../../llm/flows/static-probe.ts'
+import { scoreRecognition } from '../../../scoring/recognition.ts'
+import { scoreCitation } from '../../../scoring/citation.ts'
+import type { Provider } from '../../../llm/providers/types.ts'
+import type { Grade } from '../../../store/types.ts'
+
+// Widens CategoryArgs with grade + probers for prober-using adapters.
+export interface ScrapedCategoryArgs extends CategoryArgs {
+  grade: Grade
+  probers: Provider[]
+}
+
+export async function runRecognitionCategory(args: ScrapedCategoryArgs): Promise<number | null> {
+  const { gradeId, grade, probers, deps } = args
+  const [promptA, promptB] = promptRecognition(grade.domain)
+  const probeScores: (number | null)[] = []
+
+  for (const provider of probers) {
+    for (const [prompt, label] of [[promptA, 'prompt_1'], [promptB, 'prompt_2']] as const) {
+      probeScores.push(await runOneHeuristicProbe({
+        gradeId, category: 'recognition', provider, prompt, label, deps,
+        scorer: (text) => ({ score: scoreRecognition({ text, domain: grade.domain }), rationale: 'recognition heuristic v1' }),
+      }))
+    }
+  }
+
+  const score = collapseToCategoryScore(probeScores)
+  await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'recognition', score })
+  return score
+}
+
+export async function runCitationCategory(args: ScrapedCategoryArgs): Promise<number | null> {
+  const { gradeId, grade, probers, deps } = args
+  const prompt = promptCitation(grade.domain)
+  const probeScores: (number | null)[] = []
+
+  for (const provider of probers) {
+    probeScores.push(await runOneHeuristicProbe({
+      gradeId, category: 'citation', provider, prompt, label: 'official-url', deps,
+      scorer: (text) => ({ score: scoreCitation({ text, domain: grade.domain }), rationale: 'citation heuristic v1' }),
+    }))
+  }
+
+  const score = collapseToCategoryScore(probeScores)
+  await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'citation', score })
+  return score
+}
+
+interface HeuristicProbeArgs {
+  gradeId: string
+  category: 'recognition' | 'citation'
+  provider: Provider
+  prompt: string
+  label: string
+  deps: RunGradeDeps
+  scorer: (text: string) => { score: number; rationale: string }
+}
+
+async function runOneHeuristicProbe(a: HeuristicProbeArgs): Promise<number | null> {
+  const { gradeId, category, provider, prompt, label, deps, scorer } = a
+  await publishGradeEvent(deps.redis, gradeId, { type: 'probe.started', category, provider: provider.id, label })
+  const start = Date.now()
+  try {
+    const r = await runStaticProbe({ provider, prompt, scorer })
+    await deps.store.createProbe({
+      gradeId, category, provider: provider.id, prompt: r.prompt, response: r.response,
+      score: r.score, metadata: { label, latencyMs: r.latencyMs, inputTokens: r.inputTokens, outputTokens: r.outputTokens, rationale: r.scoreRationale },
+    })
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.completed', category, provider: provider.id, label,
+      score: r.score, durationMs: Date.now() - start, error: null,
+    })
+    return r.score
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err)
+    await deps.store.createProbe({
+      gradeId, category, provider: provider.id, prompt, response: '',
+      score: null, metadata: { label, error },
+    })
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.completed', category, provider: provider.id, label,
+      score: null, durationMs: Date.now() - start, error,
+    })
+    return null
+  }
+}
