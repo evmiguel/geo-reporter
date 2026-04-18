@@ -5,6 +5,10 @@ const Schema = z.object({
   REDIS_URL: z.string().url(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(7777),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  PERPLEXITY_API_KEY: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof Schema>
