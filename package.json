@@ -11,6 +11,7 @@
     "build": "tsup",
     "dev:server": "tsx watch src/server/server.ts",
     "dev:worker": "tsx watch src/worker/worker.ts",
+    "enqueue-grade": "tsx scripts/enqueue-grade.ts",
     "start:server": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "db:generate": "drizzle-kit generate",
