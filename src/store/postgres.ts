@@ -57,6 +57,13 @@ export class PostgresStore implements GradeStore {
     return row ?? null
   }
 
+  async clearGradeArtifacts(gradeId: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.delete(schema.probes).where(eq(schema.probes.gradeId, gradeId))
+      await tx.delete(schema.scrapes).where(eq(schema.scrapes.gradeId, gradeId))
+    })
+  }
+
   async upsertUser(email: string): Promise<User> {
     const [row] = await this.db
       .insert(schema.users)

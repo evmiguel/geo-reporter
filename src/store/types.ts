@@ -30,6 +30,8 @@ export interface GradeStore {
   // Scrapes
   createScrape(input: NewScrape): Promise<Scrape>
   getScrape(gradeId: string): Promise<Scrape | null>
+  // Worker retry helper: atomically deletes scrape + probe rows for one grade.
+  clearGradeArtifacts(gradeId: string): Promise<void>
 
   // Users / cookies (placeholder; expanded in auth plan)
   upsertUser(email: string): Promise<User>
