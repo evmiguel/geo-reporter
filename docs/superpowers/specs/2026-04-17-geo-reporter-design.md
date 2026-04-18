@@ -495,6 +495,18 @@ Redis (no schema — listed for completeness):
 
 Inter-service communication uses BullMQ jobs only — no private HTTP between web and worker.
 
+**Interpretation calls locked in during Plan 6a brainstorming (2026-04-18):** see the full sub-spec at [`2026-04-18-geo-reporter-plan-6a-http-surface-design.md`](./2026-04-18-geo-reporter-plan-6a-http-surface-design.md). Summary:
+
+- **Plan 6 split:** Plan 6a ships the backend (`POST /grades`, `GET /grades/:id`, `GET /grades/:id/events`); Plan 6b ships the React frontend separately. Backend is `curl`- and SSE-testable on its own.
+- **Anonymous cookie:** plain UUID v4, `httpOnly`, `sameSite=Lax`, `secure`-in-production, 1-year expiry. HMAC signing deferred to launch hardening (production checklist).
+- **Client IP:** trust `X-Forwarded-For` first value; fall back to socket address. Trusted-proxy allow-list deferred to production checklist.
+- **Rate limit:** Redis sorted-set bucket keyed `bucket:ip:<ip>+cookie:<cookie>`, 24h window. Anonymous = 3; when `cookies.userId IS NOT NULL` = 13. Lookup implemented now so Plan 7's magic-link verify just sets `userId` and the limit auto-upgrades. Atomic-Lua-script upgrade deferred to production checklist. 429 body: `{ paywall, limit, used, retryAfter }`.
+- **SSE hydration:** every connection to `GET /grades/:id/events` SELECTs scrape + probes + grade row, synthesizes past events, then subscribes to Redis for live events. No `Last-Event-ID` replay — reconnect always fully rehydrates.
+- **SSE auth:** cookie must match `grades.cookie`; 403 otherwise. Signed-URL shareability is a Plan 9 concern (report routes).
+- **URL validation:** Zod + `http:`/`https:` scheme check only. Full SSRF defense (DNS-pinning) is on the production checklist — must land before public launch.
+- **Concurrent grades per cookie:** allowed; rate limit is the cap. Redirect-to-in-flight UX is a frontend concern.
+- **Libraries + conventions:** `@hono/zod-validator` for request bodies; Hono's `cors` middleware active only in development (allowing `http://localhost:5173`, `credentials: true`); `app.fetch()` for unit tests, real HTTP via `@hono/node-server` only for the SSE live-events integration test.
+
 ---
 
 ## 11. Frontend
