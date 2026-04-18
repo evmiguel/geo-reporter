@@ -1,5 +1,6 @@
 import type { GroundTruth, ProbeForJudge } from './ground-truth.ts'
 import { isSparseGroundTruth } from './ground-truth.ts'
+import type { ProviderId } from './providers/types.ts'
 
 export function promptRecognition(domain: string): [string, string] {
   return [
@@ -134,4 +135,38 @@ export function promptJudge(gt: GroundTruth, probes: ProbeForJudge[]): BuiltJudg
   lines.push('')
   lines.push('--- End responses ---')
   return { prompt: lines.join('\n'), probesByKey }
+}
+
+export interface AccuracyVerifierInput {
+  gt: GroundTruth
+  question: string
+  providerId: ProviderId
+  answer: string
+}
+
+export function promptAccuracyVerifier(input: AccuracyVerifierInput): string {
+  const { gt, question, providerId, answer } = input
+  return [
+    'You are verifying a factual answer against scraped website content.',
+    '',
+    `URL: ${gt.url}`,
+    `Domain: ${gt.domain}`,
+    'Scraped body excerpt:',
+    gt.bodyExcerpt || '(empty)',
+    '',
+    `Question: ${question}`,
+    `Provider: ${providerId}`,
+    `Answer: ${answer}`,
+    '',
+    'Using ONLY the scraped content as ground truth, decide whether the',
+    'answer is correct. If the scrape does not support a definitive',
+    'judgment (topic not covered), return correct: null.',
+    '',
+    'Return ONLY a JSON object with this shape:',
+    '{',
+    '  "correct": true | false | null,',
+    '  "confidence": 0..1,',
+    '  "rationale": "..."',
+    '}',
+  ].join('\n')
 }

@@ -6,6 +6,7 @@ import {
   promptDiscoverabilityGenerator,
   promptAccuracyGenerator,
   promptJudge,
+  promptAccuracyVerifier,
 } from '../../../src/llm/prompts.ts'
 import type { ProbeForJudge } from '../../../src/llm/ground-truth.ts'
 
@@ -109,5 +110,34 @@ describe('promptJudge', () => {
     expect(prompt).toContain('Provider: claude')
     expect(prompt).toContain('Prompt: What does acme.com do?')
     expect(prompt).toContain('Response: Acme makes widgets.')
+  })
+})
+
+describe('promptAccuracyVerifier', () => {
+  it('includes URL, question, provider, answer, and JSON schema', () => {
+    const out = promptAccuracyVerifier({
+      gt: DENSE_GT,
+      question: 'When was Acme founded?',
+      providerId: 'claude',
+      answer: 'Acme was founded in 1902.',
+    })
+    expect(out).toContain('URL: https://acme.com')
+    expect(out).toContain('Question: When was Acme founded?')
+    expect(out).toContain('Provider: claude')
+    expect(out).toContain('Answer: Acme was founded in 1902.')
+    expect(out).toContain('"correct":')
+    expect(out).toContain('"confidence":')
+    expect(out).toContain('"rationale":')
+    expect(out).toContain('null')
+  })
+
+  it('includes the body excerpt as grounding', () => {
+    const out = promptAccuracyVerifier({
+      gt: DENSE_GT,
+      question: 'q',
+      providerId: 'gpt',
+      answer: 'a',
+    })
+    expect(out).toContain('family-owned for four generations')
   })
 })
