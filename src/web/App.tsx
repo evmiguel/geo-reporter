@@ -1,9 +1,17 @@
 import { Routes, Route } from 'react-router-dom'
+import { Header } from './components/Header.tsx'
+import { LandingPage } from './pages/LandingPage.tsx'
 
 export function App(): JSX.Element {
   return (
-    <Routes>
-      <Route path="/" element={<div className="p-8"><h1 className="text-[var(--color-brand)] text-xl">geo-reporter</h1><p className="text-[var(--color-fg-dim)] mt-2">frontend scaffold — pages coming in subsequent tasks</p></div>} />
-    </Routes>
+    <div className="min-h-full flex flex-col bg-[var(--color-bg)] text-[var(--color-fg)]">
+      <Header />
+      <main className="flex-1">
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<div className="p-8 text-[var(--color-fg-dim)]">404 — route not implemented yet</div>} />
+        </Routes>
+      </main>
+    </div>
   )
 }
