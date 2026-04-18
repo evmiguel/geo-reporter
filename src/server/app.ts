@@ -5,6 +5,7 @@ import { clientIp } from './middleware/client-ip.ts'
 import { cookieMiddleware } from './middleware/cookie.ts'
 import { rateLimitMiddleware } from './middleware/rate-limit.ts'
 import { gradesRouter } from './routes/grades.ts'
+import { gradesEventsRouter } from './routes/grades-events.ts'
 
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
@@ -25,6 +26,7 @@ export function buildApp(deps: ServerDeps): Hono {
   gradeScope.use('*', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production'))
   gradeScope.post('/', rateLimitMiddleware(deps.redis, deps.store))
   gradeScope.route('/', gradesRouter(deps))
+  gradeScope.route('/', gradesEventsRouter(deps))
 
   app.route('/grades', gradeScope)
   return app
