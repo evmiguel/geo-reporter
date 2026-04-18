@@ -1,0 +1,78 @@
+import type { GradeEvent, GradeState, CategoryId } from './types.ts'
+
+export function initialGradeState(): GradeState {
+  return {
+    phase: 'queued',
+    scraped: null,
+    probes: new Map(),
+    categoryScores: {
+      discoverability: null, recognition: null, accuracy: null,
+      coverage: null, citation: null, seo: null,
+    },
+    overall: null,
+    letter: null,
+    error: null,
+  }
+}
+
+function probeKey(category: CategoryId, provider: string | null, label: string): string {
+  return `${category}:${provider ?? '-'}:${label}`
+}
+
+export function reduceGradeEvents(state: GradeState, event: GradeEvent, now: number): GradeState {
+  switch (event.type) {
+    case 'running':
+      return { ...state, phase: 'running' }
+    case 'scraped':
+      return { ...state, phase: 'scraped', scraped: { rendered: event.rendered, textLength: event.textLength } }
+    case 'probe.started': {
+      const key = probeKey(event.category, event.provider, event.label)
+      const probes = new Map(state.probes)
+      const existing = probes.get(key)
+      probes.set(key, {
+        key,
+        category: event.category,
+        provider: event.provider,
+        label: event.label,
+        status: 'started',
+        score: null,
+        durationMs: 0,
+        error: null,
+        startedAt: existing?.startedAt ?? now,
+      })
+      return { ...state, probes }
+    }
+    case 'probe.completed': {
+      const key = probeKey(event.category, event.provider, event.label)
+      const probes = new Map(state.probes)
+      const existing = probes.get(key)
+      probes.set(key, {
+        key,
+        category: event.category,
+        provider: event.provider,
+        label: event.label,
+        status: 'completed',
+        score: event.score,
+        durationMs: event.durationMs,
+        error: event.error,
+        startedAt: existing?.startedAt ?? now,
+      })
+      return { ...state, probes }
+    }
+    case 'category.completed':
+      return {
+        ...state,
+        categoryScores: { ...state.categoryScores, [event.category]: event.score },
+      }
+    case 'done':
+      return {
+        ...state,
+        phase: 'done',
+        overall: event.overall,
+        letter: event.letter,
+        categoryScores: event.scores,
+      }
+    case 'failed':
+      return { ...state, phase: 'failed', error: event.error }
+  }
+}
