@@ -179,3 +179,86 @@ export async function runDiscoverabilityCategory(args: ScrapedCategoryArgs): Pro
   await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'discoverability', score })
   return score
 }
+
+import { runCoverageFlow } from '../../../llm/flows/coverage.ts'
+import type { ProviderId } from '../../../llm/providers/types.ts'
+
+export interface CoverageCategoryArgs extends ScrapedCategoryArgs {
+  judge: Provider
+}
+
+export async function runCoverageCategory(args: CoverageCategoryArgs): Promise<number | null> {
+  const { gradeId, grade, scrape, probers, judge, deps } = args
+  const gt = toGroundTruth(grade.url, scrape)
+  const prompts = ['prompt_1', 'prompt_2'] as const
+
+  for (const provider of probers) {
+    for (const label of prompts) {
+      await publishGradeEvent(deps.redis, gradeId, {
+        type: 'probe.started', category: 'coverage', provider: provider.id, label,
+      })
+    }
+  }
+
+  const start = Date.now()
+  let result: Awaited<ReturnType<typeof runCoverageFlow>>
+  let flowError: string | null = null
+  try {
+    result = await runCoverageFlow({ providers: probers, judge, groundTruth: gt })
+  } catch (err) {
+    flowError = err instanceof Error ? err.message : String(err)
+    result = { probes: [], judge: { prompt: '', rawResponse: '', perProbe: new Map(), perProvider: {}, degraded: true } }
+  }
+  const durationMs = Date.now() - start
+
+  const probeScores: (number | null)[] = []
+  let probeIdx = 0
+  for (const provider of probers) {
+    for (const label of prompts) {
+      const probe = result.probes[probeIdx]
+      probeIdx++
+      const perProbeKey = `probe_${probeIdx}`
+      const perProbe = result.judge.perProbe.get(perProbeKey)
+      const perProvider = result.judge.perProvider[provider.id as ProviderId]
+
+      if (!probe || probe.error !== null || probe.response === '') {
+        const error = probe?.error ?? flowError ?? 'unknown'
+        await deps.store.createProbe({
+          gradeId, category: 'coverage', provider: provider.id, prompt: probe?.prompt ?? '', response: '', score: null,
+          metadata: { label, error, judgeDegraded: result.judge.degraded },
+        })
+        await publishGradeEvent(deps.redis, gradeId, {
+          type: 'probe.completed', category: 'coverage', provider: provider.id, label,
+          score: null, durationMs, error,
+        })
+        probeScores.push(null)
+        continue
+      }
+
+      const judgeAccuracy = perProbe?.accuracy ?? perProvider?.accuracy ?? null
+      const judgeCoverage = perProbe?.coverage ?? perProvider?.coverage ?? null
+      const judgeNotes = perProbe?.notes ?? perProvider?.notes ?? ''
+      const score = judgeAccuracy !== null && judgeCoverage !== null
+        ? Math.round((judgeAccuracy + judgeCoverage) / 2)
+        : null
+
+      await deps.store.createProbe({
+        gradeId, category: 'coverage', provider: provider.id,
+        prompt: probe.prompt, response: probe.response, score,
+        metadata: {
+          label, latencyMs: probe.latencyMs, inputTokens: probe.inputTokens, outputTokens: probe.outputTokens,
+          judgeAccuracy, judgeCoverage, judgeNotes, judgeDegraded: result.judge.degraded,
+        },
+      })
+      await publishGradeEvent(deps.redis, gradeId, {
+        type: 'probe.completed', category: 'coverage', provider: provider.id, label,
+        score, durationMs, error: null,
+      })
+      probeScores.push(score)
+    }
+  }
+
+  const score = collapseToCategoryScore(probeScores)
+  await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'coverage', score })
+  return score
+}

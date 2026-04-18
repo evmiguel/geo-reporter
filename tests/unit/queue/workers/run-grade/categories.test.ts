@@ -284,3 +284,76 @@ describe('runDiscoverabilityCategory', () => {
     expect((rows[0]?.metadata as { error?: string }).error).toBe('down')
   })
 })
+
+// Task 8: Coverage Tests
+import { runCoverageCategory } from '../../../../../src/queue/workers/run-grade/categories.ts'
+
+describe('runCoverageCategory', () => {
+  it('writes 2N probe rows with per-probe judge scores', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Acme sells widgets to construction firms.' })
+    const gpt = new MockProvider({ id: 'gpt', responses: () => 'Acme provides industrial widgets.' })
+    const judge = new MockProvider({
+      id: 'claude',
+      responses: () => JSON.stringify({
+        probe_1: { accuracy: 80, coverage: 70, notes: 'c' },
+        probe_2: { accuracy: 60, coverage: 55, notes: 'g' },
+        probe_3: { accuracy: 75, coverage: 70, notes: 'c2' },
+        probe_4: { accuracy: 65, coverage: 60, notes: 'g2' },
+      }),
+    })
+    const score = await runCoverageCategory({
+      gradeId: 'g-cov', grade: { ...GRADE, id: 'g-cov' }, scrape: SCRAPE, probers: [claude, gpt], judge,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE },
+    })
+
+    const rows = store.probes.filter((p) => p.category === 'coverage')
+    expect(rows).toHaveLength(4)
+    for (const row of rows) {
+      expect(typeof row.score).toBe('number')
+      const md = row.metadata as { judgeAccuracy: number; judgeCoverage: number; judgeNotes: string; judgeDegraded: boolean }
+      expect(md.judgeAccuracy).toBeGreaterThanOrEqual(0)
+      expect(md.judgeDegraded).toBe(false)
+    }
+    expect(score).not.toBeNull()
+  })
+
+  it('handles judge-degraded path (heuristic fallback)', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Acme sells widgets.' })
+    const gpt = new MockProvider({ id: 'gpt', responses: () => 'Acme makes widgets.' })
+    const judge = new MockProvider({ id: 'claude', responses: () => 'not json at all, even after retry' })
+
+    const score = await runCoverageCategory({
+      gradeId: 'g-cov-d', grade: { ...GRADE, id: 'g-cov-d' }, scrape: SCRAPE, probers: [claude, gpt], judge,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE },
+    })
+
+    const rows = store.probes.filter((p) => p.category === 'coverage')
+    expect(rows).toHaveLength(4)
+    for (const row of rows) {
+      expect((row.metadata as { judgeDegraded: boolean }).judgeDegraded).toBe(true)
+    }
+    expect(score).not.toBeNull()
+  })
+
+  it('records per-probe error when a prober fails', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'ok' })
+    const broken = new MockProvider({ id: 'gpt', responses: {}, failWith: 'rate limit' })
+    const judge = new MockProvider({ id: 'claude', responses: () => JSON.stringify({ probe_1: { accuracy: 80, coverage: 70, notes: '' }, probe_2: { accuracy: 75, coverage: 65, notes: '' } }) })
+
+    await runCoverageCategory({
+      gradeId: 'g-cov-f', grade: { ...GRADE, id: 'g-cov-f' }, scrape: SCRAPE, probers: [claude, broken], judge,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => SCRAPE },
+    })
+
+    const brokenRows = store.probes.filter((p) => p.category === 'coverage' && p.provider === 'gpt')
+    expect(brokenRows).toHaveLength(2)
+    expect(brokenRows.every((r) => r.score === null)).toBe(true)
+    expect(brokenRows.every((r) => (r.metadata as { error?: string }).error === 'rate limit')).toBe(true)
+  })
+})
