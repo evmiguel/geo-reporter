@@ -523,6 +523,19 @@ Pages:
 
 Components inherited in spirit from v1: `GradeLetter`, `CategoryCard`, `ProbePanel`, `Sidebar`, `Layout`. Re-implemented in v3 to match the new API shape (no `AdHocRepl` in MVP — that was a v1 feature).
 
+**Interpretation calls locked in during Plan 6b brainstorming (2026-04-18):** see the full sub-spec at [`2026-04-18-geo-reporter-plan-6b-frontend-design.md`](./2026-04-18-geo-reporter-plan-6b-frontend-design.md). Summary:
+
+- **Plan 6 split:** Plan 6a shipped the HTTP surface (merged `156391d`); Plan 6b is the React frontend standalone.
+- **Routes shipped:** `/`, `/g/:id`, `/email`, `*` (404 fallback). `/report/:id` is Plan 9, `/my/grades` is Plan 7, `/settings` is post-MVP.
+- **Layout:** sidebar-less single column with a minimal top header. Sidebar earns its space once Plan 7 adds `/my/grades`.
+- **LiveGrade page:** 2×3 category-tile grid at the top (scores fill in live as `category.completed` events arrive) + chronological probe log below (rendered from `probe.started` + `probe.completed` events). When `phase === 'done'`, a large letter-grade display replaces the status bar.
+- **Source layout:** `src/web/` for frontend, `dist/web/` for build output. Two-terminal dev (Vite on :5173 proxies API/SSE to Hono on :7777); production Hono adds `serveStatic` catch-all for the built assets. Frontend-on-CDN deferred to the production checklist.
+- **Data:** native `EventSource` with `withCredentials: true` for SSE; plain `fetch` + React hooks (no TanStack Query); React Router v6.
+- **State:** pure `reduceGradeEvents(state, event)` reducer + thin `useGradeEvents(gradeId)` hook. Separates logic from React the same way Plans 4/5 separate flows from orchestration.
+- **Styling:** Tailwind v4 with `@theme` block ported verbatim from v1 (`#0a0a0a` bg, `#ff7a1a` brand, `#5cf28e` good, JetBrains Mono).
+- **Testing:** Vitest + React Testing Library + happy-dom. No Playwright — its value unlocks at Plan 10's Stripe/report scope.
+- **Component rename from §11:** v3 uses `CategoryTile` (not `CategoryCard`), `ProbeLogRow` (not `ProbePanel`), `Header` (not `Sidebar`); `Layout` is inlined into `App.tsx` with React Router's `<Outlet/>`. `AdHocRepl` stays out.
+
 ---
 
 ## 12. Testing
