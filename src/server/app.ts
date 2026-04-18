@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { serveStatic } from '@hono/node-server/serve-static'
 import type { ServerDeps } from './deps.ts'
 import { clientIp } from './middleware/client-ip.ts'
 import { cookieMiddleware } from './middleware/cookie.ts'
@@ -29,5 +30,13 @@ export function buildApp(deps: ServerDeps): Hono {
   gradeScope.route('/', gradesEventsRouter(deps))
 
   app.route('/grades', gradeScope)
+
+  if (deps.env.NODE_ENV === 'production') {
+    // Serve built frontend from dist/web. Catch-all falls through to index.html
+    // so React Router handles deep links (e.g. /g/:id) on page refresh.
+    app.use('/assets/*', serveStatic({ root: './dist/web' }))
+    app.get('*', serveStatic({ root: './dist/web', path: 'index.html' }))
+  }
+
   return app
 }
