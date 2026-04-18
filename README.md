@@ -26,11 +26,12 @@ For the full architecture and the 17 locked-in design decisions, see [`docs/supe
 | **`POST /grades`** | Works. Validates URL, issues anonymous cookie, enforces 3/24h rate limit, enqueues job, returns `202 { gradeId }`. |
 | **`GET /grades/:id`** | Works. Cookie-owner-only. Returns grade row JSON. |
 | **`GET /grades/:id/events`** | Works. SSE stream — hydrates past state from DB on connect, then forwards Redis pub/sub events. |
+| **React terminal UI** (`pnpm dev:web` on :5173) | Works. Landing, LiveGrade (SSE-driven), EmailGate, 404. |
 | `pnpm enqueue-grade <url>` dev CLI | Works. Skips rate limit + cookie — for quick smoke tests. |
-| `pnpm test` | 286 unit tests passing. |
+| `pnpm test` | 314 unit tests passing. |
 | `pnpm test:integration` | 35 integration tests — testcontainers Postgres + Redis + MockProvider. |
-| `pnpm build` | Bundles `dist/server.js` and `dist/worker.js` with tsup. |
-| React UI, magic-link auth, Stripe checkout, report HTML/PDF | **Not implemented yet** (Plans 6b–9). |
+| `pnpm build` | Bundles `dist/server.js`, `dist/worker.js`, and `dist/web/` with tsup + vite. |
+| magic-link auth, Stripe checkout, report HTML/PDF | **Not implemented yet** (Plans 7–9). |
 
 ## Prerequisites
 
@@ -138,6 +139,41 @@ The stream closes when the grade finishes (`done` or `failed`). A free-tier grad
 
 **Reconnect after a drop**: just re-run the `curl /events` command. The endpoint rehydrates past state from the database, then resumes live events — no duplicates if the grade is still running, a single synthesized `done` event if it already finished.
 
+## Running the React dev loop
+
+Three terminals:
+
+```bash
+# Terminal 1
+pnpm dev:server
+
+# Terminal 2
+pnpm dev:worker
+
+# Terminal 3
+pnpm dev:web
+```
+
+Open http://localhost:5173. Paste a URL, hit "grade", watch the live scorecard fill in as probes resolve.
+
+The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser sees a single origin. Cookies, SSE, and rate limiting behave identically to production.
+
+### What you'll see
+
+- **Landing `/`** — URL input; submit navigates to `/g/:id`.
+- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar.
+- **EmailGate `/email`** — shown on 429. The form hits `/auth/magic` which 404s until Plan 7 ships (displays a "coming soon" message).
+- **404 `*`** — any unknown route.
+
+### Production build
+
+```bash
+pnpm build
+node dist/server.js
+```
+
+One process serves API + SSE + the built React app on port 7777.
+
 ### Fetch the final scorecard
 
 After the grade finishes:
@@ -224,6 +260,9 @@ Judge / generator / verifier always use Claude regardless of tier (see `docs/sup
 ```
 pnpm dev:server          # Hono HTTP under tsx watch
 pnpm dev:worker          # BullMQ run-grade + health workers under tsx watch
+pnpm dev:web             # Vite dev server on :5173, HMR, proxies to :7777
+pnpm web:build           # vite build → dist/web/
+pnpm web:preview         # vite preview (serve dist/web)
 pnpm enqueue-grade <url> [--paid]   # dev CLI: enqueue a grade job, bypassing HTTP
 pnpm test                # unit tests (tests/unit/**)
 pnpm test:integration    # testcontainers-backed integration tests
@@ -245,6 +284,7 @@ src/
   llm/                   # library: 4 direct providers + MockProvider + factory + prompts + judge + flows
   scoring/               # library: pure heuristic scorers + letter grade + weights + composite
   accuracy/              # library: novel generator → blind-probe → per-provider verifier flow
+  web/                   # React frontend: pages, components, hooks, reducer
   queue/
     events.ts            #   pub/sub helpers: publishGradeEvent + subscribeToGrade
     queues.ts            #   BullMQ queue factories
@@ -280,7 +320,7 @@ docs/
 | 4 | Scoring engine: LLM providers + prompts + judge + accuracy submodule | **Done** |
 | 5 | Grade pipeline worker (wires scraper + core + SEO + judge) + dev CLI | **Done** |
 | 6a | HTTP surface: `POST /grades`, `GET /grades/:id`, SSE, rate limit, anonymous cookie | **Done** |
-| 6b | React terminal UI (landing, live grade, email gate) | Pending |
+| 6b | React terminal UI (landing, live grade, email gate) | **Done** |
 | 7 | Auth (magic link, session cookie, quota lift) | Pending |
 | 8 | Paywall: Stripe checkout, webhook, recommendation LLM | Pending |
 | 9 | Report rendering: React SSR + Playwright PDF + signed URLs | Pending |
