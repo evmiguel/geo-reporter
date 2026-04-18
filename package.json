@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.11"
+    "node": ">=20.12"
   },
   "packageManager": "pnpm@9.6.0",
   "scripts": {
     "build": "tsup",
-    "dev:server": "tsx watch src/server/server.ts",
-    "dev:worker": "tsx watch src/worker/worker.ts",
-    "enqueue-grade": "tsx scripts/enqueue-grade.ts",
+    "dev:server": "tsx watch --env-file-if-exists=.env src/server/server.ts",
+    "dev:worker": "tsx watch --env-file-if-exists=.env src/worker/worker.ts",
+    "enqueue-grade": "tsx --env-file-if-exists=.env scripts/enqueue-grade.ts",
     "start:server": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "db:generate": "drizzle-kit generate",

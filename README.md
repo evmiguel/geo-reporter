@@ -27,7 +27,7 @@ For the full architecture and the 17 locked-in design decisions, see [`docs/supe
 
 ## Prerequisites
 
-- Node **20.11+**
+- Node **20.12+** (needed for `--env-file-if-exists`; Node 22 LTS or 24 current both work)
 - pnpm **9.x** (`corepack enable` then `corepack prepare pnpm@9.6.0 --activate`)
 - Docker (for `docker compose` and for integration tests via testcontainers)
 - **WSL2 / Linux only:** Playwright needs system libs once before Chromium will launch:
