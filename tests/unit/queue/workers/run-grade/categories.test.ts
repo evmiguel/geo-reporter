@@ -357,3 +357,99 @@ describe('runCoverageCategory', () => {
     expect(brokenRows.every((r) => (r.metadata as { error?: string }).error === 'rate limit')).toBe(true)
   })
 })
+
+// Task 9: Accuracy Tests
+import { runAccuracyCategory } from '../../../../../src/queue/workers/run-grade/categories.ts'
+
+const LONG_SCRAPE: ScrapeResult = { ...SCRAPE, text: SCRAPE.text.repeat(10) }
+
+describe('runAccuracyCategory', () => {
+  it('happy path: writes 1 generator row + N answer rows', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'Acme was founded in 1902.' })
+    const gpt = new MockProvider({ id: 'gpt', responses: () => 'Acme was founded in 1902.' })
+    const generator = new MockProvider({ id: 'claude', responses: () => 'When was Acme founded?' })
+    const verifier = new MockProvider({
+      id: 'claude',
+      responses: () => JSON.stringify({ correct: true, confidence: 0.95, rationale: 'matches scrape' }),
+    })
+
+    const score = await runAccuracyCategory({
+      gradeId: 'g-acc', grade: { ...GRADE, id: 'g-acc' }, scrape: LONG_SCRAPE,
+      probers: [claude, gpt], generator, verifier,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => LONG_SCRAPE },
+    })
+
+    const rows = store.probes.filter((p) => p.category === 'accuracy')
+    expect(rows).toHaveLength(3)
+    const genRow = rows.find((r) => (r.metadata as { role?: string }).role === 'generator')
+    const verifyRows = rows.filter((r) => (r.metadata as { role?: string }).role === 'verify')
+    expect(genRow).toBeDefined()
+    expect(genRow?.score).toBeNull()
+    expect(verifyRows).toHaveLength(2)
+    expect(verifyRows.every((r) => r.score === 100)).toBe(true)
+    expect(score).toBe(100)
+  })
+
+  it('insufficient_scrape path: writes a skipped placeholder row, returns null', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const sparseScrape: ScrapeResult = { ...SCRAPE, text: 'too short' }
+    const generator = new MockProvider({ id: 'claude', responses: () => 'never called' })
+    const verifier = new MockProvider({ id: 'claude', responses: () => 'never called' })
+    const score = await runAccuracyCategory({
+      gradeId: 'g-acc-s', grade: { ...GRADE, id: 'g-acc-s' }, scrape: sparseScrape,
+      probers: [new MockProvider({ id: 'claude', responses: () => 'nope' })], generator, verifier,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => sparseScrape },
+    })
+
+    expect(score).toBeNull()
+    const rows = store.probes.filter((p) => p.category === 'accuracy')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.provider).toBeNull()
+    expect((rows[0]?.metadata as { role?: string; reason?: string }).role).toBe('skipped')
+    expect((rows[0]?.metadata as { reason?: string }).reason).toBe('insufficient_scrape')
+  })
+
+  it('all_null path: writes skipped row when every verifier returns correct:null', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const claude = new MockProvider({ id: 'claude', responses: () => 'vague answer' })
+    const generator = new MockProvider({ id: 'claude', responses: () => 'What is the best year?' })
+    const verifier = new MockProvider({
+      id: 'claude',
+      responses: () => JSON.stringify({ correct: null, confidence: 0.1, rationale: 'scrape does not cover' }),
+    })
+
+    const score = await runAccuracyCategory({
+      gradeId: 'g-acc-n', grade: { ...GRADE, id: 'g-acc-n' }, scrape: LONG_SCRAPE,
+      probers: [claude], generator, verifier,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => LONG_SCRAPE },
+    })
+
+    expect(score).toBeNull()
+    const rows = store.probes.filter((p) => p.category === 'accuracy')
+    const skipped = rows.find((r) => (r.metadata as { role?: string }).role === 'skipped')
+    expect(skipped).toBeDefined()
+    expect((skipped?.metadata as { reason?: string }).reason).toBe('all_null')
+  })
+
+  it('generator failure: writes skipped row, returns null', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    const generator = new MockProvider({ id: 'claude', responses: {}, failWith: 'generator down' })
+    const verifier = new MockProvider({ id: 'claude', responses: () => 'never' })
+    const score = await runAccuracyCategory({
+      gradeId: 'g-acc-gf', grade: { ...GRADE, id: 'g-acc-gf' }, scrape: LONG_SCRAPE,
+      probers: [new MockProvider({ id: 'claude', responses: () => 'x' })], generator, verifier,
+      deps: { store, redis, providers: {} as never, scrapeFn: async () => LONG_SCRAPE },
+    })
+
+    expect(score).toBeNull()
+    const rows = store.probes.filter((p) => p.category === 'accuracy')
+    const skipped = rows.find((r) => (r.metadata as { role?: string }).role === 'skipped')
+    expect(skipped).toBeDefined()
+    expect((skipped?.metadata as { reason?: string }).reason).toBe('generator_failed')
+  })
+})

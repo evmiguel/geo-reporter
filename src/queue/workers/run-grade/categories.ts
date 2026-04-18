@@ -262,3 +262,93 @@ export async function runCoverageCategory(args: CoverageCategoryArgs): Promise<n
   await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'coverage', score })
   return score
 }
+
+import { runAccuracy } from '../../../accuracy/index.ts'
+
+export interface AccuracyCategoryArgs extends ScrapedCategoryArgs {
+  generator: Provider
+  verifier: Provider
+}
+
+export async function runAccuracyCategory(args: AccuracyCategoryArgs): Promise<number | null> {
+  const { gradeId, grade, scrape, probers, generator, verifier, deps } = args
+
+  let result
+  try {
+    result = await runAccuracy({ generator, verifier, probers, url: grade.url, scrape })
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err)
+    await deps.store.createProbe({
+      gradeId, category: 'accuracy', provider: null,
+      prompt: '', response: '', score: null,
+      metadata: { role: 'skipped', reason: 'generator_failed', error },
+    })
+    await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'accuracy', score: null })
+    return null
+  }
+
+  if (result.reason !== 'ok') {
+    await deps.store.createProbe({
+      gradeId, category: 'accuracy', provider: null,
+      prompt: '', response: '', score: null,
+      metadata: { role: 'skipped', reason: result.reason },
+    })
+    await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'accuracy', score: null })
+    return null
+  }
+
+  if (result.generator) {
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.started', category: 'accuracy', provider: generator.id, label: 'generator',
+    })
+    await deps.store.createProbe({
+      gradeId, category: 'accuracy', provider: generator.id,
+      prompt: result.generator.prompt, response: result.generator.response, score: null,
+      metadata: {
+        role: 'generator',
+        latencyMs: result.generator.latencyMs,
+        inputTokens: result.generator.inputTokens,
+        outputTokens: result.generator.outputTokens,
+      },
+    })
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.completed', category: 'accuracy', provider: generator.id, label: 'generator',
+      score: null, durationMs: result.generator.latencyMs, error: null,
+    })
+  }
+
+  const question = result.generator?.question ?? ''
+  for (const probe of result.probes) {
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.started', category: 'accuracy', provider: probe.providerId, label: 'verify',
+    })
+    const verification = result.verifications.find((v) => v.providerId === probe.providerId)
+    const score = verification
+      ? (verification.correct === true ? 100 : verification.correct === false ? 0 : null)
+      : null
+    const error = probe.error ?? (verification?.degraded ? 'verifier degraded' : null)
+
+    await deps.store.createProbe({
+      gradeId, category: 'accuracy', provider: probe.providerId,
+      prompt: question, response: probe.answer, score,
+      metadata: {
+        role: 'verify',
+        confidence: verification?.confidence ?? null,
+        rationale: verification?.rationale ?? null,
+        degraded: verification?.degraded ?? false,
+        verifierProviderId: verifier.id,
+        latencyMs: probe.latencyMs,
+        inputTokens: probe.inputTokens,
+        outputTokens: probe.outputTokens,
+        error,
+      },
+    })
+    await publishGradeEvent(deps.redis, gradeId, {
+      type: 'probe.completed', category: 'accuracy', provider: probe.providerId, label: 'verify',
+      score, durationMs: probe.latencyMs, error,
+    })
+  }
+
+  await publishGradeEvent(deps.redis, gradeId, { type: 'category.completed', category: 'accuracy', score: result.score })
+  return result.score
+}
