@@ -58,8 +58,9 @@ export function EmailGatePage(): JSX.Element {
       <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">paywall</div>
       <h1 className="text-2xl mt-2 mb-2 text-[var(--color-fg)]">You've hit your free limit</h1>
       <p className="text-[var(--color-fg-dim)] mb-4">
-        3 grades per 24 hours for anonymous visitors. Verify your email and we'll unlock{' '}
-        <span className="text-[var(--color-good)]">10 more</span>.
+        3 grades per 24 hours, then you're tapped out. Verify your email to buy{' '}
+        <span className="text-[var(--color-good)]">10 reports for $29</span> — each credit grades a
+        site and unlocks a full 4-provider paid report.
       </p>
       {retrySeconds > 0 && (
         <div className="text-xs text-[var(--color-fg-muted)] mb-4">
