@@ -1,21 +1,13 @@
 import type { MiddlewareHandler } from 'hono'
 import type Redis from 'ioredis'
 import type { GradeStore } from '../../store/types.ts'
+import { peekBucket, addToBucket, type BucketResult } from './bucket.ts'
 
-const WINDOW_MS = 86_400_000   // 24h
-const EXPIRE_SECONDS = 86_400
-
+const WINDOW_MS = 86_400_000
 const ANON_LIMIT = 3
 const VERIFIED_LIMIT = 13
 
-export interface RateLimitResult {
-  allowed: boolean
-  limit: number
-  used: number
-  retryAfter: number
-}
-
-function bucketKey(ip: string, cookie: string): string {
+function gradeBucketKey(ip: string, cookie: string): string {
   return `bucket:ip:${ip}+cookie:${cookie}`
 }
 
@@ -25,29 +17,14 @@ export async function checkRateLimit(
   ip: string,
   cookie: string,
   now: number = Date.now(),
-): Promise<RateLimitResult> {
+): Promise<BucketResult> {
   const row = await store.getCookie(cookie)
   const limit = row?.userId ? VERIFIED_LIMIT : ANON_LIMIT
-  const key = bucketKey(ip, cookie)
-  const cutoff = now - WINDOW_MS
-
-  // Rolling window is half-open: (cutoff, now]. An entry with score exactly
-  // equal to `cutoff` (placed exactly WINDOW_MS ago) stays in the bucket;
-  // only scores STRICTLY less than cutoff are expired. ZREMRANGEBYSCORE is
-  // inclusive on both ends by default, so we expire through `cutoff - 1`.
-  await redis.zremrangebyscore(key, '-inf', String(cutoff - 1))
-  const used = await redis.zcard(key)
-
-  if (used >= limit) {
-    const range = await redis.zrange(key, 0, 0, 'WITHSCORES')
-    const oldestScore = range.length >= 2 ? Number(range[1]) : now
-    const retryAfter = Math.ceil((oldestScore + WINDOW_MS - now) / 1000)
-    return { allowed: false, limit, used, retryAfter }
-  }
-
-  await redis.zadd(key, now, `${now}-${crypto.randomUUID()}`)
-  await redis.expire(key, EXPIRE_SECONDS)
-  return { allowed: true, limit, used: used + 1, retryAfter: 0 }
+  const cfg = { key: gradeBucketKey(ip, cookie), limit, windowMs: WINDOW_MS }
+  const peek = await peekBucket(redis, cfg, now)
+  if (!peek.allowed) return peek
+  await addToBucket(redis, cfg, now)
+  return { allowed: true, limit, used: peek.used + 1, retryAfter: 0 }
 }
 
 type Env = { Variables: { clientIp: string; cookie: string } }
