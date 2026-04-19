@@ -178,16 +178,17 @@ export function makeFakeStore(): FakeGradeStore {
       return { cookie, userId: row.userId, email: user?.email ?? null }
     },
     async createStripePayment(input: {
-      gradeId: string
+      gradeId: string | null
       sessionId: string
       amountCents: number
       currency: string
+      kind?: 'report' | 'credits'
     }): Promise<StripePayment> {
       const row: StripePayment = {
         id: crypto.randomUUID(),
         gradeId: input.gradeId,
         sessionId: input.sessionId,
-        kind: 'report',
+        kind: input.kind ?? 'report',
         status: 'pending',
         amountCents: input.amountCents,
         currency: input.currency,
@@ -196,6 +197,51 @@ export function makeFakeStore(): FakeGradeStore {
       }
       stripePaymentsMap.set(input.sessionId, row)
       return row
+    },
+    async getCredits(userId: string): Promise<number> {
+      const user = usersMap.get(userId)
+      return user?.credits ?? 0
+    },
+    async grantCreditsAndMarkPaid(
+      sessionId: string,
+      userId: string,
+      creditCount: number,
+      amountCents: number,
+      currency: string,
+    ): Promise<void> {
+      const user = usersMap.get(userId)
+      if (!user) throw new Error(`FakeStore.grantCreditsAndMarkPaid: unknown user ${userId}`)
+      usersMap.set(userId, { ...user, credits: user.credits + creditCount })
+      const row = stripePaymentsMap.get(sessionId)
+      if (!row) throw new Error(`FakeStore.grantCreditsAndMarkPaid: unknown session ${sessionId}`)
+      stripePaymentsMap.set(sessionId, {
+        ...row,
+        status: 'paid',
+        amountCents,
+        currency,
+        updatedAt: new Date(),
+      })
+    },
+    async redeemCredit(userId: string): Promise<{ ok: true; remaining: number } | { ok: false }> {
+      const user = usersMap.get(userId)
+      if (!user || user.credits <= 0) return { ok: false }
+      const remaining = user.credits - 1
+      usersMap.set(userId, { ...user, credits: remaining })
+      return { ok: true, remaining }
+    },
+    async getCookieWithUserAndCredits(cookie: string): Promise<{
+      cookie: string; userId: string | null; email: string | null; credits: number
+    }> {
+      const row = cookiesMap.get(cookie)
+      if (!row) return { cookie, userId: null, email: null, credits: 0 }
+      if (!row.userId) return { cookie, userId: null, email: null, credits: 0 }
+      const user = usersMap.get(row.userId)
+      return {
+        cookie,
+        userId: row.userId,
+        email: user?.email ?? null,
+        credits: user?.credits ?? 0,
+      }
     },
     async getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null> {
       return stripePaymentsMap.get(sessionId) ?? null

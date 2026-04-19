@@ -1,4 +1,4 @@
-import { eq, desc, and, isNull } from 'drizzle-orm'
+import { eq, desc, and, isNull, sql } from 'drizzle-orm'
 import { createHash, randomBytes } from 'node:crypto'
 import type { Db } from '../db/client.ts'
 import * as schema from '../db/schema.ts'
@@ -200,16 +200,18 @@ export class PostgresStore implements GradeStore {
   }
 
   async createStripePayment(input: {
-    gradeId: string
+    gradeId: string | null
     sessionId: string
     amountCents: number
     currency: string
+    kind?: 'report' | 'credits'
   }): Promise<StripePayment> {
     const [row] = await this.db.insert(schema.stripePayments).values({
       gradeId: input.gradeId,
       sessionId: input.sessionId,
       amountCents: input.amountCents,
       currency: input.currency,
+      kind: input.kind ?? 'report',
       status: 'pending',
     }).returning()
     if (!row) throw new Error('createStripePayment returned no row')
@@ -241,5 +243,60 @@ export class PostgresStore implements GradeStore {
 
   async listStripePaymentsByGrade(gradeId: string): Promise<StripePayment[]> {
     return this.db.select().from(schema.stripePayments).where(eq(schema.stripePayments.gradeId, gradeId))
+  }
+
+  async getCredits(userId: string): Promise<number> {
+    const [row] = await this.db.select({ credits: schema.users.credits })
+      .from(schema.users).where(eq(schema.users.id, userId)).limit(1)
+    return row?.credits ?? 0
+  }
+
+  async grantCreditsAndMarkPaid(
+    sessionId: string,
+    userId: string,
+    creditCount: number,
+    amountCents: number,
+    currency: string,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.update(schema.users)
+        .set({ credits: sql`${schema.users.credits} + ${creditCount}` })
+        .where(eq(schema.users.id, userId))
+      await tx.update(schema.stripePayments)
+        .set({ status: 'paid', amountCents, currency, updatedAt: new Date() })
+        .where(eq(schema.stripePayments.sessionId, sessionId))
+    })
+  }
+
+  async redeemCredit(userId: string): Promise<{ ok: true; remaining: number } | { ok: false }> {
+    const [row] = await this.db.update(schema.users)
+      .set({ credits: sql`${schema.users.credits} - 1` })
+      .where(and(eq(schema.users.id, userId), sql`${schema.users.credits} > 0`))
+      .returning({ credits: schema.users.credits })
+    if (!row) return { ok: false }
+    return { ok: true, remaining: row.credits }
+  }
+
+  async getCookieWithUserAndCredits(cookie: string): Promise<{
+    cookie: string; userId: string | null; email: string | null; credits: number
+  }> {
+    const [row] = await this.db
+      .select({
+        cookie: schema.cookies.cookie,
+        userId: schema.cookies.userId,
+        email: schema.users.email,
+        credits: schema.users.credits,
+      })
+      .from(schema.cookies)
+      .leftJoin(schema.users, eq(schema.users.id, schema.cookies.userId))
+      .where(eq(schema.cookies.cookie, cookie))
+      .limit(1)
+    if (!row) return { cookie, userId: null, email: null, credits: 0 }
+    return {
+      cookie: row.cookie,
+      userId: row.userId,
+      email: row.email,
+      credits: row.credits ?? 0,
+    }
   }
 }

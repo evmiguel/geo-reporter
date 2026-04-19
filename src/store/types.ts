@@ -57,10 +57,11 @@ export interface GradeStore {
 
   // Billing — stripe_payments (Plan 8)
   createStripePayment(input: {
-    gradeId: string
+    gradeId: string | null
     sessionId: string
     amountCents: number
     currency: string
+    kind?: 'report' | 'credits'
   }): Promise<StripePayment>
   getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null>
   updateStripePaymentStatus(
@@ -68,4 +69,21 @@ export interface GradeStore {
     patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
   ): Promise<void>
   listStripePaymentsByGrade(gradeId: string): Promise<StripePayment[]>
+
+  // Credits (credits pack)
+  getCredits(userId: string): Promise<number>
+  grantCreditsAndMarkPaid(
+    sessionId: string,
+    userId: string,
+    creditCount: number,
+    amountCents: number,
+    currency: string,
+  ): Promise<void>
+  redeemCredit(userId: string): Promise<{ ok: true; remaining: number } | { ok: false }>
+  getCookieWithUserAndCredits(cookie: string): Promise<{
+    cookie: string
+    userId: string | null
+    email: string | null
+    credits: number
+  }>
 }
