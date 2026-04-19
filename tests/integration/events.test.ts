@@ -87,6 +87,51 @@ describe('publishGradeEvent + subscribeToGrade', () => {
     await subscriber.quit()
   })
 
+  it('terminates the iterator on report.done', async () => {
+    const publisher = createRedis(redisUrl)
+    const subscriber = createRedis(redisUrl)
+    const gradeId = 'g-report-done'
+
+    const pending = (async () => {
+      const out: GradeEvent[] = []
+      for await (const ev of subscribeToGrade(subscriber, gradeId)) out.push(ev)
+      return out
+    })()
+
+    await new Promise((r) => setTimeout(r, 50))
+    await publishGradeEvent(publisher, gradeId, { type: 'report.started' })
+    await publishGradeEvent(publisher, gradeId, { type: 'report.done', reportId: 'r-1', token: 'abc' })
+
+    const events = await pending
+    expect(events).toHaveLength(2)
+    expect(events[1]?.type).toBe('report.done')
+
+    await publisher.quit()
+    await subscriber.quit()
+  })
+
+  it('terminates the iterator on report.failed', async () => {
+    const publisher = createRedis(redisUrl)
+    const subscriber = createRedis(redisUrl)
+    const gradeId = 'g-report-failed'
+
+    const pending = (async () => {
+      const out: GradeEvent[] = []
+      for await (const ev of subscribeToGrade(subscriber, gradeId)) out.push(ev)
+      return out
+    })()
+
+    await new Promise((r) => setTimeout(r, 50))
+    await publishGradeEvent(publisher, gradeId, { type: 'report.failed', error: 'boom' })
+
+    const events = await pending
+    expect(events).toHaveLength(1)
+    expect(events[0]?.type).toBe('report.failed')
+
+    await publisher.quit()
+    await subscriber.quit()
+  })
+
   it('terminates the iterator when AbortSignal fires', async () => {
     const publisher = createRedis(redisUrl)
     const subscriber = createRedis(redisUrl)

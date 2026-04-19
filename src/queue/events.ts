@@ -18,6 +18,27 @@ export type GradeEvent =
   | { type: 'category.completed'; category: CategoryId; score: number | null }
   | { type: 'done'; overall: number; letter: string; scores: Record<CategoryId, number | null> }
   | { type: 'failed'; error: string }
+  // Plan 8 — paid-report pipeline
+  | { type: 'report.started' }
+  | {
+      type: 'report.probe.started'
+      category: CategoryId
+      provider: ProviderId
+      label: string
+    }
+  | {
+      type: 'report.probe.completed'
+      category: CategoryId
+      provider: ProviderId
+      label: string
+      score: number | null
+      durationMs: number
+      error: string | null
+    }
+  | { type: 'report.recommendations.started' }
+  | { type: 'report.recommendations.completed'; count: number }
+  | { type: 'report.done'; reportId: string; token: string }
+  | { type: 'report.failed'; error: string }
 
 export function channelFor(gradeId: string): string {
   return `grade:${gradeId}`
@@ -69,7 +90,12 @@ export function subscribeToGrade(
         } else {
           queue.push(event)
         }
-        if (event.type === 'done' || event.type === 'failed') finish()
+        if (
+          event.type === 'done' ||
+          event.type === 'failed' ||
+          event.type === 'report.done' ||
+          event.type === 'report.failed'
+        ) finish()
       }
 
       redis.on('message', onMessage)
