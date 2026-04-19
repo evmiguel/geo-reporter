@@ -1,4 +1,4 @@
-import type { GradeEvent, GradeState, CategoryId } from './types.ts'
+import type { GradeEvent, GradeState, CategoryId, ProbeEntry } from './types.ts'
 
 export function initialGradeState(): GradeState {
   return {
@@ -12,6 +12,9 @@ export function initialGradeState(): GradeState {
     overall: null,
     letter: null,
     error: null,
+    paidStatus: 'none',
+    reportId: null,
+    reportToken: null,
   }
 }
 
@@ -74,5 +77,50 @@ export function reduceGradeEvents(state: GradeState, event: GradeEvent, now: num
       }
     case 'failed':
       return { ...state, phase: 'failed', error: event.error }
+    case 'report.started':
+      return { ...state, paidStatus: 'generating' }
+    case 'report.probe.started': {
+      const key = probeKey(event.category, event.provider, event.label)
+      const existing = state.probes.get(key)
+      const entry: ProbeEntry = {
+        key,
+        category: event.category,
+        provider: event.provider,
+        label: event.label,
+        status: 'started',
+        score: null,
+        durationMs: 0,
+        error: null,
+        startedAt: existing?.startedAt ?? now,
+      }
+      const probes = new Map(state.probes)
+      probes.set(key, entry)
+      return { ...state, probes }
+    }
+    case 'report.probe.completed': {
+      const key = probeKey(event.category, event.provider, event.label)
+      const existing = state.probes.get(key)
+      const entry: ProbeEntry = {
+        key,
+        category: event.category,
+        provider: event.provider,
+        label: event.label,
+        status: 'completed',
+        score: event.score,
+        durationMs: event.durationMs,
+        error: event.error,
+        startedAt: existing?.startedAt ?? now,
+      }
+      const probes = new Map(state.probes)
+      probes.set(key, entry)
+      return { ...state, probes }
+    }
+    case 'report.recommendations.started':
+    case 'report.recommendations.completed':
+      return state
+    case 'report.done':
+      return { ...state, paidStatus: 'ready', reportId: event.reportId, reportToken: event.token }
+    case 'report.failed':
+      return { ...state, paidStatus: 'failed', error: event.error }
   }
 }

@@ -125,3 +125,36 @@ describe('reduceGradeEvents', () => {
     expect([...s.probes.values()].every((p) => p.status === 'completed')).toBe(true)
   })
 })
+
+describe('grade-reducer — paid flow', () => {
+  it('report.started transitions paidStatus to generating', () => {
+    let state = initialGradeState()
+    state = reduceGradeEvents(state, { type: 'report.started' }, 0)
+    expect(state.paidStatus).toBe('generating')
+  })
+
+  it('report.probe.completed adds to probes map', () => {
+    let state = initialGradeState()
+    state = reduceGradeEvents(state, {
+      type: 'report.probe.completed',
+      category: 'recognition', provider: 'gemini', label: 'description',
+      score: 80, durationMs: 1000, error: null,
+    }, 0)
+    expect([...state.probes.values()].some((p) => p.provider === 'gemini')).toBe(true)
+  })
+
+  it('report.done sets paidStatus=ready + reportToken + reportId', () => {
+    let state = initialGradeState()
+    state = reduceGradeEvents(state, { type: 'report.done', reportId: 'r-1', token: 'abc' }, 0)
+    expect(state.paidStatus).toBe('ready')
+    expect(state.reportToken).toBe('abc')
+    expect(state.reportId).toBe('r-1')
+  })
+
+  it('report.failed sets paidStatus=failed + error', () => {
+    let state = initialGradeState()
+    state = reduceGradeEvents(state, { type: 'report.failed', error: 'boom' }, 0)
+    expect(state.paidStatus).toBe('failed')
+    expect(state.error).toBe('boom')
+  })
+})

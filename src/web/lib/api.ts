@@ -105,3 +105,39 @@ export async function getAuthMe(): Promise<{ verified: boolean; email?: string }
   if (!res.ok) return { verified: false }
   return res.json() as Promise<{ verified: boolean; email?: string }>
 }
+
+export type CheckoutResult =
+  | { ok: true; url: string }
+  | { ok: false; kind: 'already_paid'; reportId: string }
+  | { ok: false; kind: 'grade_not_done' }
+  | { ok: false; kind: 'unavailable' }
+  | { ok: false; kind: 'unknown'; status: number }
+
+export async function postBillingCheckout(gradeId: string): Promise<CheckoutResult> {
+  let res: Response
+  try {
+    res = await fetch('/billing/checkout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ gradeId }),
+    })
+  } catch {
+    return { ok: false, kind: 'unknown', status: 0 }
+  }
+
+  if (res.status === 200) {
+    const body = await res.json() as { url: string }
+    return { ok: true, url: body.url }
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; reportId?: string }
+    if (body.error === 'already_paid' && typeof body.reportId === 'string') {
+      return { ok: false, kind: 'already_paid', reportId: body.reportId }
+    }
+    if (body.error === 'grade_not_done') return { ok: false, kind: 'grade_not_done' }
+    return { ok: false, kind: 'unknown', status: res.status }
+  }
+  if (res.status === 503) return { ok: false, kind: 'unavailable' }
+  return { ok: false, kind: 'unknown', status: res.status }
+}

@@ -32,6 +32,7 @@ describe('LiveGradePage', () => {
         coverage: null, citation: null, seo: null,
       },
       overall: null, letter: null, error: null,
+      paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('abc-123')
     expect(screen.getByText(/DISCOVERABILITY · 30%/i)).toBeInTheDocument()
@@ -49,6 +50,7 @@ describe('LiveGradePage', () => {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
       overall: 78, letter: 'C+', error: null,
+      paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('done-grade')
     expect(screen.getByText('C+')).toBeInTheDocument()

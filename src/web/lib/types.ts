@@ -19,6 +19,24 @@ export type GradeEvent =
   | { type: 'category.completed'; category: CategoryId; score: number | null }
   | { type: 'done'; overall: number; letter: string; scores: Record<CategoryId, number | null> }
   | { type: 'failed'; error: string }
+  // Plan 8 — paid-report pipeline
+  | { type: 'report.started' }
+  | { type: 'report.probe.started'; category: CategoryId; provider: ProviderId; label: string }
+  | {
+      type: 'report.probe.completed'
+      category: CategoryId
+      provider: ProviderId
+      label: string
+      score: number | null
+      durationMs: number
+      error: string | null
+    }
+  | { type: 'report.recommendations.started' }
+  | { type: 'report.recommendations.completed'; count: number }
+  | { type: 'report.done'; reportId: string; token: string }
+  | { type: 'report.failed'; error: string }
+
+export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed'
 
 export type Phase = 'queued' | 'running' | 'scraped' | 'done' | 'failed'
 
@@ -42,6 +60,9 @@ export interface GradeState {
   overall: number | null
   letter: string | null
   error: string | null
+  paidStatus: PaidStatus
+  reportId: string | null
+  reportToken: string | null
 }
 
 export const CATEGORY_ORDER: CategoryId[] = [
