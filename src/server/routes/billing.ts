@@ -63,5 +63,51 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
     },
   )
 
+  app.post('/webhook', async (c) => {
+    const rawBuffer = await c.req.raw.arrayBuffer()
+    const rawBody = new TextDecoder().decode(rawBuffer)
+    const signature = c.req.header('stripe-signature')
+    if (!signature) return c.json({ error: 'missing_signature' }, 400)
+
+    let event
+    try {
+      event = deps.billing.verifyWebhookSignature(rawBody, signature, deps.webhookSecret)
+    } catch {
+      return c.json({ error: 'invalid_signature' }, 400)
+    }
+
+    if (event.type !== 'checkout.session.completed') {
+      return c.body(null, 200)
+    }
+
+    const gradeId = event.data.object.metadata?.gradeId
+    if (!gradeId || !UUID_REGEX.test(gradeId)) {
+      return c.json({ error: 'missing_grade_id' }, 400)
+    }
+
+    const sessionId = event.data.object.id
+    const row = await deps.store.getStripePaymentBySessionId(sessionId)
+    if (!row) return c.json({ error: 'unknown_session' }, 400)
+    if (row.status === 'paid') {
+      return c.body(null, 200)
+    }
+
+    const amountCents = event.data.object.amount_total
+    const currency = event.data.object.currency
+    await deps.store.updateStripePaymentStatus(sessionId, {
+      status: 'paid',
+      ...(typeof amountCents === 'number' ? { amountCents } : {}),
+      ...(typeof currency === 'string' ? { currency } : {}),
+    })
+
+    await deps.reportQueue.add(
+      'generate-report',
+      { gradeId, sessionId },
+      { jobId: `generate-report:${sessionId}`, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
+    )
+
+    return c.body(null, 200)
+  })
+
   return app
 }

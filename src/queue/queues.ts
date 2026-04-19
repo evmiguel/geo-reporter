@@ -11,6 +11,7 @@ export interface GradeJob {
 }
 export interface ReportJob {
   gradeId: string
+  sessionId?: string
 }
 export interface PdfJob {
   gradeId: string
