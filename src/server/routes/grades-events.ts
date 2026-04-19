@@ -24,21 +24,19 @@ export function gradesEventsRouter(deps: ServerDeps): Hono<Env> {
         await stream.writeSSE({ data: JSON.stringify(ev) })
       }
 
-      if (grade.status === 'done') {
-        await send({
-          type: 'done',
-          overall: grade.overall ?? 0,
-          letter: grade.letter ?? 'F',
-          scores: (grade.scores ?? {}) as Record<CategoryId, number | null>,
-        })
-        return
-      }
+      // Terminal: grade itself failed — emit failed and return.
       if (grade.status === 'failed') {
         await send({ type: 'failed', error: 'grade failed' })
         return
       }
 
-      await send({ type: 'running' })
+      // Hydrate past state (for reconnects / late subscribers).
+      // Send 'running' for any non-terminal status so the frontend knows the pipeline
+      // is active, and to avoid races where the worker publishes 'running' before
+      // this subscriber connects.
+      if (grade.status === 'running' || grade.status === 'queued') {
+        await send({ type: 'running' })
+      }
       const scrape = await deps.store.getScrape(grade.id)
       if (scrape) {
         await send({ type: 'scraped', rendered: scrape.rendered, textLength: scrape.text.length })
@@ -47,17 +45,51 @@ export function gradesEventsRouter(deps: ServerDeps): Hono<Env> {
       const ordered = [...probes].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       for (const probe of ordered) {
         const meta = (probe.metadata ?? {}) as { label?: string; latencyMs?: number; error?: string | null }
+        const label = meta.label ?? ''
+        const durationMs = meta.latencyMs ?? 0
+        const error = meta.error ?? null
+        if (probe.provider === 'gemini' || probe.provider === 'perplexity') {
+          await send({
+            type: 'report.probe.completed',
+            category: probe.category as CategoryId,
+            provider: probe.provider,
+            label,
+            score: probe.score,
+            durationMs,
+            error,
+          })
+        } else {
+          await send({
+            type: 'probe.completed',
+            category: probe.category as CategoryId,
+            provider: probe.provider as ProviderId | null,
+            label,
+            score: probe.score,
+            durationMs,
+            error,
+          })
+        }
+      }
+
+      if (grade.status === 'done') {
         await send({
-          type: 'probe.completed',
-          category: probe.category as CategoryId,
-          provider: probe.provider as ProviderId | null,
-          label: meta.label ?? '',
-          score: probe.score,
-          durationMs: meta.latencyMs ?? 0,
-          error: meta.error ?? null,
+          type: 'done',
+          overall: grade.overall ?? 0,
+          letter: grade.letter ?? 'F',
+          scores: (grade.scores ?? {}) as Record<CategoryId, number | null>,
         })
       }
 
+      // Paid-tier terminal hydration: emit report.done if report row exists.
+      if (grade.tier === 'paid') {
+        const report = await deps.store.getReport(grade.id)
+        if (report) {
+          await send({ type: 'report.done', reportId: report.id, token: report.token })
+          return
+        }
+      }
+
+      // Non-terminal: subscribe for live events (queued/running, or done awaiting report generation).
       const subscriber = deps.redisFactory()
       const abortCtrl = new AbortController()
       const onAbort = (): void => abortCtrl.abort()
@@ -66,7 +98,12 @@ export function gradesEventsRouter(deps: ServerDeps): Hono<Env> {
       try {
         for await (const event of subscribeToGrade(subscriber, grade.id, abortCtrl.signal)) {
           await send(event)
-          if (event.type === 'done' || event.type === 'failed') break
+          if (
+            event.type === 'done' ||
+            event.type === 'failed' ||
+            event.type === 'report.done' ||
+            event.type === 'report.failed'
+          ) break
         }
       } finally {
         c.req.raw.signal.removeEventListener('abort', onAbort)

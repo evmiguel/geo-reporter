@@ -97,7 +97,7 @@ describe('GET /grades/:id/events (unit — early exit paths)', () => {
     expect(res.status).toBe(403)
   })
 
-  it('emits one synthesized done event for a done grade and closes the stream', async () => {
+  it('emits synthesized done event for a done grade (plus subscribe passthrough)', async () => {
     const deps = makeDeps()
     const store = deps.store as ReturnType<typeof makeFakeStore>
     const cookieValue = '22222222-3333-4444-5555-666666666666'
@@ -115,8 +115,13 @@ describe('GET /grades/:id/events (unit — early exit paths)', () => {
     expect(res.headers.get('content-type')).toMatch(/text\/event-stream/)
     const text = await res.text()
     const dataLines = text.split('\n').filter((l) => l.startsWith('data: ')).map((l) => JSON.parse(l.slice(6)))
-    expect(dataLines).toHaveLength(1)
+    // Plan 8 Task 13: tier=free + status=done hydrates the synthesized done event and
+    // then keeps the subscription alive (user may have just paid, which would trigger
+    // report.* events). The mocked subscribeToGrade yields a terminal done, so we see
+    // the synthesized done followed by the mocked live done.
     expect(dataLines[0]).toMatchObject({ type: 'done', overall: 85, letter: 'B' })
+    expect(dataLines.length).toBeGreaterThanOrEqual(1)
+    expect(dataLines.every((d) => d.type === 'done')).toBe(true)
   })
 
   it('emits one synthesized failed event for a failed grade', async () => {

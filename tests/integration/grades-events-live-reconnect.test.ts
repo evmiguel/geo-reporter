@@ -149,8 +149,14 @@ describe('SSE live lifecycle: reconnect', () => {
         headers: { cookie: cookieHeader, accept: 'text/event-stream' },
       })
       const events = await readSseUntilDone(secondRes, 5_000)
-      expect(events).toHaveLength(1)
-      expect(events[0]?.type).toBe('done')
+      // Plan 8 Task 13: on reconnect to a done grade we hydrate prior state
+      // (scraped + per-probe probe.completed) and then emit the terminal done event
+      // so the client can fully reconstruct the UI without running a new job.
+      expect(events[events.length - 1]?.type).toBe('done')
+      expect(events.some((e) => e.type === 'scraped')).toBe(true)
+      expect(events.filter((e) => e.type === 'probe.completed').length).toBeGreaterThan(0)
+      // No running event on a grade that's already done.
+      expect(events.some((e) => e.type === 'running')).toBe(false)
     } finally {
       server.close()
       await worker.close()
