@@ -170,3 +170,44 @@ export function promptAccuracyVerifier(input: AccuracyVerifierInput): string {
     '}',
   ].join('\n')
 }
+
+export interface RecommenderInput {
+  url: string
+  scores: Record<string, number | null>
+  failingSeoSignals: { label: string; detail: string }[]
+  accuracyQuestion: string | null
+  accuracyAnswers: { provider: string; response: string }[]
+  llmDescriptions: { provider: string; description: string }[]
+  scrapeText: string
+}
+
+export function promptRecommender(input: RecommenderInput): string {
+  return `You are a GEO (Generative Engine Optimization) consultant reviewing how well LLMs know the website ${input.url}.
+
+Here is the data we collected:
+
+CATEGORY SCORES: ${JSON.stringify(input.scores)}
+
+FAILING SEO SIGNALS:
+${input.failingSeoSignals.map((s) => `- ${s.label}: ${s.detail}`).join('\n') || '(none)'}
+
+ACCURACY:
+${input.accuracyQuestion ? `Q: ${input.accuracyQuestion}` : '(no accuracy question)'}
+${input.accuracyAnswers.map((a) => `  ${a.provider}: ${a.response}`).join('\n')}
+
+LLM DESCRIPTIONS:
+${input.llmDescriptions.map((d) => `  ${d.provider}: ${d.description}`).join('\n')}
+
+SCRAPE (first 2000 chars):
+${input.scrapeText.slice(0, 2000)}
+
+Produce between 5 and 8 concrete recommendations as a JSON array. Each recommendation must be an object with these exact keys:
+  - title (string, < 80 chars)
+  - category (one of: discoverability, recognition, accuracy, coverage, citation, seo)
+  - impact (integer 1-5 where 5 is highest)
+  - effort (integer 1-5 where 5 is highest)
+  - rationale (string, 1-3 sentences explaining why this helps)
+  - how (string, 2-5 sentences describing concrete steps)
+
+Respond with ONLY the JSON array. No prose, no code fences.`
+}
