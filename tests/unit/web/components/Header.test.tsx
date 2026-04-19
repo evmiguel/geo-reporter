@@ -42,4 +42,23 @@ describe('Header', () => {
     await user.click(screen.getByRole('button', { name: /sign out/i }))
     expect(logoutMock).toHaveBeenCalled()
   })
+
+  it('shows credit badge when verified and credits > 0', () => {
+    mockAuth.current = { verified: true, email: 'u@e.com', credits: 7, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter><Header /></MemoryRouter>)
+    expect(screen.getByTestId('credit-badge')).toHaveTextContent('7 credits')
+  })
+
+  it('hides credit badge when credits === 0', () => {
+    mockAuth.current = { verified: true, email: 'u@e.com', credits: 0, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter><Header /></MemoryRouter>)
+    expect(screen.queryByTestId('credit-badge')).toBeNull()
+  })
+
+  it('hides credit badge when not verified (even with credits)', () => {
+    // defensive — credits shouldn't be present without verification, but gate is belt-and-suspenders
+    mockAuth.current = { verified: false, email: null, credits: 5, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter><Header /></MemoryRouter>)
+    expect(screen.queryByTestId('credit-badge')).toBeNull()
+  })
 })
