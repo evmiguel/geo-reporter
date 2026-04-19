@@ -96,6 +96,7 @@ describe('env — Plan 7 auth vars', () => {
       STRIPE_SECRET_KEY: 'sk_live_abc',
       STRIPE_WEBHOOK_SECRET: 'whsec_abc',
       STRIPE_PRICE_ID: 'price_abc',
+      STRIPE_CREDITS_PRICE_ID: 'price_credits_abc',
     })
     expect(env.PUBLIC_BASE_URL).toBe('https://geo-reporter.com')
   })
@@ -188,7 +189,44 @@ describe('env — OpenRouter fallback', () => {
       STRIPE_SECRET_KEY: 'sk_live_a',
       STRIPE_WEBHOOK_SECRET: 'whsec_a',
       STRIPE_PRICE_ID: 'price_a',
+      STRIPE_CREDITS_PRICE_ID: 'price_credits_a',
     })
     expect(env.OPENROUTER_API_KEY).toBeUndefined()
+  })
+})
+
+describe('env — credits pack', () => {
+  const base = {
+    DATABASE_URL: 'postgres://localhost/test',
+    REDIS_URL: 'redis://localhost:6379',
+    ANTHROPIC_API_KEY: 'sk-a', OPENAI_API_KEY: 'sk-o',
+    GEMINI_API_KEY: 'sk-g', PERPLEXITY_API_KEY: 'sk-p',
+    COOKIE_HMAC_KEY: 'a'.repeat(32),
+    PUBLIC_BASE_URL: 'http://localhost:5173',
+    STRIPE_SECRET_KEY: 'sk_live_abc',
+    STRIPE_WEBHOOK_SECRET: 'whsec_abc',
+    STRIPE_PRICE_ID: 'price_abc',
+  }
+
+  it('accepts missing STRIPE_CREDITS_PRICE_ID in development', () => {
+    const env = loadEnv({ ...base, NODE_ENV: 'development' })
+    expect(env.STRIPE_CREDITS_PRICE_ID).toBeUndefined()
+  })
+
+  it('rejects STRIPE_CREDITS_PRICE_ID without price_ prefix', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', STRIPE_CREDITS_PRICE_ID: 'abc' }))
+      .toThrow(/STRIPE_CREDITS_PRICE_ID/)
+  })
+
+  it('requires STRIPE_CREDITS_PRICE_ID in production', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/STRIPE_CREDITS_PRICE_ID/)
+  })
+
+  it('accepts fully-configured production env', () => {
+    const env = loadEnv({
+      ...base, NODE_ENV: 'production',
+      STRIPE_CREDITS_PRICE_ID: 'price_credits_abc',
+    })
+    expect(env.STRIPE_CREDITS_PRICE_ID).toBe('price_credits_abc')
   })
 })

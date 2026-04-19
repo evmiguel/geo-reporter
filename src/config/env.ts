@@ -14,6 +14,7 @@ const Schema = z.object({
   STRIPE_SECRET_KEY: z.string().startsWith('sk_').optional(),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
   STRIPE_PRICE_ID: z.string().startsWith('price_').optional(),
+  STRIPE_CREDITS_PRICE_ID: z.string().startsWith('price_').optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
@@ -21,6 +22,7 @@ const Schema = z.object({
       'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'PERPLEXITY_API_KEY',
       'COOKIE_HMAC_KEY', 'PUBLIC_BASE_URL',
       'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID',
+      'STRIPE_CREDITS_PRICE_ID',
     ] as const
     for (const key of required) {
       if (!val[key]) {
