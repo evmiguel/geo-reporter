@@ -100,10 +100,10 @@ export async function postAuthLogout(): Promise<void> {
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
 }
 
-export async function getAuthMe(): Promise<{ verified: boolean; email?: string }> {
+export async function getAuthMe(): Promise<{ verified: boolean; email?: string; credits?: number }> {
   const res = await fetch('/auth/me', { credentials: 'include' })
   if (!res.ok) return { verified: false }
-  return res.json() as Promise<{ verified: boolean; email?: string }>
+  return res.json() as Promise<{ verified: boolean; email?: string; credits?: number }>
 }
 
 export type CheckoutResult =

@@ -11,7 +11,7 @@ afterEach(() => cleanup())
 // the mock factory and per-test overrides.
 const { mockAuth } = vi.hoisted(() => ({
   mockAuth: {
-    current: { verified: false, email: null as string | null, refresh: async () => {}, logout: vi.fn() },
+    current: { verified: false, email: null as string | null, credits: 0, refresh: async () => {}, logout: vi.fn() },
   },
 }))
 
@@ -23,20 +23,20 @@ import { Header } from '../../../../src/web/components/Header.tsx'
 
 describe('Header', () => {
   it('shows sign-out button when verified', () => {
-    mockAuth.current = { verified: true, email: 'u@e.com', refresh: async () => {}, logout: vi.fn() }
+    mockAuth.current = { verified: true, email: 'u@e.com', credits: 0, refresh: async () => {}, logout: vi.fn() }
     render(<MemoryRouter><Header /></MemoryRouter>)
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
   })
 
   it('hides sign-out button when not verified', () => {
-    mockAuth.current = { verified: false, email: null, refresh: async () => {}, logout: vi.fn() }
+    mockAuth.current = { verified: false, email: null, credits: 0, refresh: async () => {}, logout: vi.fn() }
     render(<MemoryRouter><Header /></MemoryRouter>)
     expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull()
   })
 
   it('calls logout when sign-out clicked', async () => {
     const logoutMock = vi.fn().mockResolvedValue(undefined)
-    mockAuth.current = { verified: true, email: 'u@e.com', refresh: async () => {}, logout: logoutMock }
+    mockAuth.current = { verified: true, email: 'u@e.com', credits: 0, refresh: async () => {}, logout: logoutMock }
     const user = userEvent.setup()
     render(<MemoryRouter><Header /></MemoryRouter>)
     await user.click(screen.getByRole('button', { name: /sign out/i }))

@@ -79,8 +79,10 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
   })
 
   app.get('/me', async (c) => {
-    const row = await deps.store.getCookieWithUser(c.var.cookie)
-    if (row.userId && row.email) return c.json({ verified: true, email: row.email })
+    const row = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
+    if (row.userId && row.email) {
+      return c.json({ verified: true, email: row.email, credits: row.credits })
+    }
     return c.json({ verified: false })
   })
 

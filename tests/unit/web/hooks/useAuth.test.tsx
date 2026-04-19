@@ -5,13 +5,14 @@ import { useAuth } from '../../../../src/web/hooks/useAuth.ts'
 beforeEach(() => { vi.restoreAllMocks() })
 
 describe('useAuth', () => {
-  it('starts unverified; refresh() pulls from /auth/me', async () => {
+  it('starts unverified; refresh() pulls from /auth/me with credits', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ verified: true, email: 'u@ex.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ verified: true, email: 'u@ex.com', credits: 7 }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useAuth())
     await waitFor(() => expect(result.current.verified).toBe(true))
     expect(result.current.email).toBe('u@ex.com')
+    expect(result.current.credits).toBe(7)
   })
 
   it('logout() posts to /auth/logout and refreshes', async () => {

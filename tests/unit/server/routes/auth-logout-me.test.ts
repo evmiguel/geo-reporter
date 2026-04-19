@@ -68,7 +68,24 @@ describe('GET /auth/me', () => {
     const res = await app.fetch(new Request('http://test/auth/me', {
       headers: { cookie: `ggcookie=${cookie}` },
     }))
-    expect(await res.json()).toEqual({ verified: true, email: 'user@example.com' })
+    expect(await res.json()).toEqual({ verified: true, email: 'user@example.com', credits: 0 })
+  })
+
+  it('returns credits when user has them', async () => {
+    const { app, store, mailer } = build()
+    const cookie = await issueCookie(app)
+    await verifyForUser(app, mailer, cookie, 'user@example.com')
+    const user = [...store.usersMap.values()].find((u) => u.email === 'user@example.com')!
+    await store.createStripePayment({
+      gradeId: null, sessionId: 'cs_me',
+      amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid('cs_me', user.id, 7, 2900, 'usd')
+
+    const res = await app.fetch(new Request('http://test/auth/me', {
+      headers: { cookie: `ggcookie=${cookie}` },
+    }))
+    expect(await res.json()).toEqual({ verified: true, email: 'user@example.com', credits: 7 })
   })
 })
 
