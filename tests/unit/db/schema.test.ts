@@ -15,4 +15,14 @@ describe('schema', () => {
       expect(cols).toContain(c)
     }
   })
+
+  it('users table has credits column', () => {
+    const cols = Object.keys(getTableColumns(users))
+    expect(cols).toContain('credits')
+  })
+
+  it('stripe_payments table has kind column', () => {
+    const cols = Object.keys(getTableColumns(stripePayments))
+    expect(cols).toContain('kind')
+  })
 })

@@ -4,6 +4,7 @@ import { pgTable, text, uuid, integer, boolean, jsonb, timestamp, unique, index 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
+  credits: integer('credits').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -81,8 +82,9 @@ export const reports = pgTable('reports', {
 
 export const stripePayments = pgTable('stripe_payments', {
   id: uuid('id').primaryKey().defaultRandom(),
-  gradeId: uuid('grade_id').notNull().references(() => grades.id, { onDelete: 'cascade' }),
+  gradeId: uuid('grade_id').references(() => grades.id, { onDelete: 'cascade' }),
   sessionId: text('session_id').notNull().unique(),
+  kind: text('kind', { enum: ['report', 'credits'] }).notNull().default('report'),
   status: text('status', { enum: ['pending', 'paid', 'refunded', 'failed'] }).notNull().default('pending'),
   amountCents: integer('amount_cents').notNull(),
   currency: text('currency').notNull(),

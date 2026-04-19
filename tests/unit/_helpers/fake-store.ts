@@ -91,7 +91,7 @@ export function makeFakeStore(): FakeGradeStore {
     async upsertUser(email: string): Promise<User> {
       const existing = [...usersMap.values()].find((u) => u.email === email)
       if (existing) return existing
-      const u: User = { id: crypto.randomUUID(), email, createdAt: new Date() }
+      const u: User = { id: crypto.randomUUID(), email, credits: 0, createdAt: new Date() }
       usersMap.set(u.id, u)
       return u
     },
@@ -149,20 +149,21 @@ export function makeFakeStore(): FakeGradeStore {
 
       let user = [...usersMap.values()].find((u) => u.email === found!.email)
       if (!user) {
-        user = { id: crypto.randomUUID(), email: found.email, createdAt: new Date() }
+        user = { id: crypto.randomUUID(), email: found.email, credits: 0, createdAt: new Date() }
         usersMap.set(user.id, user)
       }
+      const resolvedUser = user
 
       const clicker = cookiesMap.get(clickingCookie)
       if (clicker) {
-        cookiesMap.set(clickingCookie, { ...clicker, userId: user.id })
+        cookiesMap.set(clickingCookie, { ...clicker, userId: resolvedUser.id })
       } else {
-        cookiesMap.set(clickingCookie, { cookie: clickingCookie, userId: user.id, createdAt: new Date() })
+        cookiesMap.set(clickingCookie, { cookie: clickingCookie, userId: resolvedUser.id, createdAt: new Date() })
       }
 
       magicTokensMap.set(foundId, { ...found, consumedAt: new Date() })
 
-      return { ok: true, email: user.email, userId: user.id }
+      return { ok: true, email: resolvedUser.email, userId: resolvedUser.id }
     },
     async unbindCookie(cookie: string): Promise<void> {
       const row = cookiesMap.get(cookie)
@@ -186,6 +187,7 @@ export function makeFakeStore(): FakeGradeStore {
         id: crypto.randomUUID(),
         gradeId: input.gradeId,
         sessionId: input.sessionId,
+        kind: 'report',
         status: 'pending',
         amountCents: input.amountCents,
         currency: input.currency,
