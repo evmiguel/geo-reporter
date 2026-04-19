@@ -142,6 +142,6 @@ describe('POST /billing/webhook (integration)', () => {
 
     const jobs = await reportQueue.getJobs(['waiting', 'active', 'delayed', 'completed', 'failed'])
     const matching = jobs.filter((j) => j.id === `generate-report-${session.id}`)
-    expect(matching).toHaveLength(1) // not 2 — deterministic jobId dedup OR already-paid guard
+    expect(matching).toHaveLength(1) // webhook always attempts enqueue; BullMQ dedups by deterministic jobId
   }, 60_000)
 })

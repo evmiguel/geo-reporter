@@ -119,7 +119,7 @@ describe('POST /billing/webhook', () => {
     expect(res.status).toBe(400)
   })
 
-  it('idempotent: duplicate webhook for already-paid session returns 200, no re-enqueue', async () => {
+  it('idempotent: duplicate webhook for already-paid session returns 200 and re-attempts enqueue with deterministic jobId (BullMQ dedups at queue layer)', async () => {
     const { app, store, billing, fakeAdd } = build()
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', status: 'done' })
     const session = await billing.createCheckoutSession({
@@ -137,12 +137,25 @@ describe('POST /billing/webhook', () => {
       amountTotal: 1900,
       currency: 'usd',
     })
-    const res = await app.fetch(new Request('http://test/billing/webhook', {
+    // Fire webhook twice — simulates Stripe retry after hypothetical crash between
+    // status-flip and enqueue. Both calls should attempt to enqueue; real BullMQ
+    // dedups by jobId. The vi.fn() mock just records both calls.
+    const res1 = await app.fetch(new Request('http://test/billing/webhook', {
       method: 'POST',
       headers: { 'stripe-signature': signature, 'content-type': 'application/json' },
       body,
     }))
-    expect(res.status).toBe(200)
-    expect(fakeAdd).not.toHaveBeenCalled()
+    const res2 = await app.fetch(new Request('http://test/billing/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': signature, 'content-type': 'application/json' },
+      body,
+    }))
+    expect(res1.status).toBe(200)
+    expect(res2.status).toBe(200)
+    // fakeAdd IS called twice; the second call uses the same deterministic jobId.
+    // Real BullMQ dedups by jobId; the mock just records both calls.
+    expect(fakeAdd).toHaveBeenCalledTimes(2)
+    expect(fakeAdd.mock.calls[0]![2]).toMatchObject({ jobId: `generate-report-${session.id}` })
+    expect(fakeAdd.mock.calls[1]![2]).toMatchObject({ jobId: `generate-report-${session.id}` })
   })
 })

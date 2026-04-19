@@ -88,18 +88,21 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
     const sessionId = event.data.object.id
     const row = await deps.store.getStripePaymentBySessionId(sessionId)
     if (!row) return c.json({ error: 'unknown_session' }, 400)
-    if (row.status === 'paid') {
-      return c.body(null, 200)
+
+    // Flip to paid idempotently (no-op if already paid).
+    if (row.status !== 'paid') {
+      const amountCents = event.data.object.amount_total
+      const currency = event.data.object.currency
+      await deps.store.updateStripePaymentStatus(sessionId, {
+        status: 'paid',
+        ...(typeof amountCents === 'number' ? { amountCents } : {}),
+        ...(typeof currency === 'string' ? { currency } : {}),
+      })
     }
 
-    const amountCents = event.data.object.amount_total
-    const currency = event.data.object.currency
-    await deps.store.updateStripePaymentStatus(sessionId, {
-      status: 'paid',
-      ...(typeof amountCents === 'number' ? { amountCents } : {}),
-      ...(typeof currency === 'string' ? { currency } : {}),
-    })
-
+    // ALWAYS attempt to enqueue — BullMQ's deterministic jobId dedups duplicates.
+    // This closes the race where the status update succeeded but the enqueue crashed
+    // between two webhook retries: the second retry will re-enqueue.
     await deps.reportQueue.add(
       'generate-report',
       { gradeId, sessionId },
