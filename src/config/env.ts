@@ -9,9 +9,14 @@ const Schema = z.object({
   OPENAI_API_KEY: z.string().min(1).optional(),
   GEMINI_API_KEY: z.string().min(1).optional(),
   PERPLEXITY_API_KEY: z.string().min(1).optional(),
+  COOKIE_HMAC_KEY: z.string().min(32).optional(),
+  PUBLIC_BASE_URL: z.string().url().optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
-    const required = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'PERPLEXITY_API_KEY'] as const
+    const required = [
+      'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'PERPLEXITY_API_KEY',
+      'COOKIE_HMAC_KEY', 'PUBLIC_BASE_URL',
+    ] as const
     for (const key of required) {
       if (!val[key]) {
         ctx.addIssue({ code: 'custom', message: `${key} is required in production`, path: [key] })

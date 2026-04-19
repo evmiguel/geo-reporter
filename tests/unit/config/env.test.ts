@@ -48,3 +48,52 @@ describe('env (lazy Proxy)', () => {
     }
   })
 })
+
+describe('env — Plan 7 auth vars', () => {
+  const base = {
+    DATABASE_URL: 'postgres://localhost/test',
+    REDIS_URL: 'redis://localhost:6379',
+    ANTHROPIC_API_KEY: 'sk-a', OPENAI_API_KEY: 'sk-o',
+    GEMINI_API_KEY: 'sk-g', PERPLEXITY_API_KEY: 'sk-p',
+  }
+
+  it('accepts missing COOKIE_HMAC_KEY in development', () => {
+    const result = loadEnv({ ...base, NODE_ENV: 'development' })
+    expect(result.COOKIE_HMAC_KEY).toBeUndefined()
+    expect(result.PUBLIC_BASE_URL).toBeUndefined()
+  })
+
+  it('accepts COOKIE_HMAC_KEY at 32 chars', () => {
+    const key = 'a'.repeat(32)
+    const result = loadEnv({ ...base, NODE_ENV: 'development', COOKIE_HMAC_KEY: key })
+    expect(result.COOKIE_HMAC_KEY).toBe(key)
+  })
+
+  it('rejects COOKIE_HMAC_KEY shorter than 32 chars', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', COOKIE_HMAC_KEY: 'short' })).toThrow(/COOKIE_HMAC_KEY/)
+  })
+
+  it('requires COOKIE_HMAC_KEY in production', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/COOKIE_HMAC_KEY/)
+  })
+
+  it('requires PUBLIC_BASE_URL in production', () => {
+    expect(() => loadEnv({
+      ...base, NODE_ENV: 'production',
+      COOKIE_HMAC_KEY: 'a'.repeat(32),
+    })).toThrow(/PUBLIC_BASE_URL/)
+  })
+
+  it('rejects non-URL PUBLIC_BASE_URL', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', PUBLIC_BASE_URL: 'not a url' })).toThrow(/PUBLIC_BASE_URL/)
+  })
+
+  it('accepts fully-configured production env', () => {
+    const env = loadEnv({
+      ...base, NODE_ENV: 'production',
+      COOKIE_HMAC_KEY: 'a'.repeat(32),
+      PUBLIC_BASE_URL: 'https://geo-reporter.com',
+    })
+    expect(env.PUBLIC_BASE_URL).toBe('https://geo-reporter.com')
+  })
+})
