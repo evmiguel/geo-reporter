@@ -15,6 +15,7 @@ const providers = buildProviders({
   OPENAI_API_KEY: env.OPENAI_API_KEY,
   GEMINI_API_KEY: env.GEMINI_API_KEY,
   PERPLEXITY_API_KEY: env.PERPLEXITY_API_KEY,
+  OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
 })
 
 const workers = [

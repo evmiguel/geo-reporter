@@ -71,6 +71,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GEMINI_API_KEY=AI...
 PERPLEXITY_API_KEY=pplx-...
+
+# Optional — OpenRouter fallback.
+# When set, transient errors (5xx / 429 / network) from direct LLM API calls
+# (Claude / GPT / Gemini) auto-retry via OpenRouter with the same prompt.
+# Perplexity is direct-only.
+# OPENROUTER_API_KEY=
 EOF
 
 pnpm db:migrate
@@ -244,6 +250,7 @@ Judge / generator / verifier always use Claude regardless of tier (see `docs/sup
 
 - **`Invalid environment: DATABASE_URL: Required`** → no `.env` file, or env vars not loaded. The dev scripts pass `--env-file-if-exists=.env` to Node so `.env` at the repo root is auto-loaded; check it's there.
 - **Worker logs `buildProviders: ANTHROPIC_API_KEY is not set`** → missing key(s) in `.env`. The worker won't boot in production without all four; dev defers the check to provider use.
+- **Seeing a lot of "gemini API error" or other provider failures mid-grade** → set `OPENROUTER_API_KEY` in `.env` and restart the worker. Transient failures (5xx / 429 / network) will auto-retry through OpenRouter, which proxies Claude / GPT / Gemini under one key. Perplexity is still direct-only.
 - **Browser shows blank page at `http://localhost:5173`** → Vite dev server not running. `pnpm dev:web` must be running alongside `dev:server` + `dev:worker`.
 - **Browser POST /grades fails with connection refused** → `pnpm dev:server` isn't running. Vite proxies `/grades/*` to port 7777; if nothing's there, the proxy 502s.
 - **`POST /grades` returns 400** → URL validation rejected it. Must be `http://` or `https://`. Full SSRF defense (DNS pinning, private-IP blocking) is on the production checklist; for local dev, `http://localhost:...` URLs are allowed.
