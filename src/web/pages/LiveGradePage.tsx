@@ -6,6 +6,7 @@ import { CategoryTile } from '../components/CategoryTile.tsx'
 import { ProbeLogRow } from '../components/ProbeLogRow.tsx'
 import { GradeLetter } from '../components/GradeLetter.tsx'
 import { BuyReportButton } from '../components/BuyReportButton.tsx'
+import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { PaidReportStatus } from '../components/PaidReportStatus.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
 import { CATEGORY_ORDER, CATEGORY_WEIGHTS, type PaidStatus } from '../lib/types.ts'
@@ -79,12 +80,15 @@ export function LiveGradePage(): JSX.Element {
       )}
 
       {effectivePaidStatus !== 'none' && (
-        <PaidReportStatus
-          status={effectivePaidStatus as Exclude<PaidStatus, 'none'>}
-          reportId={state.reportId}
-          reportToken={state.reportToken}
-          error={state.error}
-        />
+        <>
+          <PaidReportStatus
+            status={effectivePaidStatus as Exclude<PaidStatus, 'none'>}
+            reportId={state.reportId}
+            reportToken={state.reportToken}
+            error={state.error}
+          />
+          {effectivePaidStatus === 'ready' && <BuyCreditsCTA />}
+        </>
       )}
 
       <div className="border-t border-[var(--color-line)] pt-4 mt-6">

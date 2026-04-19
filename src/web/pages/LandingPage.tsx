@@ -1,22 +1,34 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useCreateGrade } from '../hooks/useCreateGrade.ts'
+import { useAuth } from '../hooks/useAuth.ts'
 import { UrlForm } from '../components/UrlForm.tsx'
 import { Toast } from '../components/Toast.tsx'
+import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
+import { CreditsPurchasedToast } from '../components/CreditsPurchasedToast.tsx'
 
 export function LandingPage(): JSX.Element {
   const { create, pending, error } = useCreateGrade()
+  const { verified, refresh } = useAuth()
   const [params, setParams] = useSearchParams()
   const [verifiedToast, setVerifiedToast] = useState<boolean>(params.get('verified') === '1')
   const [authError] = useState<string | null>(params.get('auth_error'))
+  const [creditsToast, setCreditsToast] = useState<'purchased' | 'canceled' | null>(
+    params.get('credits') === 'purchased' ? 'purchased' :
+    params.get('credits') === 'canceled' ? 'canceled' :
+    null,
+  )
 
   useEffect(() => {
-    if (params.get('verified') !== null || params.get('auth_error') !== null) {
+    const hasAny = ['verified', 'auth_error', 'credits'].some((k) => params.get(k) !== null)
+    if (hasAny) {
       const next = new URLSearchParams(params)
       next.delete('verified')
       next.delete('auth_error')
+      next.delete('credits')
       setParams(next, { replace: true })
     }
+    if (params.get('credits') === 'purchased') void refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -41,11 +53,17 @@ export function LandingPage(): JSX.Element {
         {...(error !== null ? { errorMessage: error } : {})}
       />
 
+      {verified && <BuyCreditsCTA />}
+
       {verifiedToast && (
         <Toast
-          message="You're in — 10 more grades in this 24h window."
+          message="You're in — credits unlock more grades per day."
           onDismiss={() => setVerifiedToast(false)}
         />
+      )}
+
+      {creditsToast !== null && (
+        <CreditsPurchasedToast kind={creditsToast} onDismiss={() => setCreditsToast(null)} />
       )}
     </div>
   )

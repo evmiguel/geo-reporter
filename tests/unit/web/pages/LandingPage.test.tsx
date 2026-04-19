@@ -7,6 +7,16 @@ vi.mock('../../../../src/web/hooks/useCreateGrade.ts', () => ({
   useCreateGrade: () => ({ create: vi.fn(), pending: false, error: null }),
 }))
 
+vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
+  useAuth: () => ({
+    verified: false,
+    email: null,
+    credits: 0,
+    refresh: async () => {},
+    logout: async () => {},
+  }),
+}))
+
 import { LandingPage } from '../../../../src/web/pages/LandingPage.tsx'
 
 afterEach(() => { cleanup() })
@@ -32,6 +42,7 @@ describe('LandingPage — auth feedback', () => {
     )
     const toast = await screen.findByRole('status')
     expect(toast).toHaveTextContent(/you're in/i)
+    expect(toast).toHaveTextContent(/credits unlock more grades/i)
   })
 
   it('renders auth_error banner when ?auth_error is present', () => {
@@ -53,5 +64,25 @@ describe('LandingPage — auth feedback', () => {
     )
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.queryByText(/sign-in link didn't work/i)).toBeNull()
+  })
+})
+
+describe('LandingPage — credits URL params', () => {
+  it('renders purchased toast when ?credits=purchased', async () => {
+    render(
+      <MemoryRouter initialEntries={['/?credits=purchased']}>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/10 credits added/i)).toBeInTheDocument()
+  })
+
+  it('renders canceled toast when ?credits=canceled', async () => {
+    render(
+      <MemoryRouter initialEntries={['/?credits=canceled']}>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/checkout canceled/i)).toBeInTheDocument()
   })
 })
