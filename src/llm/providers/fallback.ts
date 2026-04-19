@@ -22,6 +22,10 @@ export class FallbackProvider implements Provider {
     this.id = opts.primary.id
   }
 
+  get model(): string {
+    return this.opts.primary.model
+  }
+
   async query(prompt: string, opts: QueryOpts = {}): Promise<QueryResult> {
     try {
       return await this.opts.primary.query(prompt, opts)

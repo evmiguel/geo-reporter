@@ -15,6 +15,7 @@ describe('runRecommender', () => {
   it('happy path: valid JSON with 5+ recs', async () => {
     const provider = {
       id: 'claude' as const,
+      model: 'stub:claude',
       query: vi.fn().mockResolvedValue(makeQueryResult(JSON.stringify([
         { title: 'r1', category: 'recognition', impact: 5, effort: 2, rationale: 'r', how: 'h' },
         { title: 'r2', category: 'seo', impact: 4, effort: 2, rationale: 'r', how: 'h' },
@@ -32,6 +33,7 @@ describe('runRecommender', () => {
   it('retry on invalid JSON: second call succeeds', async () => {
     const provider = {
       id: 'claude' as const,
+      model: 'stub:claude',
       query: vi.fn()
         .mockResolvedValueOnce(makeQueryResult('NOT JSON'))
         .mockResolvedValueOnce(makeQueryResult(JSON.stringify([
@@ -61,6 +63,7 @@ describe('runRecommender', () => {
     ])
     const provider = {
       id: 'claude' as const,
+      model: 'stub:claude',
       query: vi.fn()
         .mockResolvedValueOnce(makeQueryResult(short))
         .mockResolvedValueOnce(makeQueryResult(fine)),
@@ -73,6 +76,7 @@ describe('runRecommender', () => {
   it('both attempts fail: returns empty + limited=true', async () => {
     const provider = {
       id: 'claude' as const,
+      model: 'stub:claude',
       query: vi.fn().mockResolvedValue(makeQueryResult('totally broken')),
     }
     const result = await runRecommender({ provider }, baseInput)

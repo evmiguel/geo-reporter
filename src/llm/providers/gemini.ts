@@ -17,8 +17,8 @@ interface GeminiResponse {
 
 export class GeminiProvider implements Provider {
   readonly id: ProviderId = 'gemini'
+  readonly model: string
   private readonly apiKey: string
-  private readonly model: string
   private readonly fetchFn: typeof globalThis.fetch
 
   constructor(opts: GeminiProviderOptions) {

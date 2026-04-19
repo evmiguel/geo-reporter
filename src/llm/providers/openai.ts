@@ -17,8 +17,8 @@ interface OpenAIResponse {
 
 export class OpenAIProvider implements Provider {
   readonly id: ProviderId = 'gpt'
+  readonly model: string
   private readonly apiKey: string
-  private readonly model: string
   private readonly fetchFn: typeof globalThis.fetch
 
   constructor(opts: OpenAIProviderOptions) {
