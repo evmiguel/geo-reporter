@@ -30,8 +30,8 @@ For the full architecture and the 17 locked-in design decisions, see [`docs/supe
 | **`GET /grades/:id/events`** | Works. SSE stream — hydrates past state from DB on connect, then forwards Redis pub/sub events. |
 | **React terminal UI** (`pnpm dev:web` on :5173) | Works. Landing, LiveGrade (SSE-driven), EmailGate, 404. |
 | `pnpm enqueue-grade <url>` dev CLI | Works. Skips rate limit + cookie — for quick smoke tests. |
-| `pnpm test` | 314 unit tests passing. |
-| `pnpm test:integration` | 35 integration tests — testcontainers Postgres + Redis + MockProvider. |
+| `pnpm test` | 375 unit tests passing. |
+| `pnpm test:integration` | 60 integration tests — testcontainers Postgres + Redis + MockProvider. |
 | `pnpm build` | Bundles `dist/server.js`, `dist/worker.js`, and `dist/web/` with tsup + vite. |
 | **magic-link auth** (`POST /auth/magic`, `GET /auth/verify`, `POST /auth/logout`) | Works. Dev uses `ConsoleMailer` (magic link logged to stdout); verified email lifts the 24h quota from 3 to 13. |
 | Stripe checkout, report HTML/PDF | **Not implemented yet** (Plans 8–9). |
@@ -105,7 +105,9 @@ The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser s
 
 - **Landing `/`** — URL input; submit navigates to `/g/:id`.
 - **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. `Checkout — coming soon` CTA is disabled until Plan 8.
-- **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic`; verifying your email lifts the quota from 3 to 13 per rolling 24h. In dev, the magic-link URL is printed to the `pnpm dev:server` stdout via `ConsoleMailer` (no real provider wired yet — see the production checklist).
+- **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic`; verifying your email lifts the quota from 3 to 13 per rolling 24h.
+
+> **Heads up — there is no real email in dev.** `Mailer` uses `ConsoleMailer`, which **prints the magic-link URL to the terminal running `pnpm dev:server`** (look for a `======` banner). Copy that URL into your browser to verify. A real email provider lands in Plan 10 (needs domain + DKIM/SPF setup).
 - **404 `*`** — any unknown route.
 
 ### Production build
@@ -248,6 +250,9 @@ Judge / generator / verifier always use Claude regardless of tier (see `docs/sup
 - **Grade finalizes with `status='done'` but `scores.accuracy` is `null`** → expected. Happens when the scrape is sparse (< 500 chars) or the verifier can't judge from the scrape. Check `probes` rows with `category='accuracy' AND provider IS NULL` for the `reason` in metadata (`insufficient_scrape` | `all_null` | `all_failed`).
 - **Grade finalizes with `status='failed'`** → look at the last `failed` event on the SSE stream (or Redis channel) for the error message. Typically a scrape producing < 100 chars of text (even after Playwright fallback).
 - **Worker logs `ECONNREFUSED` during retry** → BullMQ retries 3× with exponential backoff. Each retry runs `clearGradeArtifacts(gradeId)` first for a clean slate; probe rows won't accumulate across attempts.
+- **"Submitted my email but nothing happened"** → there's no real email in dev. Switch to the terminal running `pnpm dev:server` and look for the `======` banner from `ConsoleMailer` containing the magic-link URL. Copy it into your browser.
+- **`POST /auth/magic` returns 429 `"Too many requests from this connection. Try again in 10m."`** → that's the per-IP 5/10m rate limit biting. Flush local Redis to reset: `redis-cli -p 63790 FLUSHALL`. Surgical version: `redis-cli -p 63790 --scan --pattern 'magic:ip:*' | xargs -r redis-cli -p 63790 DEL`.
+- **`POST /auth/magic` returns 429 `"Please wait 60s before resending."`** → per-email 1/60s cooldown. Wait, or FLUSHALL as above.
 
 ## Commands
 
@@ -301,8 +306,8 @@ src/
 scripts/
   enqueue-grade.ts       # dev CLI
 tests/
-  unit/                  # 314 tests, pnpm test
-  integration/           # 35 tests, pnpm test:integration (testcontainers)
+  unit/                  # 375 tests, pnpm test
+  integration/           # 60 tests, pnpm test:integration (testcontainers)
 docs/
   production-checklist.md   # deferred items to resolve before launch
   superpowers/
