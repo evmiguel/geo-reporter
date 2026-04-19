@@ -107,35 +107,53 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       return c.body(null, 200)
     }
 
-    const gradeId = event.data.object.metadata?.gradeId
-    if (!gradeId || !UUID_REGEX.test(gradeId)) {
-      return c.json({ error: 'missing_grade_id' }, 400)
-    }
-
     const sessionId = event.data.object.id
+    const metadata = event.data.object.metadata ?? {}
     const row = await deps.store.getStripePaymentBySessionId(sessionId)
     if (!row) return c.json({ error: 'unknown_session' }, 400)
 
-    // Flip to paid idempotently (no-op if already paid).
+    const amountCents = event.data.object.amount_total
+    const currency = event.data.object.currency
+
+    // Branch on row.kind (DB source of truth; metadata.kind is informational)
+    if (row.kind === 'credits') {
+      // Credits grants are one-shot — short-circuit on already-paid to avoid double-grant.
+      if (row.status === 'paid') {
+        return c.body(null, 200)   // idempotent
+      }
+      const userId = metadata.userId
+      const creditCount = Number(metadata.creditCount ?? 0)
+      if (!userId || !Number.isInteger(creditCount) || creditCount < 1) {
+        return c.json({ error: 'malformed_credits_metadata' }, 400)
+      }
+      await deps.store.grantCreditsAndMarkPaid(
+        sessionId, userId, creditCount,
+        typeof amountCents === 'number' ? amountCents : row.amountCents,
+        typeof currency === 'string' ? currency : row.currency,
+      )
+      return c.body(null, 200)
+    }
+
+    // Default (report) path — ALWAYS attempt enqueue (BullMQ dedups by jobId).
+    // This closes the race where the webhook flipped status → 'paid' but
+    // crashed before reportQueue.add ran; on Stripe's retry we re-enqueue,
+    // and the deterministic jobId ensures a single job is created.
+    const gradeId = metadata.gradeId
+    if (!gradeId || !UUID_REGEX.test(gradeId)) {
+      return c.json({ error: 'missing_grade_id' }, 400)
+    }
     if (row.status !== 'paid') {
-      const amountCents = event.data.object.amount_total
-      const currency = event.data.object.currency
       await deps.store.updateStripePaymentStatus(sessionId, {
         status: 'paid',
         ...(typeof amountCents === 'number' ? { amountCents } : {}),
         ...(typeof currency === 'string' ? { currency } : {}),
       })
     }
-
-    // ALWAYS attempt to enqueue — BullMQ's deterministic jobId dedups duplicates.
-    // This closes the race where the status update succeeded but the enqueue crashed
-    // between two webhook retries: the second retry will re-enqueue.
     await deps.reportQueue.add(
       'generate-report',
       { gradeId, sessionId },
       { jobId: `generate-report-${sessionId}`, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
     )
-
     return c.body(null, 200)
   })
 

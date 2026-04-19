@@ -120,43 +120,140 @@ describe('POST /billing/webhook', () => {
     expect(res.status).toBe(400)
   })
 
-  it('idempotent: duplicate webhook for already-paid session returns 200 and re-attempts enqueue with deterministic jobId (BullMQ dedups at queue layer)', async () => {
+  it('idempotent: duplicate webhook for already-paid report session still re-attempts enqueue (BullMQ dedups)', async () => {
     const { app, store, billing, fakeAdd } = build()
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', status: 'done' })
     const session = await billing.createCheckoutSession({
-      kind: 'report', gradeId: grade.id, priceId: 'price_test_abc', successUrl: 's', cancelUrl: 'c',
+      kind: 'report', gradeId: grade.id,
+      priceId: 'price_test_report', successUrl: 's', cancelUrl: 'c',
     })
     await store.createStripePayment({
-      gradeId: grade.id, sessionId: session.id, amountCents: 1900, currency: 'usd',
+      gradeId: grade.id, sessionId: session.id,
+      amountCents: 1900, currency: 'usd', kind: 'report',
     })
-    await store.updateStripePaymentStatus(session.id, { status: 'paid' })
+    await store.updateStripePaymentStatus(session.id, { status: 'paid' })  // already paid
 
     const { body, signature } = billing.constructEvent({
       type: 'checkout.session.completed',
       sessionId: session.id,
-      gradeId: grade.id,
-      amountTotal: 1900,
-      currency: 'usd',
+      metadata: { kind: 'report', gradeId: grade.id },
+      amountTotal: 1900, currency: 'usd',
     })
-    // Fire webhook twice — simulates Stripe retry after hypothetical crash between
-    // status-flip and enqueue. Both calls should attempt to enqueue; real BullMQ
-    // dedups by jobId. The vi.fn() mock just records both calls.
-    const res1 = await app.fetch(new Request('http://test/billing/webhook', {
+    const res = await app.fetch(new Request('http://test/billing/webhook', {
       method: 'POST',
       headers: { 'stripe-signature': signature, 'content-type': 'application/json' },
       body,
     }))
-    const res2 = await app.fetch(new Request('http://test/billing/webhook', {
+    expect(res.status).toBe(200)
+    // Report branch: re-attempts enqueue on duplicate webhook. BullMQ will dedup by jobId in real runs.
+    expect(fakeAdd).toHaveBeenCalledWith(
+      'generate-report',
+      { gradeId: grade.id, sessionId: session.id },
+      expect.objectContaining({ jobId: `generate-report-${session.id}` }),
+    )
+  })
+})
+
+describe('POST /billing/webhook — credits branch', () => {
+  it('happy path: grants credits + marks payment paid', async () => {
+    const { app, store, billing, fakeAdd } = build()
+    const user = await store.upsertUser('buyer@x.com')
+    const session = await billing.createCheckoutSession({
+      kind: 'credits', userId: user.id,
+      priceId: 'price_test_credits',
+      successUrl: 's', cancelUrl: 'c',
+    })
+    await store.createStripePayment({
+      gradeId: null, sessionId: session.id,
+      amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    billing.completeSession(session.id, 2900, 'usd')
+
+    const { body, signature } = billing.constructEvent({
+      type: 'checkout.session.completed',
+      sessionId: session.id,
+      metadata: { kind: 'credits', userId: user.id, creditCount: '10' },
+      amountTotal: 2900, currency: 'usd',
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/webhook', {
       method: 'POST',
       headers: { 'stripe-signature': signature, 'content-type': 'application/json' },
       body,
     }))
-    expect(res1.status).toBe(200)
-    expect(res2.status).toBe(200)
-    // fakeAdd IS called twice; the second call uses the same deterministic jobId.
-    // Real BullMQ dedups by jobId; the mock just records both calls.
-    expect(fakeAdd).toHaveBeenCalledTimes(2)
-    expect(fakeAdd.mock.calls[0]![2]).toMatchObject({ jobId: `generate-report-${session.id}` })
-    expect(fakeAdd.mock.calls[1]![2]).toMatchObject({ jobId: `generate-report-${session.id}` })
+    expect(res.status).toBe(200)
+
+    // Credits granted
+    expect(await store.getCredits(user.id)).toBe(10)
+    // Payment row flipped to paid, still kind='credits'
+    const row = await store.getStripePaymentBySessionId(session.id)
+    expect(row!.status).toBe('paid')
+    expect(row!.kind).toBe('credits')
+    // No report job enqueued
+    expect(fakeAdd).not.toHaveBeenCalled()
+  })
+
+  it('400 on missing userId metadata for credits kind', async () => {
+    const { app, store, billing } = build()
+    const session = await billing.createCheckoutSession({
+      kind: 'credits', userId: 'u-fake',
+      priceId: 'price_test_credits',
+      successUrl: 's', cancelUrl: 'c',
+    })
+    await store.createStripePayment({
+      gradeId: null, sessionId: session.id,
+      amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    billing.completeSession(session.id, 2900, 'usd')
+
+    // Forge an event without userId
+    const { body, signature } = billing.constructEvent({
+      type: 'checkout.session.completed',
+      sessionId: session.id,
+      metadata: { kind: 'credits', creditCount: '10' }, // no userId
+      amountTotal: 2900, currency: 'usd',
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': signature, 'content-type': 'application/json' },
+      body,
+    }))
+    expect(res.status).toBe(400)
+  })
+
+  it('idempotent: duplicate credits webhook does not double-grant', async () => {
+    const { app, store, billing } = build()
+    const user = await store.upsertUser('buyer@x.com')
+    const session = await billing.createCheckoutSession({
+      kind: 'credits', userId: user.id,
+      priceId: 'price_test_credits',
+      successUrl: 's', cancelUrl: 'c',
+    })
+    await store.createStripePayment({
+      gradeId: null, sessionId: session.id,
+      amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    billing.completeSession(session.id, 2900, 'usd')
+
+    const payload = billing.constructEvent({
+      type: 'checkout.session.completed',
+      sessionId: session.id,
+      metadata: { kind: 'credits', userId: user.id, creditCount: '10' },
+      amountTotal: 2900, currency: 'usd',
+    })
+
+    await app.fetch(new Request('http://test/billing/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': payload.signature, 'content-type': 'application/json' },
+      body: payload.body,
+    }))
+    await app.fetch(new Request('http://test/billing/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': payload.signature, 'content-type': 'application/json' },
+      body: payload.body,
+    }))
+    // Credits granted exactly once
+    expect(await store.getCredits(user.id)).toBe(10)
   })
 })
