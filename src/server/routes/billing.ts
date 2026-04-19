@@ -120,10 +120,14 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       })
       await deps.store.updateStripePaymentStatus(auditSessionId, { status: 'paid' })
 
+      // BullMQ rejects colons in custom job IDs, so derive a safe jobId from the
+      // gradeId. The sessionId in the job data still carries the full colon-form
+      // audit string; only the deterministic jobId is sanitized.
+      const jobId = `generate-report-credit-${gradeId}`
       await deps.reportQueue.add(
         'generate-report',
         { gradeId, sessionId: auditSessionId },
-        { jobId: `generate-report-${auditSessionId}`, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
+        { jobId, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
       )
 
       return c.body(null, 204)

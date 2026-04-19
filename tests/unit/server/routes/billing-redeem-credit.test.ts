@@ -81,8 +81,8 @@ describe('POST /billing/redeem-credit', () => {
 
     expect(fakeAdd).toHaveBeenCalledWith(
       'generate-report',
-      expect.objectContaining({ gradeId: grade.id }),
-      expect.objectContaining({ jobId: expect.stringContaining('credit:') }),
+      expect.objectContaining({ gradeId: grade.id, sessionId: expect.stringContaining('credit:') }),
+      expect.objectContaining({ jobId: `generate-report-credit-${grade.id}` }),
     )
   })
 
