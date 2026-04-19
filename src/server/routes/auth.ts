@@ -73,5 +73,16 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
     return c.redirect('/?verified=1', 302)
   })
 
+  app.post('/logout', async (c) => {
+    await deps.store.unbindCookie(c.var.cookie)
+    return c.body(null, 204)
+  })
+
+  app.get('/me', async (c) => {
+    const row = await deps.store.getCookieWithUser(c.var.cookie)
+    if (row.userId && row.email) return c.json({ verified: true, email: row.email })
+    return c.json({ verified: false })
+  })
+
   return app
 }
