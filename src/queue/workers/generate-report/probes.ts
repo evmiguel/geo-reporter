@@ -4,7 +4,6 @@ import type { ScrapeResult } from '../../../scraper/index.ts'
 import type { Grade, GradeStore } from '../../../store/types.ts'
 import type { GradeEvent } from '../../events.ts'
 import {
-  runAccuracyCategory,
   runCitationCategory,
   runCoverageCategory,
   runDiscoverabilityCategory,
@@ -18,6 +17,10 @@ export interface DeltaProbeDeps {
     gemini: Provider
     perplexity: Provider
     claudeForJudge: Provider
+    // generator + verifier are currently unused — accuracy is skipped during delta
+    // probes (see the note inside runDeltaProbes). Kept on the interface so that
+    // wiring a future `runAccuracyForKnownQuestion` flow does not require changing
+    // call sites (generate-report.ts + tests) again.
     generator: Provider
     verifier: Provider
   }
@@ -68,12 +71,15 @@ export async function runDeltaProbes(
     judge: providers.claudeForJudge,
     deps: runGradeDeps,
   })
-  await runAccuracyCategory({
-    gradeId, grade, scrape, probers,
-    generator: providers.generator,
-    verifier: providers.verifier,
-    deps: runGradeDeps,
-  })
+  // Intentionally skipped: accuracy category.
+  //
+  // Running `runAccuracyCategory` here would call `generateQuestion` a second time,
+  // producing a NEW site-specific question. The free-tier run's Claude+GPT probes
+  // answered the ORIGINAL question, so mixing those rows with Gemini+Perplexity
+  // answers to the new question would average apples and oranges in
+  // `rescoreFromProbes`. Until a `runAccuracyForKnownQuestion` helper exists
+  // (see docs/production-checklist.md), the paid report reuses the free-tier
+  // 2-provider accuracy score as-is.
 }
 
 /**

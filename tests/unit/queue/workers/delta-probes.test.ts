@@ -128,6 +128,12 @@ describe('runDeltaProbes', () => {
     expect(probes.filter((p) => p.provider === 'claude').length).toBeGreaterThanOrEqual(1)
     expect(probes.filter((p) => p.provider === 'gpt').length).toBeGreaterThanOrEqual(1)
 
+    // Accuracy is intentionally skipped during delta probes (would otherwise
+    // regenerate the question and mix answers across two different questions).
+    // The paid report reuses the free-tier 2-provider accuracy score as-is.
+    const deltaAccuracyRows = deltaRows.filter((p) => p.category === 'accuracy')
+    expect(deltaAccuracyRows).toHaveLength(0)
+
     // report.probe.* events were published
     expect(events.some((e) => e.type === 'report.probe.started')).toBe(true)
     expect(events.some((e) => e.type === 'report.probe.completed')).toBe(true)
