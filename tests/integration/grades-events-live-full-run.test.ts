@@ -9,6 +9,7 @@ import { registerRunGradeWorker } from '../../src/queue/workers/run-grade/index.
 import { MockProvider } from '../../src/llm/providers/mock.ts'
 import { startTestDb, type TestDb } from './setup.ts'
 import type { ScrapeResult } from '../../src/scraper/types.ts'
+import { FakeMailer } from '../unit/_helpers/fake-mailer.ts'
 
 let redisContainer: StartedTestContainer
 let redisUrl: string
@@ -113,9 +114,14 @@ describe('SSE live lifecycle: full run', () => {
     const app = buildApp({
       store, redis: serverRedis,
       redisFactory: () => createRedis(redisUrl),
+      mailer: new FakeMailer(),
       pingDb: async () => true,
       pingRedis: async () => true,
-      env: { NODE_ENV: 'test', COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa' },
+      env: {
+        NODE_ENV: 'test',
+        COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa',
+        PUBLIC_BASE_URL: 'http://localhost:5173',
+      },
     })
     const server: ServerType = serve({ fetch: app.fetch, port: 0 })
     const port = (server.address() as AddressInfo).port

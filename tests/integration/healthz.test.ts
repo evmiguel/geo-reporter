@@ -10,6 +10,7 @@ import { buildApp } from '../../src/server/app.ts'
 import type { ServerDeps } from '../../src/server/deps.ts'
 import { PostgresStore } from '../../src/store/postgres.ts'
 import { createRedis } from '../../src/queue/redis.ts'
+import { FakeMailer } from '../unit/_helpers/fake-mailer.ts'
 
 let pg: StartedPostgreSqlContainer
 let redisContainer: StartedTestContainer
@@ -35,11 +36,16 @@ beforeAll(async () => {
     store,
     redis,
     redisFactory: () => createRedis(`redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`),
+    mailer: new FakeMailer(),
     pingDb: async () => {
       try { await db.execute(sql`select 1`); return true } catch { return false }
     },
     pingRedis: async () => (await redis.ping()) === 'PONG',
-    env: { NODE_ENV: 'test', COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa' },
+    env: {
+      NODE_ENV: 'test',
+      COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa',
+      PUBLIC_BASE_URL: 'http://localhost:5173',
+    },
   }
   ;(globalThis as any).__app = buildApp(deps)
 }, 60_000)

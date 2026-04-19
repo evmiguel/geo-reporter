@@ -7,6 +7,7 @@ import { cookieMiddleware } from './middleware/cookie.ts'
 import { rateLimitMiddleware } from './middleware/rate-limit.ts'
 import { gradesRouter } from './routes/grades.ts'
 import { gradesEventsRouter } from './routes/grades-events.ts'
+import { authRouter } from './routes/auth.ts'
 
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
@@ -30,6 +31,16 @@ export function buildApp(deps: ServerDeps): Hono {
   gradeScope.route('/', gradesEventsRouter(deps))
 
   app.route('/grades', gradeScope)
+
+  const authScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  authScope.use('*', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+  authScope.route('/', authRouter({
+    store: deps.store,
+    redis: deps.redis,
+    mailer: deps.mailer,
+    publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+  }))
+  app.route('/auth', authScope)
 
   if (deps.env.NODE_ENV === 'production') {
     // Serve built frontend from dist/web. Catch-all falls through to index.html

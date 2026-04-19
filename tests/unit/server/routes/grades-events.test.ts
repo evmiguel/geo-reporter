@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../../../src/server/app.ts'
 import { makeFakeStore } from '../../_helpers/fake-store.ts'
+import { FakeMailer } from '../../_helpers/fake-mailer.ts'
 import type { ServerDeps } from '../../../../src/server/deps.ts'
 import type Redis from 'ioredis'
 
@@ -51,9 +52,14 @@ function makeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
     store: makeFakeStore(),
     redis: makeStubRedis(),
     redisFactory: () => makeStubRedis(),
+    mailer: new FakeMailer(),
     pingDb: async () => true,
     pingRedis: async () => true,
-    env: { NODE_ENV: 'test', COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa' },
+    env: {
+      NODE_ENV: 'test',
+      COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa',
+      PUBLIC_BASE_URL: 'http://localhost:5173',
+    },
     ...overrides,
   }
 }
