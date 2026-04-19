@@ -57,6 +57,7 @@ const app = buildApp({
     PUBLIC_BASE_URL: publicBaseUrl,
     STRIPE_PRICE_ID: env.STRIPE_PRICE_ID ?? null,
     STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET ?? null,
+    STRIPE_CREDITS_PRICE_ID: env.STRIPE_CREDITS_PRICE_ID ?? null,
   },
 })
 

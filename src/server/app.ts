@@ -47,11 +47,13 @@ export function buildApp(deps: ServerDeps): Hono {
     const billing = deps.billing
     const priceId = deps.env.STRIPE_PRICE_ID
     const webhookSecret = deps.env.STRIPE_WEBHOOK_SECRET
+    const creditsPriceId = deps.env.STRIPE_CREDITS_PRICE_ID ?? ''
     const billingScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-    // Cookie middleware only on /checkout; webhook explicitly skips it (Stripe doesn't send cookies).
+    // Cookie middleware only on /checkout and /buy-credits; webhook explicitly skips it (Stripe doesn't send cookies).
     billingScope.use('/checkout', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+    billingScope.use('/buy-credits', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.route('/', billingRouter({
-      store: deps.store, billing, priceId, publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+      store: deps.store, billing, priceId, creditsPriceId, publicBaseUrl: deps.env.PUBLIC_BASE_URL,
       webhookSecret, reportQueue: deps.reportQueue,
     }))
     app.route('/billing', billingScope)

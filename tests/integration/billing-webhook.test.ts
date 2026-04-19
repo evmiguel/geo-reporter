@@ -57,6 +57,7 @@ function buildHarness() {
       PUBLIC_BASE_URL: 'http://localhost:5173',
       STRIPE_PRICE_ID: 'price_test_abc',
       STRIPE_WEBHOOK_SECRET: 'whsec_test_fake',
+      STRIPE_CREDITS_PRICE_ID: null,
     },
   })
 }
@@ -69,7 +70,7 @@ describe('POST /billing/webhook (integration)', () => {
       url: 'https://acme.com', domain: 'acme.com', tier: 'free', status: 'done',
     })
     const session = await billing.createCheckoutSession({
-      gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
+      kind: 'report', gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
     })
     await store.createStripePayment({
       gradeId: grade.id, sessionId: session.id, amountCents: 1900, currency: 'usd',
@@ -106,7 +107,7 @@ describe('POST /billing/webhook (integration)', () => {
       url: 'https://acme.com', domain: 'acme.com', tier: 'free', status: 'done',
     })
     const session = await billing.createCheckoutSession({
-      gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
+      kind: 'report', gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
     })
     await store.createStripePayment({
       gradeId: grade.id, sessionId: session.id, amountCents: 1900, currency: 'usd',

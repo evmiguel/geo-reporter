@@ -20,5 +20,6 @@ export interface ServerDeps {
     PUBLIC_BASE_URL: string
     STRIPE_PRICE_ID: string | null
     STRIPE_WEBHOOK_SECRET: string | null
+    STRIPE_CREDITS_PRICE_ID: string | null
   }
 }

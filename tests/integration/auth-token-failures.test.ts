@@ -51,6 +51,7 @@ function buildHarnessApp() {
       PUBLIC_BASE_URL: 'http://localhost:5173',
       STRIPE_PRICE_ID: null,
       STRIPE_WEBHOOK_SECRET: null,
+      STRIPE_CREDITS_PRICE_ID: null,
     },
   })
 }

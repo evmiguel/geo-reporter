@@ -11,6 +11,7 @@ export interface BillingRouterDeps {
   store: GradeStore
   billing: BillingClient
   priceId: string
+  creditsPriceId: string   // NEW — can be '' when not configured
   publicBaseUrl: string
   webhookSecret: string
   reportQueue: Queue<ReportJob>
@@ -50,6 +51,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       }
 
       const session = await deps.billing.createCheckoutSession({
+        kind: 'report',
         gradeId,
         priceId: deps.priceId,
         successUrl: `${deps.publicBaseUrl}/g/${gradeId}?checkout=complete`,
@@ -62,6 +64,31 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       return c.json({ url: session.url })
     },
   )
+
+  app.post('/buy-credits', async (c) => {
+    if (!deps.creditsPriceId) {
+      return c.json({ error: 'stripe_credits_not_configured' }, 503)
+    }
+    const row = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
+    if (!row.userId) {
+      return c.json({ error: 'must_verify_email' }, 409)
+    }
+    const session = await deps.billing.createCheckoutSession({
+      kind: 'credits',
+      userId: row.userId,
+      priceId: deps.creditsPriceId,
+      successUrl: `${deps.publicBaseUrl}/?credits=purchased`,
+      cancelUrl: `${deps.publicBaseUrl}/?credits=canceled`,
+    })
+    await deps.store.createStripePayment({
+      gradeId: null,
+      sessionId: session.id,
+      amountCents: 2900,
+      currency: 'usd',
+      kind: 'credits',
+    })
+    return c.json({ url: session.url })
+  })
 
   app.post('/webhook', async (c) => {
     const rawBuffer = await c.req.raw.arrayBuffer()

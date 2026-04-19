@@ -19,7 +19,7 @@ export class FakeStripe implements BillingClient {
 
   async createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSession> {
     this.createdSessions.push(input)
-    const id = `cs_test_fake_${++this.counter}_${input.gradeId}`
+    const id = `cs_test_fake_${++this.counter}_${input.gradeId ?? input.userId ?? 'anon'}`
     const session: StoredSession = {
       id,
       url: `https://fake.stripe.test/${id}`,
@@ -27,7 +27,12 @@ export class FakeStripe implements BillingClient {
       paymentStatus: 'unpaid',
       amountTotal: null,
       currency: null,
-      metadata: { gradeId: input.gradeId },
+      metadata: {
+        kind: input.kind,
+        ...(input.gradeId ? { gradeId: input.gradeId } : {}),
+        ...(input.userId ? { userId: input.userId } : {}),
+        ...(input.kind === 'credits' ? { creditCount: '10' } : {}),
+      },
       _payment_intent: `pi_test_fake_${this.counter}`,
     }
     this.sessions.set(id, session)
@@ -58,18 +63,21 @@ export class FakeStripe implements BillingClient {
   constructEvent(input: {
     type: string
     sessionId: string
-    gradeId: string
+    metadata?: Record<string, string>
+    // Legacy-compat: preserve old `gradeId` arg so existing webhook tests continue to work.
+    gradeId?: string
     amountTotal?: number
     currency?: string
     paymentIntent?: string
   }): ConstructedWebhookEvent {
+    const metadata = input.metadata ?? (input.gradeId ? { gradeId: input.gradeId } : {})
     const event: WebhookEvent = {
       id: `evt_test_${this.counter++}`,
       type: input.type,
       data: {
         object: {
           id: input.sessionId,
-          metadata: { gradeId: input.gradeId },
+          metadata,
           ...(input.amountTotal !== undefined ? { amount_total: input.amountTotal } : {}),
           ...(input.currency !== undefined ? { currency: input.currency } : {}),
           ...(input.paymentIntent !== undefined ? { payment_intent: input.paymentIntent } : {}),
@@ -80,8 +88,7 @@ export class FakeStripe implements BillingClient {
     const ts = Math.floor(Date.now() / 1000)
     const signedPayload = `${ts}.${body}`
     const sig = createHmac('sha256', this.webhookSecret).update(signedPayload).digest('hex')
-    const signature = `t=${ts},v1=${sig}`
-    return { body, signature }
+    return { body, signature: `t=${ts},v1=${sig}` }
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret: string): WebhookEvent {

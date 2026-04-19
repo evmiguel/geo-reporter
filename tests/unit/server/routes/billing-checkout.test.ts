@@ -18,6 +18,7 @@ function build() {
   app.route('/billing', billingRouter({
     store, billing,
     priceId: 'price_test_abc',
+    creditsPriceId: 'price_test_credits',
     publicBaseUrl: 'http://localhost:5173',
     webhookSecret: 'whsec_test_fake',
     reportQueue: null as unknown as import('bullmq').Queue,
@@ -119,7 +120,7 @@ describe('POST /billing/checkout', () => {
     const uuid = cookie.split('.')[0]!
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
     const prior = await billing.createCheckoutSession({
-      gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
+      kind: 'report', gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
     })
     await store.createStripePayment({ gradeId: grade.id, sessionId: prior.id, amountCents: 1900, currency: 'usd' })
     const res = await app.fetch(new Request('http://test/billing/checkout', {
@@ -139,7 +140,7 @@ describe('POST /billing/checkout', () => {
     const uuid = cookie.split('.')[0]!
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
     const prior = await billing.createCheckoutSession({
-      gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
+      kind: 'report', gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
     })
     await store.createStripePayment({ gradeId: grade.id, sessionId: prior.id, amountCents: 1900, currency: 'usd' })
     billing.expireSession(prior.id)

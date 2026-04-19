@@ -13,11 +13,16 @@ export class StripeBillingClient implements BillingClient {
   }
 
   async createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSession> {
+    const metadata: Record<string, string> = { kind: input.kind }
+    if (input.gradeId) metadata.gradeId = input.gradeId
+    if (input.userId) metadata.userId = input.userId
+    if (input.kind === 'credits') metadata.creditCount = '10'
+
     const session = await this.stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{ price: input.priceId, quantity: 1 }],
-      metadata: { gradeId: input.gradeId },
-      client_reference_id: input.gradeId,
+      metadata,
+      client_reference_id: input.gradeId ?? input.userId ?? '',
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
     })
@@ -41,6 +46,13 @@ export class StripeBillingClient implements BillingClient {
   }
 
   private toSession(session: Stripe.Checkout.Session): CheckoutSession {
+    const raw = (session.metadata ?? {}) as Record<string, string | undefined>
+    const metadata: CheckoutSession['metadata'] = {
+      ...(raw.gradeId ? { gradeId: raw.gradeId } : {}),
+      ...(raw.userId ? { userId: raw.userId } : {}),
+      ...(raw.kind ? { kind: raw.kind } : {}),
+      ...(raw.creditCount ? { creditCount: raw.creditCount } : {}),
+    }
     return {
       id: session.id,
       url: session.url ?? '',
@@ -48,7 +60,7 @@ export class StripeBillingClient implements BillingClient {
       paymentStatus: session.payment_status as CheckoutSession['paymentStatus'],
       amountTotal: session.amount_total,
       currency: session.currency,
-      metadata: { ...(session.metadata?.gradeId != null ? { gradeId: session.metadata.gradeId } : {}) },
+      metadata,
     }
   }
 }

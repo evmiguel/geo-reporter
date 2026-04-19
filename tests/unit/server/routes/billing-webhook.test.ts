@@ -14,6 +14,7 @@ function build() {
   app.route('/billing', billingRouter({
     store, billing,
     priceId: 'price_test_abc',
+    creditsPriceId: 'price_test_credits',
     publicBaseUrl: 'http://localhost:5173',
     webhookSecret: 'whsec_test_fake',
     reportQueue,
@@ -26,7 +27,7 @@ describe('POST /billing/webhook', () => {
     const { app, store, billing, fakeAdd } = build()
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', status: 'done' })
     const session = await billing.createCheckoutSession({
-      gradeId: grade.id, priceId: 'price_test_abc', successUrl: 's', cancelUrl: 'c',
+      kind: 'report', gradeId: grade.id, priceId: 'price_test_abc', successUrl: 's', cancelUrl: 'c',
     })
     await store.createStripePayment({
       gradeId: grade.id, sessionId: session.id, amountCents: 1900, currency: 'usd',
@@ -123,7 +124,7 @@ describe('POST /billing/webhook', () => {
     const { app, store, billing, fakeAdd } = build()
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', status: 'done' })
     const session = await billing.createCheckoutSession({
-      gradeId: grade.id, priceId: 'price_test_abc', successUrl: 's', cancelUrl: 'c',
+      kind: 'report', gradeId: grade.id, priceId: 'price_test_abc', successUrl: 's', cancelUrl: 'c',
     })
     await store.createStripePayment({
       gradeId: grade.id, sessionId: session.id, amountCents: 1900, currency: 'usd',
