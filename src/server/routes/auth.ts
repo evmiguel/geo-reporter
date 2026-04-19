@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
@@ -62,6 +63,15 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
       return c.body(null, 204)
     },
   )
+
+  app.get('/verify', async (c) => {
+    const t = c.req.query('t')
+    if (!t || !/^[A-Za-z0-9_-]+$/.test(t)) return c.redirect('/?auth_error=expired_or_invalid', 302)
+    const tokenHash = createHash('sha256').update(t).digest('hex')
+    const result = await deps.store.consumeMagicToken(tokenHash, c.var.cookie)
+    if (!result.ok) return c.redirect('/?auth_error=expired_or_invalid', 302)
+    return c.redirect('/?verified=1', 302)
+  })
 
   return app
 }
