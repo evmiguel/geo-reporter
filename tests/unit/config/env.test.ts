@@ -93,7 +93,67 @@ describe('env — Plan 7 auth vars', () => {
       ...base, NODE_ENV: 'production',
       COOKIE_HMAC_KEY: 'a'.repeat(32),
       PUBLIC_BASE_URL: 'https://geo-reporter.com',
+      STRIPE_SECRET_KEY: 'sk_live_abc',
+      STRIPE_WEBHOOK_SECRET: 'whsec_abc',
+      STRIPE_PRICE_ID: 'price_abc',
     })
     expect(env.PUBLIC_BASE_URL).toBe('https://geo-reporter.com')
+  })
+})
+
+describe('env — Plan 8 Stripe vars', () => {
+  const base = {
+    DATABASE_URL: 'postgres://localhost/test',
+    REDIS_URL: 'redis://localhost:6379',
+    ANTHROPIC_API_KEY: 'sk-a', OPENAI_API_KEY: 'sk-o',
+    GEMINI_API_KEY: 'sk-g', PERPLEXITY_API_KEY: 'sk-p',
+    COOKIE_HMAC_KEY: 'a'.repeat(32),
+    PUBLIC_BASE_URL: 'http://localhost:5173',
+  }
+
+  it('accepts missing Stripe keys in development', () => {
+    const env = loadEnv({ ...base, NODE_ENV: 'development' })
+    expect(env.STRIPE_SECRET_KEY).toBeUndefined()
+    expect(env.STRIPE_WEBHOOK_SECRET).toBeUndefined()
+    expect(env.STRIPE_PRICE_ID).toBeUndefined()
+  })
+
+  it('accepts test-mode Stripe keys', () => {
+    const env = loadEnv({
+      ...base, NODE_ENV: 'development',
+      STRIPE_SECRET_KEY: 'sk_test_abc123',
+      STRIPE_WEBHOOK_SECRET: 'whsec_abc123',
+      STRIPE_PRICE_ID: 'price_abc123',
+    })
+    expect(env.STRIPE_SECRET_KEY).toBe('sk_test_abc123')
+    expect(env.STRIPE_PRICE_ID).toBe('price_abc123')
+  })
+
+  it('rejects STRIPE_SECRET_KEY without sk_ prefix', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', STRIPE_SECRET_KEY: 'abc' }))
+      .toThrow(/STRIPE_SECRET_KEY/)
+  })
+
+  it('rejects STRIPE_WEBHOOK_SECRET without whsec_ prefix', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', STRIPE_WEBHOOK_SECRET: 'abc' }))
+      .toThrow(/STRIPE_WEBHOOK_SECRET/)
+  })
+
+  it('rejects STRIPE_PRICE_ID without price_ prefix', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', STRIPE_PRICE_ID: 'abc' }))
+      .toThrow(/STRIPE_PRICE_ID/)
+  })
+
+  it('requires all 3 Stripe vars in production', () => {
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/STRIPE_SECRET_KEY/)
+    expect(() => loadEnv({
+      ...base, NODE_ENV: 'production',
+      STRIPE_SECRET_KEY: 'sk_live_abc',
+    })).toThrow(/STRIPE_WEBHOOK_SECRET/)
+    expect(() => loadEnv({
+      ...base, NODE_ENV: 'production',
+      STRIPE_SECRET_KEY: 'sk_live_abc',
+      STRIPE_WEBHOOK_SECRET: 'whsec_abc',
+    })).toThrow(/STRIPE_PRICE_ID/)
   })
 })

@@ -11,11 +11,15 @@ const Schema = z.object({
   PERPLEXITY_API_KEY: z.string().min(1).optional(),
   COOKIE_HMAC_KEY: z.string().min(32).optional(),
   PUBLIC_BASE_URL: z.string().url().optional(),
+  STRIPE_SECRET_KEY: z.string().startsWith('sk_').optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
+  STRIPE_PRICE_ID: z.string().startsWith('price_').optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
     const required = [
       'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'PERPLEXITY_API_KEY',
       'COOKIE_HMAC_KEY', 'PUBLIC_BASE_URL',
+      'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID',
     ] as const
     for (const key of required) {
       if (!val[key]) {
