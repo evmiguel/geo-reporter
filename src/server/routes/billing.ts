@@ -90,6 +90,46 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
     return c.json({ url: session.url })
   })
 
+  app.post(
+    '/redeem-credit',
+    zValidator('json', checkoutSchema, (result, c) => {
+      if (!result.success) return c.json({ error: 'invalid_body' }, 400)
+    }),
+    async (c) => {
+      const { gradeId } = c.req.valid('json')
+      const grade = await deps.store.getGrade(gradeId)
+      if (!grade) return c.json({ error: 'not_found' }, 404)
+      if (grade.cookie !== c.var.cookie) return c.json({ error: 'not_found' }, 404)
+      if (grade.status !== 'done') return c.json({ error: 'grade_not_done' }, 409)
+
+      const payments = await deps.store.listStripePaymentsByGrade(gradeId)
+      if (payments.some((p) => p.status === 'paid')) {
+        return c.json({ error: 'already_paid', reportId: grade.id }, 409)
+      }
+
+      const row = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
+      if (!row.userId) return c.json({ error: 'must_verify_email' }, 409)
+
+      const redeem = await deps.store.redeemCredit(row.userId)
+      if (!redeem.ok) return c.json({ error: 'no_credits' }, 409)
+
+      const auditSessionId = `credit:${gradeId}`
+      await deps.store.createStripePayment({
+        gradeId, sessionId: auditSessionId,
+        amountCents: 0, currency: 'usd', kind: 'credits',
+      })
+      await deps.store.updateStripePaymentStatus(auditSessionId, { status: 'paid' })
+
+      await deps.reportQueue.add(
+        'generate-report',
+        { gradeId, sessionId: auditSessionId },
+        { jobId: `generate-report-${auditSessionId}`, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
+      )
+
+      return c.body(null, 204)
+    },
+  )
+
   app.post('/webhook', async (c) => {
     const rawBuffer = await c.req.raw.arrayBuffer()
     const rawBody = new TextDecoder().decode(rawBuffer)

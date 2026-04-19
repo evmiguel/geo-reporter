@@ -52,6 +52,7 @@ export function buildApp(deps: ServerDeps): Hono {
     // Cookie middleware only on /checkout and /buy-credits; webhook explicitly skips it (Stripe doesn't send cookies).
     billingScope.use('/checkout', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.use('/buy-credits', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+    billingScope.use('/redeem-credit', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.route('/', billingRouter({
       store: deps.store, billing, priceId, creditsPriceId, publicBaseUrl: deps.env.PUBLIC_BASE_URL,
       webhookSecret, reportQueue: deps.reportQueue,
@@ -59,6 +60,7 @@ export function buildApp(deps: ServerDeps): Hono {
     app.route('/billing', billingScope)
   } else {
     app.post('/billing/checkout', (c) => c.json({ error: 'stripe_not_configured' }, 503))
+    app.post('/billing/redeem-credit', (c) => c.json({ error: 'stripe_not_configured' }, 503))
     app.post('/billing/webhook', (c) => c.json({ error: 'stripe_not_configured' }, 503))
     if (deps.env.NODE_ENV !== 'test') {
       console.warn('Stripe not configured — /billing endpoints return 503. Set STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET/STRIPE_PRICE_ID.')
