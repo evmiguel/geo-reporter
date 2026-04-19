@@ -63,7 +63,7 @@ function extractCookie(res: Response): string {
 }
 
 describe('magic-link integration — full flow', () => {
-  it('rate-limit lifts from 3 to 13 after verify', async () => {
+  it('magic-link verify binds user to cookie; rate limit stays at 3 without credits', async () => {
     const app = buildHarnessApp()
 
     // Bootstrap: hit /auth/me with no cookie to get one issued
@@ -105,12 +105,13 @@ describe('magic-link integration — full flow', () => {
     expect(verifyRes.status).toBe(302)
     expect(verifyRes.headers.get('location')).toBe('/?verified=1')
 
-    // 4th grade retries — now allowed (verified limit = 13)
+    // Credits Pack design: verify alone does not lift the rate limit.
+    // Anon and verified (no credits) both get 3/24h; only users with credits get 10/24h.
     const retried = await app.fetch(new Request('http://test/grades', {
       method: 'POST',
       headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
       body: JSON.stringify({ url: 'https://example.com/p4' }),
     }))
-    expect(retried.status).toBe(202)
+    expect(retried.status).toBe(429)
   }, 60_000)
 })

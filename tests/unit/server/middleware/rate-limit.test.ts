@@ -82,28 +82,43 @@ describe('checkRateLimit', () => {
     expect(result.used).toBe(3)
   })
 
-  it('gives email-verified cookies limit=13', async () => {
+  it('verified cookie (no credits) gets limit 3 (same as anonymous)', async () => {
     const store = makeFakeStore()
     const user = await store.upsertUser('verified@example.com')
-    await store.upsertCookie('c-4', user.id)
+    const cookie = 'c-4'
+    await store.upsertCookie(cookie, user.id)
     const redis = makeStubRedis()
-    const result = await checkRateLimit(redis, store, '203.0.113.4', 'c-4', now)
-    expect(result.allowed).toBe(true)
-    expect(result.limit).toBe(13)
+    const ip = '203.0.113.4'
+    for (let i = 0; i < 3; i++) {
+      const r = await checkRateLimit(redis, store, ip, cookie, now + i * 1000)
+      expect(r.allowed).toBe(true)
+      expect(r.limit).toBe(3)
+    }
+    const blocked = await checkRateLimit(redis, store, ip, cookie, now + 3000)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.limit).toBe(3)
   })
 
-  it('blocks the 14th verified request', async () => {
+  it('credit-holding cookie gets limit 10', async () => {
     const store = makeFakeStore()
-    const user = await store.upsertUser('heavy@example.com')
-    await store.upsertCookie('c-5', user.id)
+    const user = await store.upsertUser('u@x.com')
+    const cookie = 'verified-with-credits'
+    await store.upsertCookie(cookie, user.id)
+    await store.createStripePayment({
+      gradeId: null, sessionId: 'cs_rl', amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid('cs_rl', user.id, 10, 2900, 'usd')
     const redis = makeStubRedis()
-    for (let i = 0; i < 13; i++) {
-      await checkRateLimit(redis, store, '203.0.113.5', 'c-5', now + i * 1000)
+
+    const ip = '203.0.113.5'
+    for (let i = 0; i < 10; i++) {
+      const r = await checkRateLimit(redis, store, ip, cookie, now + i * 1000)
+      expect(r.allowed).toBe(true)
+      expect(r.limit).toBe(10)
     }
-    const fourteenth = await checkRateLimit(redis, store, '203.0.113.5', 'c-5', now + 13_000)
-    expect(fourteenth.allowed).toBe(false)
-    expect(fourteenth.limit).toBe(13)
-    expect(fourteenth.used).toBe(13)
+    const blocked = await checkRateLimit(redis, store, ip, cookie, now + 10_000)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.limit).toBe(10)
   })
 
   it('treats the same cookie from different IPs as independent buckets', async () => {

@@ -40,7 +40,7 @@ describe('rate-limit (integration)', () => {
     await redis.quit()
   })
 
-  it('verified cookies (userId set) get limit=13', async () => {
+  it('verified cookies (userId set, no credits) get limit=3', async () => {
     const redis = createRedis(redisUrl)
     const store = new PostgresStore(testDb.db)
     const user = await store.upsertUser(`rl-${Date.now()}@example.com`)
@@ -48,15 +48,39 @@ describe('rate-limit (integration)', () => {
     await store.upsertCookie(cookie, user.id)
 
     const ip = '203.0.113.101'
-    for (let i = 0; i < 13; i++) {
+    for (let i = 0; i < 3; i++) {
       const r = await checkRateLimit(redis, store, ip, cookie)
       expect(r.allowed).toBe(true)
-      expect(r.limit).toBe(13)
+      expect(r.limit).toBe(3)
     }
     const blocked = await checkRateLimit(redis, store, ip, cookie)
     expect(blocked.allowed).toBe(false)
-    expect(blocked.limit).toBe(13)
+    expect(blocked.limit).toBe(3)
 
+    await redis.quit()
+  })
+
+  it('credit-holding cookies get limit=10', async () => {
+    const redis = createRedis(redisUrl)
+    const store = new PostgresStore(testDb.db)
+    const user = await store.upsertUser(`rl-credits-${Date.now()}@example.com`)
+    const cookie = `credits-${Date.now()}`
+    await store.upsertCookie(cookie, user.id)
+    const sessionId = crypto.randomUUID()
+    await store.createStripePayment({
+      gradeId: null, sessionId, amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid(sessionId, user.id, 10, 2900, 'usd')
+
+    const ip = '203.0.113.102'
+    for (let i = 0; i < 10; i++) {
+      const r = await checkRateLimit(redis, store, ip, cookie)
+      expect(r.allowed).toBe(true)
+      expect(r.limit).toBe(10)
+    }
+    const blocked = await checkRateLimit(redis, store, ip, cookie)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.limit).toBe(10)
     await redis.quit()
   })
 
