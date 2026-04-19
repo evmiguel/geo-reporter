@@ -4,6 +4,7 @@ import type { ServerDeps } from '../../../src/server/deps.ts'
 import { makeFakeStore } from '../_helpers/fake-store.ts'
 import { FakeMailer } from '../_helpers/fake-mailer.ts'
 import type Redis from 'ioredis'
+import type { Queue } from 'bullmq'
 
 function makeStubRedis(): Redis {
   return {} as unknown as Redis
@@ -15,12 +16,16 @@ function makeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
     redis: makeStubRedis(),
     redisFactory: () => makeStubRedis(),
     mailer: new FakeMailer(),
+    billing: null,
+    reportQueue: {} as Queue,
     pingDb: async () => true,
     pingRedis: async () => true,
     env: {
       NODE_ENV: 'test',
       COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa',
       PUBLIC_BASE_URL: 'http://localhost:5173',
+      STRIPE_PRICE_ID: null,
+      STRIPE_WEBHOOK_SECRET: null,
     },
     ...overrides,
   }

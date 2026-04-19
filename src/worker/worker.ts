@@ -3,6 +3,7 @@ import { closeDb, db } from '../db/client.ts'
 import { createRedis } from '../queue/redis.ts'
 import { registerHealthWorker } from '../queue/workers/health.ts'
 import { registerRunGradeWorker } from '../queue/workers/run-grade/index.ts'
+import { registerGenerateReportWorker } from '../queue/workers/generate-report/index.ts'
 import { buildProviders } from '../llm/providers/index.ts'
 import { PostgresStore } from '../store/postgres.ts'
 import { scrape, shutdownBrowserPool } from '../scraper/index.ts'
@@ -19,6 +20,10 @@ const providers = buildProviders({
 const workers = [
   registerHealthWorker(connection),
   registerRunGradeWorker({ store, redis: connection, providers, scrapeFn: scrape }, connection),
+  registerGenerateReportWorker(
+    { store, redis: connection, providers },
+    connection,
+  ),
 ]
 
 console.log(JSON.stringify({ msg: 'worker started', workers: workers.length }))

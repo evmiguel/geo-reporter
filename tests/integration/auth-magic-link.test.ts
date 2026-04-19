@@ -7,6 +7,7 @@ import { buildApp } from '../../src/server/app.ts'
 import { FakeMailer } from '../unit/_helpers/fake-mailer.ts'
 import { startTestDb, type TestDb } from './setup.ts'
 import type Redis from 'ioredis'
+import type { Queue } from 'bullmq'
 
 let redisContainer: StartedTestContainer
 let redisUrl: string
@@ -40,12 +41,16 @@ function buildHarnessApp() {
     redis,
     redisFactory: () => createRedis(redisUrl),
     mailer,
+    billing: null,
+    reportQueue: {} as Queue,
     pingDb: async () => true,
     pingRedis: async () => true,
     env: {
       NODE_ENV: 'test',
       COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa',
       PUBLIC_BASE_URL: 'http://localhost:5173',
+      STRIPE_PRICE_ID: null,
+      STRIPE_WEBHOOK_SECRET: null,
     },
   })
 }

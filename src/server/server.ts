@@ -5,6 +5,8 @@ import { db, closeDb } from '../db/client.ts'
 import { PostgresStore } from '../store/postgres.ts'
 import { createRedis } from '../queue/redis.ts'
 import { ConsoleMailer } from '../mail/console-mailer.ts'
+import { StripeBillingClient } from '../billing/stripe-client.ts'
+import { getReportQueue } from '../queue/queues.ts'
 import { buildApp } from './app.ts'
 
 const redis = createRedis(env.REDIS_URL)
@@ -33,11 +35,18 @@ if (!publicBaseUrl) {
 
 const mailer = new ConsoleMailer()
 
+const billing = env.STRIPE_SECRET_KEY
+  ? new StripeBillingClient({ secretKey: env.STRIPE_SECRET_KEY })
+  : null
+const reportQueue = getReportQueue(redis)
+
 const app = buildApp({
   store,
   redis,
   redisFactory: () => createRedis(env.REDIS_URL),
   mailer,
+  billing,
+  reportQueue,
   pingDb: async () => {
     try { await db.execute(sql`select 1`); return true } catch { return false }
   },
@@ -46,6 +55,8 @@ const app = buildApp({
     NODE_ENV: env.NODE_ENV,
     COOKIE_HMAC_KEY: cookieHmacKey,
     PUBLIC_BASE_URL: publicBaseUrl,
+    STRIPE_PRICE_ID: env.STRIPE_PRICE_ID ?? null,
+    STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET ?? null,
   },
 })
 

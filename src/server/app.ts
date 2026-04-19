@@ -8,6 +8,7 @@ import { rateLimitMiddleware } from './middleware/rate-limit.ts'
 import { gradesRouter } from './routes/grades.ts'
 import { gradesEventsRouter } from './routes/grades-events.ts'
 import { authRouter } from './routes/auth.ts'
+import { billingRouter } from './routes/billing.ts'
 
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
@@ -41,6 +42,26 @@ export function buildApp(deps: ServerDeps): Hono {
     publicBaseUrl: deps.env.PUBLIC_BASE_URL,
   }))
   app.route('/auth', authScope)
+
+  if (deps.billing && deps.env.STRIPE_PRICE_ID && deps.env.STRIPE_WEBHOOK_SECRET) {
+    const billing = deps.billing
+    const priceId = deps.env.STRIPE_PRICE_ID
+    const webhookSecret = deps.env.STRIPE_WEBHOOK_SECRET
+    const billingScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+    // Cookie middleware only on /checkout; webhook explicitly skips it (Stripe doesn't send cookies).
+    billingScope.use('/checkout', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+    billingScope.route('/', billingRouter({
+      store: deps.store, billing, priceId, publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+      webhookSecret, reportQueue: deps.reportQueue,
+    }))
+    app.route('/billing', billingScope)
+  } else {
+    app.post('/billing/checkout', (c) => c.json({ error: 'stripe_not_configured' }, 503))
+    app.post('/billing/webhook', (c) => c.json({ error: 'stripe_not_configured' }, 503))
+    if (deps.env.NODE_ENV !== 'test') {
+      console.warn('Stripe not configured — /billing endpoints return 503. Set STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET/STRIPE_PRICE_ID.')
+    }
+  }
 
   if (deps.env.NODE_ENV === 'production') {
     // Serve built frontend from dist/web. Catch-all falls through to index.html

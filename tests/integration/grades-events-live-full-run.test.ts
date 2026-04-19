@@ -10,6 +10,7 @@ import { MockProvider } from '../../src/llm/providers/mock.ts'
 import { startTestDb, type TestDb } from './setup.ts'
 import type { ScrapeResult } from '../../src/scraper/types.ts'
 import { FakeMailer } from '../unit/_helpers/fake-mailer.ts'
+import type { Queue } from 'bullmq'
 
 let redisContainer: StartedTestContainer
 let redisUrl: string
@@ -115,12 +116,16 @@ describe('SSE live lifecycle: full run', () => {
       store, redis: serverRedis,
       redisFactory: () => createRedis(redisUrl),
       mailer: new FakeMailer(),
+      billing: null,
+      reportQueue: {} as Queue,
       pingDb: async () => true,
       pingRedis: async () => true,
       env: {
         NODE_ENV: 'test',
         COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa',
         PUBLIC_BASE_URL: 'http://localhost:5173',
+        STRIPE_PRICE_ID: null,
+        STRIPE_WEBHOOK_SECRET: null,
       },
     })
     const server: ServerType = serve({ fetch: app.fetch, port: 0 })
