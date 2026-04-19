@@ -39,7 +39,7 @@ beforeAll(async () => {
       try { await db.execute(sql`select 1`); return true } catch { return false }
     },
     pingRedis: async () => (await redis.ping()) === 'PONG',
-    env: { NODE_ENV: 'test' },
+    env: { NODE_ENV: 'test', COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa' },
   }
   ;(globalThis as any).__app = buildApp(deps)
 }, 60_000)

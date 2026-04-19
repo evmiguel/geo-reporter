@@ -7,5 +7,5 @@ export interface ServerDeps {
   redisFactory: () => Redis
   pingDb: () => Promise<boolean>
   pingRedis: () => Promise<boolean>
-  env: { NODE_ENV: 'development' | 'test' | 'production' }
+  env: { NODE_ENV: 'development' | 'test' | 'production'; COOKIE_HMAC_KEY: string }
 }

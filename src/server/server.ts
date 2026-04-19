@@ -9,6 +9,16 @@ import { buildApp } from './app.ts'
 const redis = createRedis(env.REDIS_URL)
 const store = new PostgresStore(db)
 
+const DEV_HMAC_FALLBACK = 'dev-insecure-hmac-key-do-not-use-in-prod-aa'
+let cookieHmacKey = env.COOKIE_HMAC_KEY
+if (!cookieHmacKey) {
+  if (env.NODE_ENV === 'production') {
+    throw new Error('COOKIE_HMAC_KEY required in production')
+  }
+  console.warn('COOKIE_HMAC_KEY not set — using insecure dev default. DO NOT deploy like this.')
+  cookieHmacKey = DEV_HMAC_FALLBACK
+}
+
 const app = buildApp({
   store,
   redis,
@@ -17,7 +27,7 @@ const app = buildApp({
     try { await db.execute(sql`select 1`); return true } catch { return false }
   },
   pingRedis: async () => (await redis.ping()) === 'PONG',
-  env: { NODE_ENV: env.NODE_ENV },
+  env: { NODE_ENV: env.NODE_ENV, COOKIE_HMAC_KEY: cookieHmacKey },
 })
 
 const server = serve({ fetch: app.fetch, port: env.PORT })

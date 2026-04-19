@@ -24,7 +24,7 @@ export function buildApp(deps: ServerDeps): Hono {
   }
 
   const gradeScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  gradeScope.use('*', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production'))
+  gradeScope.use('*', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
   gradeScope.post('/', rateLimitMiddleware(deps.redis, deps.store))
   gradeScope.route('/', gradesRouter(deps))
   gradeScope.route('/', gradesEventsRouter(deps))

@@ -115,7 +115,7 @@ describe('SSE live lifecycle: full run', () => {
       redisFactory: () => createRedis(redisUrl),
       pingDb: async () => true,
       pingRedis: async () => true,
-      env: { NODE_ENV: 'test' },
+      env: { NODE_ENV: 'test', COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa' },
     })
     const server: ServerType = serve({ fetch: app.fetch, port: 0 })
     const port = (server.address() as AddressInfo).port

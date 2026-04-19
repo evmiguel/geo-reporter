@@ -53,7 +53,7 @@ function makeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
     redisFactory: () => makeStubRedis(),
     pingDb: async () => true,
     pingRedis: async () => true,
-    env: { NODE_ENV: 'test' },
+    env: { NODE_ENV: 'test', COOKIE_HMAC_KEY: 'test-key-exactly-32-chars-long-aa' },
     ...overrides,
   }
 }
