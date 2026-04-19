@@ -141,3 +141,55 @@ export async function postBillingCheckout(gradeId: string): Promise<CheckoutResu
   if (res.status === 503) return { ok: false, kind: 'unavailable' }
   return { ok: false, kind: 'unknown', status: res.status }
 }
+
+export async function postBillingBuyCredits(): Promise<
+  | { ok: true; url: string }
+  | { ok: false; kind: 'must_verify_email' | 'unavailable' | 'unknown'; status?: number }
+> {
+  let res: Response
+  try {
+    res = await fetch('/billing/buy-credits', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+    })
+  } catch {
+    return { ok: false, kind: 'unknown', status: 0 }
+  }
+  if (res.status === 200) {
+    const body = await res.json() as { url: string }
+    return { ok: true, url: body.url }
+  }
+  if (res.status === 409) return { ok: false, kind: 'must_verify_email' }
+  if (res.status === 503) return { ok: false, kind: 'unavailable' }
+  return { ok: false, kind: 'unknown', status: res.status }
+}
+
+export type RedeemResult =
+  | { ok: true }
+  | { ok: false; kind: 'already_paid' | 'grade_not_done' | 'no_credits' | 'must_verify_email' | 'unavailable' | 'unknown'; status?: number }
+
+export async function postBillingRedeemCredit(gradeId: string): Promise<RedeemResult> {
+  let res: Response
+  try {
+    res = await fetch('/billing/redeem-credit', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ gradeId }),
+    })
+  } catch {
+    return { ok: false, kind: 'unknown', status: 0 }
+  }
+  if (res.status === 204) return { ok: true }
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    if (body.error === 'already_paid') return { ok: false, kind: 'already_paid' }
+    if (body.error === 'grade_not_done') return { ok: false, kind: 'grade_not_done' }
+    if (body.error === 'no_credits') return { ok: false, kind: 'no_credits' }
+    if (body.error === 'must_verify_email') return { ok: false, kind: 'must_verify_email' }
+    return { ok: false, kind: 'unknown', status: res.status }
+  }
+  if (res.status === 503) return { ok: false, kind: 'unavailable' }
+  return { ok: false, kind: 'unknown', status: res.status }
+}

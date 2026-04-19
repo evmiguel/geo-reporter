@@ -11,6 +11,16 @@ vi.mock('../../../../src/web/hooks/useGradeEvents.ts', () => ({
   useGradeEvents: () => ({ state: stubState.current, connected: true }),
 }))
 
+vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
+  useAuth: () => ({
+    verified: false,
+    email: null,
+    credits: 0,
+    refresh: async () => {},
+    logout: async () => {},
+  }),
+}))
+
 import { LiveGradePage } from '../../../../src/web/pages/LiveGradePage.tsx'
 
 function renderAt(id: string, search = ''): ReturnType<typeof render> {
