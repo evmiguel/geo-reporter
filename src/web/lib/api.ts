@@ -66,3 +66,42 @@ export async function getGrade(id: string): Promise<GradeSummary | null> {
   if (!res.ok) return null
   return (await res.json()) as GradeSummary
 }
+
+export type MagicResult =
+  | { ok: true }
+  | { ok: false; error: 'invalid_email' | 'rate_limit_email' | 'rate_limit_ip'; retryAfter?: number }
+
+export async function postAuthMagic(email: string): Promise<MagicResult> {
+  let res: Response
+  try {
+    res = await fetch('/auth/magic', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+  } catch {
+    return { ok: false, error: 'rate_limit_ip' }
+  }
+
+  if (res.status === 204) return { ok: true }
+  if (res.status === 400) return { ok: false, error: 'invalid_email' }
+  if (res.status === 429) {
+    const body = (await res.json().catch(() => ({}))) as { paywall?: string; retryAfter?: number }
+    const error = body.paywall === 'email_cooldown' ? 'rate_limit_email' : 'rate_limit_ip'
+    return body.retryAfter !== undefined
+      ? { ok: false, error, retryAfter: body.retryAfter }
+      : { ok: false, error }
+  }
+  return { ok: false, error: 'rate_limit_ip' }
+}
+
+export async function postAuthLogout(): Promise<void> {
+  await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
+}
+
+export async function getAuthMe(): Promise<{ verified: boolean; email?: string }> {
+  const res = await fetch('/auth/me', { credentials: 'include' })
+  if (!res.ok) return { verified: false }
+  return res.json() as Promise<{ verified: boolean; email?: string }>
+}
