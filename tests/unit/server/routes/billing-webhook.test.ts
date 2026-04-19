@@ -52,7 +52,7 @@ describe('POST /billing/webhook', () => {
     expect(fakeAdd).toHaveBeenCalledWith(
       'generate-report',
       { gradeId: grade.id, sessionId: session.id },
-      expect.objectContaining({ jobId: `generate-report:${session.id}` }),
+      expect.objectContaining({ jobId: `generate-report-${session.id}` }),
     )
   })
 

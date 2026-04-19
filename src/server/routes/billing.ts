@@ -103,7 +103,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
     await deps.reportQueue.add(
       'generate-report',
       { gradeId, sessionId },
-      { jobId: `generate-report:${sessionId}`, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
+      { jobId: `generate-report-${sessionId}`, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
     )
 
     return c.body(null, 200)
