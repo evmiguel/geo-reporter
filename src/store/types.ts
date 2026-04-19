@@ -45,4 +45,7 @@ export interface GradeStore {
   // Reports (expanded in report plan)
   createReport(input: NewReport): Promise<Report>
   getReport(gradeId: string): Promise<Report | null>
+
+  // Auth — magic-link flow (Plan 7)
+  issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }>
 }

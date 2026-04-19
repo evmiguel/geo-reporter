@@ -1,4 +1,5 @@
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and, isNull } from 'drizzle-orm'
+import { createHash, randomBytes } from 'node:crypto'
 import type { Db } from '../db/client.ts'
 import * as schema from '../db/schema.ts'
 import type {
@@ -104,6 +105,24 @@ export class PostgresStore implements GradeStore {
   async getCookie(cookie: string): Promise<Cookie | null> {
     const [row] = await this.db.select().from(schema.cookies).where(eq(schema.cookies.cookie, cookie)).limit(1)
     return row ?? null
+  }
+
+  async issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }> {
+    const rawToken = randomBytes(32).toString('base64url')
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+    const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000)
+    await this.db.transaction(async (tx) => {
+      await tx.update(schema.magicTokens)
+        .set({ consumedAt: new Date() })
+        .where(and(eq(schema.magicTokens.email, email), isNull(schema.magicTokens.consumedAt)))
+      await tx.insert(schema.magicTokens).values({
+        email,
+        tokenHash,
+        expiresAt,
+        cookie: issuingCookie,
+      })
+    })
+    return { rawToken, expiresAt }
   }
 
   async createRecommendations(rows: NewRecommendation[]): Promise<void> {

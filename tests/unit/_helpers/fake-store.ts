@@ -1,6 +1,7 @@
+import { createHash, randomBytes } from 'node:crypto'
 import type {
   GradeStore, Grade, Probe, Scrape, NewGrade, NewProbe, NewScrape, GradeUpdate,
-  User, Cookie, Recommendation, NewRecommendation, Report, NewReport,
+  User, Cookie, Recommendation, NewRecommendation, Report, NewReport, MagicToken,
 } from '../../../src/store/types.ts'
 
 export interface FakeGradeStore extends GradeStore {
@@ -10,6 +11,8 @@ export interface FakeGradeStore extends GradeStore {
   cookiesMap: Map<string, Cookie>
   usersMap: Map<string, User>
   clearedFor: string[]
+  magicTokensMap: Map<string, MagicToken>
+  _hashForTest(raw: string): string
 }
 
 export function makeFakeStore(): FakeGradeStore {
@@ -19,9 +22,15 @@ export function makeFakeStore(): FakeGradeStore {
   const cookiesMap = new Map<string, Cookie>()
   const usersMap = new Map<string, User>()
   const clearedFor: string[] = []
+  const magicTokensMap = new Map<string, MagicToken>()
+  function hashToken(raw: string): string {
+    return createHash('sha256').update(raw).digest('hex')
+  }
 
   return {
     gradesMap, scrapesMap, probes, cookiesMap, usersMap, clearedFor,
+    magicTokensMap,
+    _hashForTest(raw: string): string { return hashToken(raw) },
 
     async createGrade(input: NewGrade): Promise<Grade> {
       const id = input.id ?? crypto.randomUUID()
@@ -92,6 +101,28 @@ export function makeFakeStore(): FakeGradeStore {
     },
     async getCookie(cookie: string): Promise<Cookie | null> {
       return cookiesMap.get(cookie) ?? null
+    },
+    async issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }> {
+      // Invalidate priors for this email.
+      for (const [id, row] of magicTokensMap.entries()) {
+        if (row.email === email && row.consumedAt === null) {
+          magicTokensMap.set(id, { ...row, consumedAt: new Date() })
+        }
+      }
+      const rawToken = randomBytes(32).toString('base64url')
+      const tokenHash = hashToken(rawToken)
+      const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000)
+      const id = crypto.randomUUID()
+      magicTokensMap.set(id, {
+        id,
+        email,
+        tokenHash,
+        expiresAt,
+        consumedAt: null,
+        cookie: issuingCookie,
+        createdAt: new Date(),
+      })
+      return { rawToken, expiresAt }
     },
     async createRecommendations(_rows: NewRecommendation[]): Promise<void> {},
     async listRecommendations(_gradeId: string): Promise<Recommendation[]> { return [] },
