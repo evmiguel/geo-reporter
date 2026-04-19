@@ -17,6 +17,7 @@ import type {
   NewRecommendation,
   Report,
   NewReport,
+  StripePayment,
 } from './types.ts'
 
 export class PostgresStore implements GradeStore {
@@ -196,5 +197,49 @@ export class PostgresStore implements GradeStore {
   async getReport(gradeId: string): Promise<Report | null> {
     const [row] = await this.db.select().from(schema.reports).where(eq(schema.reports.gradeId, gradeId)).limit(1)
     return row ?? null
+  }
+
+  async createStripePayment(input: {
+    gradeId: string
+    sessionId: string
+    amountCents: number
+    currency: string
+  }): Promise<StripePayment> {
+    const [row] = await this.db.insert(schema.stripePayments).values({
+      gradeId: input.gradeId,
+      sessionId: input.sessionId,
+      amountCents: input.amountCents,
+      currency: input.currency,
+      status: 'pending',
+    }).returning()
+    if (!row) throw new Error('createStripePayment returned no row')
+    return row
+  }
+
+  async getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.stripePayments)
+      .where(eq(schema.stripePayments.sessionId, sessionId))
+      .limit(1)
+    return row ?? null
+  }
+
+  async updateStripePaymentStatus(
+    sessionId: string,
+    patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+  ): Promise<void> {
+    await this.db.update(schema.stripePayments)
+      .set({
+        status: patch.status,
+        updatedAt: new Date(),
+        ...(patch.amountCents !== undefined ? { amountCents: patch.amountCents } : {}),
+        ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
+      })
+      .where(eq(schema.stripePayments.sessionId, sessionId))
+  }
+
+  async listStripePaymentsByGrade(gradeId: string): Promise<StripePayment[]> {
+    return this.db.select().from(schema.stripePayments).where(eq(schema.stripePayments.gradeId, gradeId))
   }
 }

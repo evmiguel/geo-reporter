@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import type {
   GradeStore, Grade, Probe, Scrape, NewGrade, NewProbe, NewScrape, GradeUpdate,
   User, Cookie, Recommendation, NewRecommendation, Report, NewReport, MagicToken,
+  StripePayment,
 } from '../../../src/store/types.ts'
 
 export interface FakeGradeStore extends GradeStore {
@@ -12,6 +13,7 @@ export interface FakeGradeStore extends GradeStore {
   usersMap: Map<string, User>
   clearedFor: string[]
   magicTokensMap: Map<string, MagicToken>
+  stripePaymentsMap: Map<string, StripePayment>
   _hashForTest(raw: string): string
 }
 
@@ -23,6 +25,7 @@ export function makeFakeStore(): FakeGradeStore {
   const usersMap = new Map<string, User>()
   const clearedFor: string[] = []
   const magicTokensMap = new Map<string, MagicToken>()
+  const stripePaymentsMap = new Map<string, StripePayment>()
   function hashToken(raw: string): string {
     return createHash('sha256').update(raw).digest('hex')
   }
@@ -30,6 +33,7 @@ export function makeFakeStore(): FakeGradeStore {
   return {
     gradesMap, scrapesMap, probes, cookiesMap, usersMap, clearedFor,
     magicTokensMap,
+    stripePaymentsMap,
     _hashForTest(raw: string): string { return hashToken(raw) },
 
     async createGrade(input: NewGrade): Promise<Grade> {
@@ -165,6 +169,45 @@ export function makeFakeStore(): FakeGradeStore {
       if (!row.userId) return { cookie, userId: null, email: null }
       const user = usersMap.get(row.userId)
       return { cookie, userId: row.userId, email: user?.email ?? null }
+    },
+    async createStripePayment(input: {
+      gradeId: string
+      sessionId: string
+      amountCents: number
+      currency: string
+    }): Promise<StripePayment> {
+      const row: StripePayment = {
+        id: crypto.randomUUID(),
+        gradeId: input.gradeId,
+        sessionId: input.sessionId,
+        status: 'pending',
+        amountCents: input.amountCents,
+        currency: input.currency,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      stripePaymentsMap.set(input.sessionId, row)
+      return row
+    },
+    async getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null> {
+      return stripePaymentsMap.get(sessionId) ?? null
+    },
+    async updateStripePaymentStatus(
+      sessionId: string,
+      patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+    ): Promise<void> {
+      const existing = stripePaymentsMap.get(sessionId)
+      if (!existing) return
+      stripePaymentsMap.set(sessionId, {
+        ...existing,
+        status: patch.status,
+        amountCents: patch.amountCents ?? existing.amountCents,
+        currency: patch.currency ?? existing.currency,
+        updatedAt: new Date(),
+      })
+    },
+    async listStripePaymentsByGrade(gradeId: string): Promise<StripePayment[]> {
+      return [...stripePaymentsMap.values()].filter((r) => r.gradeId === gradeId)
     },
     async createRecommendations(_rows: NewRecommendation[]): Promise<void> {},
     async listRecommendations(_gradeId: string): Promise<Recommendation[]> { return [] },

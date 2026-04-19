@@ -54,4 +54,18 @@ export interface GradeStore {
   >
   unbindCookie(cookie: string): Promise<void>
   getCookieWithUser(cookie: string): Promise<{ cookie: string; userId: string | null; email: string | null }>
+
+  // Billing — stripe_payments (Plan 8)
+  createStripePayment(input: {
+    gradeId: string
+    sessionId: string
+    amountCents: number
+    currency: string
+  }): Promise<StripePayment>
+  getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null>
+  updateStripePaymentStatus(
+    sessionId: string,
+    patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+  ): Promise<void>
+  listStripePaymentsByGrade(gradeId: string): Promise<StripePayment[]>
 }
