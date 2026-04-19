@@ -48,4 +48,8 @@ export interface GradeStore {
 
   // Auth — magic-link flow (Plan 7)
   issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }>
+  consumeMagicToken(tokenHash: string, clickingCookie: string): Promise<
+    | { ok: true; email: string; userId: string }
+    | { ok: false }
+  >
 }

@@ -125,6 +125,36 @@ export class PostgresStore implements GradeStore {
     return { rawToken, expiresAt }
   }
 
+  async consumeMagicToken(
+    tokenHash: string,
+    clickingCookie: string,
+  ): Promise<{ ok: true; email: string; userId: string } | { ok: false }> {
+    return this.db.transaction(async (tx) => {
+      const [tokenRow] = await tx.select().from(schema.magicTokens)
+        .where(eq(schema.magicTokens.tokenHash, tokenHash))
+        .limit(1)
+      if (!tokenRow) return { ok: false as const }
+      if (tokenRow.consumedAt !== null) return { ok: false as const }
+      if (tokenRow.expiresAt.getTime() < Date.now()) return { ok: false as const }
+
+      const [user] = await tx.insert(schema.users)
+        .values({ email: tokenRow.email })
+        .onConflictDoUpdate({ target: schema.users.email, set: { email: tokenRow.email } })
+        .returning()
+      if (!user) throw new Error('consumeMagicToken: user upsert returned no row')
+
+      await tx.update(schema.cookies)
+        .set({ userId: user.id })
+        .where(eq(schema.cookies.cookie, clickingCookie))
+
+      await tx.update(schema.magicTokens)
+        .set({ consumedAt: new Date() })
+        .where(eq(schema.magicTokens.id, tokenRow.id))
+
+      return { ok: true as const, email: user.email, userId: user.id }
+    })
+  }
+
   async createRecommendations(rows: NewRecommendation[]): Promise<void> {
     if (rows.length === 0) return
     await this.db.insert(schema.recommendations).values(rows)

@@ -124,6 +124,36 @@ export function makeFakeStore(): FakeGradeStore {
       })
       return { rawToken, expiresAt }
     },
+    async consumeMagicToken(
+      tokenHash: string,
+      clickingCookie: string,
+    ): Promise<{ ok: true; email: string; userId: string } | { ok: false }> {
+      let found: MagicToken | undefined
+      let foundId: string | undefined
+      for (const [id, row] of magicTokensMap.entries()) {
+        if (row.tokenHash === tokenHash) { found = row; foundId = id; break }
+      }
+      if (!found || !foundId) return { ok: false }
+      if (found.consumedAt !== null) return { ok: false }
+      if (found.expiresAt.getTime() < Date.now()) return { ok: false }
+
+      let user = [...usersMap.values()].find((u) => u.email === found!.email)
+      if (!user) {
+        user = { id: crypto.randomUUID(), email: found.email, createdAt: new Date() }
+        usersMap.set(user.id, user)
+      }
+
+      const clicker = cookiesMap.get(clickingCookie)
+      if (clicker) {
+        cookiesMap.set(clickingCookie, { ...clicker, userId: user.id })
+      } else {
+        cookiesMap.set(clickingCookie, { cookie: clickingCookie, userId: user.id, createdAt: new Date() })
+      }
+
+      magicTokensMap.set(foundId, { ...found, consumedAt: new Date() })
+
+      return { ok: true, email: user.email, userId: user.id }
+    },
     async createRecommendations(_rows: NewRecommendation[]): Promise<void> {},
     async listRecommendations(_gradeId: string): Promise<Recommendation[]> { return [] },
     async createReport(input: NewReport): Promise<Report> {
