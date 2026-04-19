@@ -12,6 +12,7 @@ Living document of items deferred from plan execution that must be resolved befo
 - [ ] **CSRF tokens on mutation routes.** Plan 7 ships POST /auth/logout without a CSRF token, relying on SameSite=Lax. Fine for logout specifically (worst case: a CSRF attack forces a sign-out — nuisance, not compromise). When Plan 8/9+ add delete-grade, delete-account, or profile-edit mutations, introduce a proper CSRF token mechanism (double-submit cookie or per-session token).
 - [ ] **Trusted-proxy allow-list for IP detection.** Plan 6a trusts `X-Forwarded-For` unconditionally when present. A malicious client can spoof XFF to evade rate limits. Before ship, introduce `TRUSTED_PROXIES` config; only accept XFF from those addresses. On Railway this is usually the Envoy proxy's internal IP range.
 - [ ] **No secrets in logs.** Audit all worker/server log lines for accidental inclusion of API keys, session cookies, or DB URLs. Hono's default logger is safe; provider clients may log request bodies on error (e.g. the ProviderError message includes the 4xx/5xx body — which might echo the API key back). Grep + integration test.
+- [ ] **Rate-limit on /billing/checkout.** Plan 8 doesn't add one. A malicious cookie-holder can hit the endpoint repeatedly, spamming the `stripe_payments` table with orphan pending rows. Bounded (session tied to one owned grade), but worth a modest per-cookie bucket before public launch.
 
 ## Reliability / ops
 
@@ -21,6 +22,8 @@ Living document of items deferred from plan execution that must be resolved befo
 - [ ] **Testcontainers flake in CI.** CLAUDE.md notes an occasional first-run race where BullMQ's Redis connects before the container is fully ready, retries once, succeeds. Tolerable locally; before CI scales up, either add a readiness-wait in `tests/integration/setup.ts` or bake `enableReadyCheck: false` into the test harness. Already documented in CLAUDE.md footguns.
 - [ ] **Playwright pool scaling under load.** Plan 2's Chromium pool caps at 2 concurrent pages with a 15s render timeout. Under Railway's default CPU allocation, two concurrent grades exhausting the pool will serialize new grades. Before ship, benchmark pool-vs-concurrency and either raise the cap or add a queue-depth metric + autoscale signal.
 - [ ] **Worker graceful shutdown drains jobs.** Current SIGTERM handler closes workers but doesn't wait for in-flight jobs. If Railway sends SIGTERM during a deploy, a grade mid-flight dies. BullMQ's `worker.close(true)` waits for the active job; audit `src/worker/worker.ts` to ensure we pass the drain flag.
+- [ ] **Auto-refund on generate-report failure.** Currently: grade marked with error flag, manual Stripe-dashboard refund. Before real traffic, add: on 3rd BullMQ retry failure, call `stripe.refunds.create({ payment_intent })`, update `stripe_payments.status='refunded'`, publish `report.refunded` event. Needs careful handling of partial work (recommendations already persisted but no `reports` row).
+- [ ] **Admin dashboard for payment reconciliation.** We'll need a way to see paid-but-failed grades, trigger manual refunds, and retry failed jobs. Not MVP-blocking; without it, any issue requires DB + Stripe-dashboard back-and-forth.
 
 ## Data / correctness
 
@@ -39,6 +42,7 @@ Living document of items deferred from plan execution that must be resolved befo
 
 - [ ] **Move frontend static assets to a CDN.** Plan 6b ships the React bundle out of the same Hono process (`serveStatic` over `dist/web/`). Fine for MVP but every page load eats worker CPU serving static JS/CSS and pays geographic latency. For launch, deploy `dist/web/` to Cloudflare Pages / Vercel / Fastly (or Railway's CDN if available); keep Hono for API + SSE only. Cookie domain becomes `.geo-reporter.com` so both subdomains share auth (anonymous cookie + eventual session cookie). CORS tightens: `credentials: true` with an explicit `origin: 'https://geo-reporter.com'` allow-list; the dev-only `localhost:5173` branch stays. Deferred during Plan 6b brainstorm Q4.
 - [ ] **Real email provider + DKIM/SPF/DMARC.** Plan 7 ships ConsoleMailer only — magic-link URLs get logged to stdout. Pick Resend or Postmark, set up the DNS records, and wire `RealMailer` in place of `ConsoleMailer` via `env.RESEND_API_KEY` (or equivalent). Interface is already in place at `src/mail/types.ts`; the swap is one line in `src/server/server.ts`.
+- [ ] **Real Stripe webhook registration + CLI smoke test.** Plan 10 deploy work — register prod webhook URL in the Stripe dashboard, grab the signing secret, set env vars. Run a real-mode test via Stripe CLI (`stripe trigger checkout.session.completed`). Also: create the `price_...` for the $19 GEO Report in the Stripe dashboard.
 
 ## Dev UX
 

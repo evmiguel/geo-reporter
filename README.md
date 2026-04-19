@@ -30,11 +30,13 @@ For the full architecture and the 17 locked-in design decisions, see [`docs/supe
 | **`GET /grades/:id/events`** | Works. SSE stream — hydrates past state from DB on connect, then forwards Redis pub/sub events. |
 | **React terminal UI** (`pnpm dev:web` on :5173) | Works. Landing, LiveGrade (SSE-driven), EmailGate, 404. |
 | `pnpm enqueue-grade <url>` dev CLI | Works. Skips rate limit + cookie — for quick smoke tests. |
-| `pnpm test` | 375 unit tests passing. |
-| `pnpm test:integration` | 60 integration tests — testcontainers Postgres + Redis + MockProvider. |
+| `pnpm test` | 425 unit tests passing. |
+| `pnpm test:integration` | 72 integration tests — testcontainers Postgres + Redis + MockProvider. |
 | `pnpm build` | Bundles `dist/server.js`, `dist/worker.js`, and `dist/web/` with tsup + vite. |
 | **magic-link auth** (`POST /auth/magic`, `GET /auth/verify`, `POST /auth/logout`) | Works. Dev uses `ConsoleMailer` (magic link logged to stdout); verified email lifts the 24h quota from 3 to 13. |
-| Stripe checkout, report HTML/PDF | **Not implemented yet** (Plans 8–9). |
+| **`POST /billing/checkout` + `POST /billing/webhook`** | Works. Stripe checkout session creation + signed webhook → enqueues generate-report. |
+| **`generate-report` worker** | Works. Delta probes (Gemini + Perplexity) + recompute + recommendation LLM + reports row + tier='paid'. |
+| Report HTML/PDF rendering | **Not implemented yet** (Plan 9). |
 
 ## Prerequisites
 
@@ -104,7 +106,7 @@ The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser s
 ### What you'll see
 
 - **Landing `/`** — URL input; submit navigates to `/g/:id`.
-- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. `Checkout — coming soon` CTA is disabled until Plan 8.
+- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. The free scorecard is below a `Get the full report — $19` CTA that kicks off Stripe Checkout. After payment, the page watches SSE for `report.*` events and flips to a "report ready" state with a link to `/report/:id?t=<token>` (Plan 9 renders the page).
 - **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic`; verifying your email lifts the quota from 3 to 13 per rolling 24h.
 
 > **Heads up — there is no real email in dev.** `Mailer` uses `ConsoleMailer`, which **prints the magic-link URL to the terminal running `pnpm dev:server`** (look for a `======` banner). Copy that URL into your browser to verify. A real email provider lands in Plan 10 (needs domain + DKIM/SPF setup).
@@ -283,11 +285,16 @@ src/
   llm/                   # library: 4 direct providers + MockProvider + factory + prompts + judge + flows
   scoring/               # library: pure heuristic scorers + letter grade + weights + composite
   accuracy/              # library: novel generator → blind-probe → per-provider verifier flow
+  billing/               # library: Stripe client + price catalog + billing types
+    types.ts             #   CheckoutSession + WebhookEvent + Payment types
+    stripe-client.ts     #   Stripe SDK wrapper + env-bound factory
+    prices.ts            #   $19 GEO Report price ID catalog
   queue/
     events.ts            #   pub/sub helpers: publishGradeEvent + subscribeToGrade
     queues.ts            #   BullMQ queue factories
     redis.ts             #   ioredis factory
-    workers/run-grade/   #   the main grade pipeline worker
+    workers/run-grade/           #   the main grade pipeline worker (free tier)
+    workers/generate-report/     #   paid-tier: delta probes + rescore + recommender + reports row
   server/
     app.ts               #   buildApp(ServerDeps) — composes middleware + routes + serveStatic
     server.ts            #   entrypoint: builds deps from env, starts @hono/node-server
@@ -306,8 +313,8 @@ src/
 scripts/
   enqueue-grade.ts       # dev CLI
 tests/
-  unit/                  # 375 tests, pnpm test
-  integration/           # 60 tests, pnpm test:integration (testcontainers)
+  unit/                  # 425 tests, pnpm test
+  integration/           # 72 tests, pnpm test:integration (testcontainers)
 docs/
   production-checklist.md   # deferred items to resolve before launch
   superpowers/
@@ -327,7 +334,7 @@ docs/
 | 6a | HTTP surface: `POST /grades`, `GET /grades/:id`, SSE, rate limit, anonymous cookie | **Done** |
 | 6b | React terminal UI (landing, live grade, email gate) | **Done** |
 | 7 | Auth (magic link, session cookie, quota lift) | **Done (2026-04-19)** |
-| 8 | Paywall: Stripe checkout, webhook, recommendation LLM | Pending |
+| 8 | Paywall: Stripe checkout, webhook, recommendation LLM | **Done (2026-04-19)** |
 | 9 | Report rendering: React SSR + Playwright PDF + signed URLs | Pending |
 | 10 | Deploy: Railway services + add-ons | Pending |
 

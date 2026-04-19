@@ -343,6 +343,8 @@ Single shared Chromium instance. Concurrency limit: 2 pages at a time (Railway w
 
 ### 7.3 Paid tier
 
+> **Sub-spec:** See `docs/superpowers/specs/2026-04-19-geo-reporter-plan-8-stripe-paywall-design.md` for the Plan 8 design — brainstormed 2026-04-19, shipped in Plan 8.
+
 - Stripe Checkout Session: `mode: 'payment'`, single $19 line item, `metadata.gradeId` set.
 - Webhook on `checkout.session.completed` verifies signature, looks up the grade, enqueues `generate-report`. Idempotent by `session.id`.
 - Successful payment unlocks `/report/:id?t=<token>`. No account required — token in the URL is the capability. A user-bound grade also shows up at `/my/reports` once email-bound.
