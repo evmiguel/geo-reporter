@@ -110,7 +110,7 @@ async function runOneHeuristicProbe(a: HeuristicProbeArgs): Promise<number | nul
     const r = await runStaticProbe({ provider, prompt, scorer })
     await deps.store.createProbe({
       gradeId, category, provider: provider.id, prompt: r.prompt, response: r.response,
-      score: r.score, metadata: { label, latencyMs: r.latencyMs, inputTokens: r.inputTokens, outputTokens: r.outputTokens, rationale: r.scoreRationale },
+      score: r.score, metadata: { label, model: provider.model, latencyMs: r.latencyMs, inputTokens: r.inputTokens, outputTokens: r.outputTokens, rationale: r.scoreRationale },
     })
     await publishGradeEvent(deps.redis, gradeId, {
       type: 'probe.completed', category, provider: provider.id, label,
@@ -121,7 +121,7 @@ async function runOneHeuristicProbe(a: HeuristicProbeArgs): Promise<number | nul
     const error = err instanceof Error ? err.message : String(err)
     await deps.store.createProbe({
       gradeId, category, provider: provider.id, prompt, response: '',
-      score: null, metadata: { label, error },
+      score: null, metadata: { label, model: provider.model, error },
     })
     await publishGradeEvent(deps.redis, gradeId, {
       type: 'probe.completed', category, provider: provider.id, label,
@@ -151,6 +151,7 @@ export async function runDiscoverabilityCategory(args: ScrapedCategoryArgs): Pro
         prompt: r.probe.prompt, response: r.probe.response, score: r.score,
         metadata: {
           label: 'self-gen',
+          model: provider.model,
           generator: { prompt: r.generator.prompt, response: r.generator.response, latencyMs: r.generator.latencyMs, inputTokens: r.generator.inputTokens, outputTokens: r.generator.outputTokens },
           latencyMs: r.probe.latencyMs, inputTokens: r.probe.inputTokens, outputTokens: r.probe.outputTokens,
           rationale: r.scoreRationale,
@@ -165,7 +166,7 @@ export async function runDiscoverabilityCategory(args: ScrapedCategoryArgs): Pro
       const error = err instanceof Error ? err.message : String(err)
       await deps.store.createProbe({
         gradeId, category: 'discoverability', provider: provider.id,
-        prompt: '', response: '', score: null, metadata: { label: 'self-gen', error },
+        prompt: '', response: '', score: null, metadata: { label: 'self-gen', model: provider.model, error },
       })
       await publishGradeEvent(deps.redis, gradeId, {
         type: 'probe.completed', category: 'discoverability', provider: provider.id, label: 'self-gen',
@@ -222,7 +223,7 @@ export async function runCoverageCategory(args: CoverageCategoryArgs): Promise<n
         const error = probe?.error ?? flowError ?? 'unknown'
         await deps.store.createProbe({
           gradeId, category: 'coverage', provider: provider.id, prompt: probe?.prompt ?? '', response: '', score: null,
-          metadata: { label, error, judgeDegraded: result.judge.degraded },
+          metadata: { label, model: provider.model, error, judgeDegraded: result.judge.degraded },
         })
         await publishGradeEvent(deps.redis, gradeId, {
           type: 'probe.completed', category: 'coverage', provider: provider.id, label,
@@ -243,7 +244,7 @@ export async function runCoverageCategory(args: CoverageCategoryArgs): Promise<n
         gradeId, category: 'coverage', provider: provider.id,
         prompt: probe.prompt, response: probe.response, score,
         metadata: {
-          label, latencyMs: probe.latencyMs, inputTokens: probe.inputTokens, outputTokens: probe.outputTokens,
+          label, model: provider.model, latencyMs: probe.latencyMs, inputTokens: probe.inputTokens, outputTokens: probe.outputTokens,
           judgeAccuracy, judgeCoverage, judgeNotes, judgeDegraded: result.judge.degraded,
         },
       })
@@ -302,6 +303,7 @@ export async function runAccuracyCategory(args: AccuracyCategoryArgs): Promise<n
       prompt: result.generator.prompt, response: result.generator.response, score: null,
       metadata: {
         role: 'generator',
+        model: generator.model,
         latencyMs: result.generator.latencyMs,
         inputTokens: result.generator.inputTokens,
         outputTokens: result.generator.outputTokens,
@@ -324,12 +326,14 @@ export async function runAccuracyCategory(args: AccuracyCategoryArgs): Promise<n
       ? (verification.correct === true ? 100 : verification.correct === false ? 0 : null)
       : null
     const error = probe.error ?? (verification?.degraded ? 'verifier degraded' : null)
+    const prober = probers.find((p) => p.id === probe.providerId)
 
     await deps.store.createProbe({
       gradeId, category: 'accuracy', provider: probe.providerId,
       prompt: question, response: probe.answer, score,
       metadata: {
         role: 'verify',
+        model: prober?.model,
         generatorProbeId,
         confidence: verification?.confidence ?? null,
         rationale: verification?.rationale ?? null,
