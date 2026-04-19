@@ -154,6 +154,18 @@ export function makeFakeStore(): FakeGradeStore {
 
       return { ok: true, email: user.email, userId: user.id }
     },
+    async unbindCookie(cookie: string): Promise<void> {
+      const row = cookiesMap.get(cookie)
+      if (!row) return
+      cookiesMap.set(cookie, { ...row, userId: null })
+    },
+    async getCookieWithUser(cookie: string): Promise<{ cookie: string; userId: string | null; email: string | null }> {
+      const row = cookiesMap.get(cookie)
+      if (!row) return { cookie, userId: null, email: null }
+      if (!row.userId) return { cookie, userId: null, email: null }
+      const user = usersMap.get(row.userId)
+      return { cookie, userId: row.userId, email: user?.email ?? null }
+    },
     async createRecommendations(_rows: NewRecommendation[]): Promise<void> {},
     async listRecommendations(_gradeId: string): Promise<Recommendation[]> { return [] },
     async createReport(input: NewReport): Promise<Report> {

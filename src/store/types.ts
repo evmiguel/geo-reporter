@@ -52,4 +52,6 @@ export interface GradeStore {
     | { ok: true; email: string; userId: string }
     | { ok: false }
   >
+  unbindCookie(cookie: string): Promise<void>
+  getCookieWithUser(cookie: string): Promise<{ cookie: string; userId: string | null; email: string | null }>
 }

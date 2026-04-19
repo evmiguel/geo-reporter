@@ -155,6 +155,25 @@ export class PostgresStore implements GradeStore {
     })
   }
 
+  async unbindCookie(cookie: string): Promise<void> {
+    await this.db.update(schema.cookies).set({ userId: null }).where(eq(schema.cookies.cookie, cookie))
+  }
+
+  async getCookieWithUser(cookie: string): Promise<{ cookie: string; userId: string | null; email: string | null }> {
+    const [row] = await this.db
+      .select({
+        cookie: schema.cookies.cookie,
+        userId: schema.cookies.userId,
+        email: schema.users.email,
+      })
+      .from(schema.cookies)
+      .leftJoin(schema.users, eq(schema.users.id, schema.cookies.userId))
+      .where(eq(schema.cookies.cookie, cookie))
+      .limit(1)
+    if (!row) return { cookie, userId: null, email: null }
+    return { cookie: row.cookie, userId: row.userId, email: row.email }
+  }
+
   async createRecommendations(rows: NewRecommendation[]): Promise<void> {
     if (rows.length === 0) return
     await this.db.insert(schema.recommendations).values(rows)
