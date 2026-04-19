@@ -345,6 +345,8 @@ Single shared Chromium instance. Concurrency limit: 2 pages at a time (Railway w
 
 > **Sub-spec:** See `docs/superpowers/specs/2026-04-19-geo-reporter-plan-8-stripe-paywall-design.md` for the Plan 8 design — brainstormed 2026-04-19, shipped in Plan 8.
 
+> **Credit packs (added 2026-04-19).** Alongside the $19 one-off, users can buy 10 credits for $29 via a separate Stripe Checkout product. Each credit redeems for one full paid report at any time (same `generate-report` pipeline). Email verification is required to hold credits (balance portability across cookies/devices). Rate-limit tier rises to 10/24h while `users.credits > 0`. Email-only verification no longer grants a +10 bonus — verified email = identity only. See `docs/superpowers/specs/2026-04-19-geo-reporter-credits-pack-design.md`.
+
 - Stripe Checkout Session: `mode: 'payment'`, single $19 line item, `metadata.gradeId` set.
 - Webhook on `checkout.session.completed` verifies signature, looks up the grade, enqueues `generate-report`. Idempotent by `session.id`.
 - Successful payment unlocks `/report/:id?t=<token>`. No account required — token in the URL is the capability. A user-bound grade also shows up at `/my/reports` once email-bound.
