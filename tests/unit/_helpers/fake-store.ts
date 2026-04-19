@@ -14,6 +14,8 @@ export interface FakeGradeStore extends GradeStore {
   clearedFor: string[]
   magicTokensMap: Map<string, MagicToken>
   stripePaymentsMap: Map<string, StripePayment>
+  recommendations: Recommendation[]
+  reportsMap: Map<string, Report>
   _hashForTest(raw: string): string
 }
 
@@ -26,6 +28,8 @@ export function makeFakeStore(): FakeGradeStore {
   const clearedFor: string[] = []
   const magicTokensMap = new Map<string, MagicToken>()
   const stripePaymentsMap = new Map<string, StripePayment>()
+  const recommendations: Recommendation[] = []
+  const reportsMap = new Map<string, Report>()
   function hashToken(raw: string): string {
     return createHash('sha256').update(raw).digest('hex')
   }
@@ -34,6 +38,8 @@ export function makeFakeStore(): FakeGradeStore {
     gradesMap, scrapesMap, probes, cookiesMap, usersMap, clearedFor,
     magicTokensMap,
     stripePaymentsMap,
+    recommendations,
+    reportsMap,
     _hashForTest(raw: string): string { return hashToken(raw) },
 
     async createGrade(input: NewGrade): Promise<Grade> {
@@ -209,11 +215,34 @@ export function makeFakeStore(): FakeGradeStore {
     async listStripePaymentsByGrade(gradeId: string): Promise<StripePayment[]> {
       return [...stripePaymentsMap.values()].filter((r) => r.gradeId === gradeId)
     },
-    async createRecommendations(_rows: NewRecommendation[]): Promise<void> {},
-    async listRecommendations(_gradeId: string): Promise<Recommendation[]> { return [] },
-    async createReport(input: NewReport): Promise<Report> {
-      return { id: crypto.randomUUID(), gradeId: input.gradeId, token: input.token, createdAt: new Date() }
+    async createRecommendations(rows: NewRecommendation[]): Promise<void> {
+      for (const row of rows) {
+        recommendations.push({
+          id: crypto.randomUUID(),
+          gradeId: row.gradeId,
+          rank: row.rank,
+          title: row.title,
+          category: row.category,
+          impact: row.impact,
+          effort: row.effort,
+          rationale: row.rationale,
+          how: row.how,
+          createdAt: new Date(),
+        })
+      }
     },
-    async getReport(_gradeId: string): Promise<Report | null> { return null },
+    async listRecommendations(gradeId: string): Promise<Recommendation[]> {
+      return recommendations
+        .filter((r) => r.gradeId === gradeId)
+        .sort((a, b) => a.rank - b.rank)
+    },
+    async createReport(input: NewReport): Promise<Report> {
+      const row: Report = { id: crypto.randomUUID(), gradeId: input.gradeId, token: input.token, createdAt: new Date() }
+      reportsMap.set(input.gradeId, row)
+      return row
+    },
+    async getReport(gradeId: string): Promise<Report | null> {
+      return reportsMap.get(gradeId) ?? null
+    },
   }
 }

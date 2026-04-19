@@ -3,7 +3,7 @@ import type * as schema from '../db/schema.ts'
 
 export type Grade = InferSelectModel<typeof schema.grades>
 export type NewGrade = InferInsertModel<typeof schema.grades>
-export type GradeUpdate = Partial<Pick<Grade, 'status' | 'overall' | 'letter' | 'scores' | 'cookie' | 'userId'>>
+export type GradeUpdate = Partial<Pick<Grade, 'status' | 'overall' | 'letter' | 'scores' | 'cookie' | 'userId' | 'tier'>>
 export type Probe = InferSelectModel<typeof schema.probes>
 export type NewProbe = InferInsertModel<typeof schema.probes>
 export type Scrape = InferSelectModel<typeof schema.scrapes>
