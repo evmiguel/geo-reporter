@@ -16,6 +16,7 @@ export default defineConfig({
       '/grades': { target: 'http://localhost:7777', changeOrigin: true },
       '/healthz': { target: 'http://localhost:7777', changeOrigin: true },
       '/auth': { target: 'http://localhost:7777', changeOrigin: true },
+      '/billing': { target: 'http://localhost:7777', changeOrigin: true },
     },
   },
 })
