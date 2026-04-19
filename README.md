@@ -2,7 +2,7 @@
 
 A public, paywalled web app that grades websites on how well LLMs know them. Scrapes the site, runs LLM probes across six categories (Discoverability, Recognition, Accuracy, Coverage, Citation, SEO), and produces an HTML + PDF report with recommendations.
 
-**Status:** pipeline + HTTP + React UI shipped. The scoring pipeline runs, the Hono HTTP API is live, and the React terminal-aesthetic frontend consumes it live via SSE. Auth, Stripe, report rendering, and deploy are still ahead — see [Roadmap](#roadmap).
+**Status:** pipeline + HTTP + React UI + magic-link auth shipped. The scoring pipeline runs, the Hono HTTP API is live, the React terminal-aesthetic frontend consumes it via SSE, and email-verified users get a 13/24h quota instead of 3. Stripe, report rendering, and deploy are still ahead — see [Roadmap](#roadmap).
 
 **You can grade a real website end-to-end today** in three ways:
 
@@ -33,7 +33,8 @@ For the full architecture and the 17 locked-in design decisions, see [`docs/supe
 | `pnpm test` | 314 unit tests passing. |
 | `pnpm test:integration` | 35 integration tests — testcontainers Postgres + Redis + MockProvider. |
 | `pnpm build` | Bundles `dist/server.js`, `dist/worker.js`, and `dist/web/` with tsup + vite. |
-| magic-link auth, Stripe checkout, report HTML/PDF | **Not implemented yet** (Plans 7–9). |
+| **magic-link auth** (`POST /auth/magic`, `GET /auth/verify`, `POST /auth/logout`) | Works. Dev uses `ConsoleMailer` (magic link logged to stdout); verified email lifts the 24h quota from 3 to 13. |
+| Stripe checkout, report HTML/PDF | **Not implemented yet** (Plans 8–9). |
 
 ## Prerequisites
 
@@ -104,7 +105,7 @@ The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser s
 
 - **Landing `/`** — URL input; submit navigates to `/g/:id`.
 - **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. `Checkout — coming soon` CTA is disabled until Plan 8.
-- **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic` which 404s until Plan 7 ships (displays a "coming soon" message).
+- **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic`; verifying your email lifts the quota from 3 to 13 per rolling 24h. In dev, the magic-link URL is printed to the `pnpm dev:server` stdout via `ConsoleMailer` (no real provider wired yet — see the production checklist).
 - **404 `*`** — any unknown route.
 
 ### Production build
@@ -182,7 +183,7 @@ Free tier is 3 grades per (IP, cookie) per rolling 24h. The 4th returns:
   "retryAfter": 86397
 }
 ```
-(The `email` pathway unlocks an extra 10 grades once Plan 7 ships the magic-link verify flow. Until then, swap cookies or wait.)
+(The `email` pathway unlocks an extra 10 grades — POST to `/auth/magic { email }`, click the magic link in the server's stdout log, and the cap becomes 13/24h. Swap cookies or wait if you don't want to verify.)
 
 ## Grading via CLI (smoke test)
 
@@ -320,7 +321,7 @@ docs/
 | 5 | Grade pipeline worker (wires scraper + core + SEO + judge) + dev CLI | **Done** |
 | 6a | HTTP surface: `POST /grades`, `GET /grades/:id`, SSE, rate limit, anonymous cookie | **Done** |
 | 6b | React terminal UI (landing, live grade, email gate) | **Done** |
-| 7 | Auth (magic link, session cookie, quota lift) | Pending |
+| 7 | Auth (magic link, session cookie, quota lift) | **Done (2026-04-19)** |
 | 8 | Paywall: Stripe checkout, webhook, recommendation LLM | Pending |
 | 9 | Report rendering: React SSR + Playwright PDF + signed URLs | Pending |
 | 10 | Deploy: Railway services + add-ons | Pending |

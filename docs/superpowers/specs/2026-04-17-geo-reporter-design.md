@@ -334,6 +334,8 @@ Single shared Chromium instance. Concurrency limit: 2 pages at a time (Railway w
 
 ### 7.2 Email tier (magic-link)
 
+> **Sub-spec:** See `docs/superpowers/specs/2026-04-19-geo-reporter-plan-7-auth-design.md` for the Plan 7 design — brainstormed 2026-04-19, shipped in Plan 7.
+
 - Request at `POST /auth/magic { email }` → issue a 6-hour signed token, send email via a provider (Resend or Postmark; TBD at implementation time).
 - `GET /auth/verify?t=<token>` → if valid and not expired, upsert `users` row and bind the current cookie to the user. Sets an additional long-lived `ggsession` cookie.
 - While bound, the per-key free quota rises to 13 (3 anonymous + 10 email).
