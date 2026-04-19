@@ -14,6 +14,7 @@ const Schema = z.object({
   STRIPE_SECRET_KEY: z.string().startsWith('sk_').optional(),
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
   STRIPE_PRICE_ID: z.string().startsWith('price_').optional(),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
     const required = [

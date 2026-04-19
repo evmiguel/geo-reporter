@@ -157,3 +157,38 @@ describe('env — Plan 8 Stripe vars', () => {
     })).toThrow(/STRIPE_PRICE_ID/)
   })
 })
+
+describe('env — OpenRouter fallback', () => {
+  const base = {
+    DATABASE_URL: 'postgres://localhost/test',
+    REDIS_URL: 'redis://localhost:6379',
+    ANTHROPIC_API_KEY: 'sk-a', OPENAI_API_KEY: 'sk-o',
+    GEMINI_API_KEY: 'sk-g', PERPLEXITY_API_KEY: 'sk-p',
+    COOKIE_HMAC_KEY: 'a'.repeat(32),
+    PUBLIC_BASE_URL: 'http://localhost:5173',
+  }
+
+  it('accepts missing OPENROUTER_API_KEY in development', () => {
+    const env = loadEnv({ ...base, NODE_ENV: 'development' })
+    expect(env.OPENROUTER_API_KEY).toBeUndefined()
+  })
+
+  it('accepts a valid OPENROUTER_API_KEY', () => {
+    const env = loadEnv({
+      ...base, NODE_ENV: 'development',
+      OPENROUTER_API_KEY: 'sk-or-v1-abc123',
+    })
+    expect(env.OPENROUTER_API_KEY).toBe('sk-or-v1-abc123')
+  })
+
+  it('does NOT require OPENROUTER_API_KEY in production (fallback is optional)', () => {
+    // Production already requires the 4 direct LLM keys + Plan 7 + Plan 8. OpenRouter stays optional.
+    const env = loadEnv({
+      ...base, NODE_ENV: 'production',
+      STRIPE_SECRET_KEY: 'sk_live_a',
+      STRIPE_WEBHOOK_SECRET: 'whsec_a',
+      STRIPE_PRICE_ID: 'price_a',
+    })
+    expect(env.OPENROUTER_API_KEY).toBeUndefined()
+  })
+})
