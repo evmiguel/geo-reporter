@@ -1,0 +1,119 @@
+/* Hybrid report aesthetic — cream bg, sans-serif body, mono accents, orange brand */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: #1a1a1a;
+  background: #fafaf7;
+  line-height: 1.55;
+  padding: 40px 24px 80px;
+}
+
+.page { max-width: 860px; margin: 0 auto; }
+
+/* Typography */
+h1, h2, h3, h4 { color: #1a1a1a; font-weight: 600; }
+h1 { font-size: 32px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 48px 0 14px; border-bottom: 1px solid #e6e2d9; padding-bottom: 8px; }
+h3 { font-size: 16px; margin-bottom: 10px; }
+p { font-size: 14px; color: #333; }
+
+.mono { font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; }
+.uppercase-label { font-size: 10px; letter-spacing: 0.1em; color: #888; text-transform: uppercase; }
+.muted { color: #888; }
+.small { font-size: 11px; }
+
+.brand { color: #ff7a1a; }
+.good { color: #2a8a4a; }
+.warn { color: #d97700; }
+.bad { color: #c23030; }
+
+/* TOC */
+.toc { background: #ffffff; border: 1px solid #e6e2d9; padding: 16px 20px; margin-bottom: 32px; }
+.toc ol { list-style: none; counter-reset: toc; }
+.toc li { counter-increment: toc; padding: 4px 0; font-size: 13px; }
+.toc li::before { content: counter(toc) ". "; color: #888; margin-right: 6px; }
+.toc a { color: #1a1a1a; text-decoration: none; }
+.toc a:hover { color: #ff7a1a; }
+
+/* Cover */
+.cover { padding: 24px 0 32px; border-bottom: 1px solid #e6e2d9; margin-bottom: 0; }
+.cover-header { font-size: 10px; letter-spacing: 0.12em; color: #ff7a1a; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }
+.cover-domain { font-size: 22px; font-weight: 500; margin-bottom: 24px; }
+.cover-score { display: flex; align-items: baseline; gap: 20px; padding: 20px 0; border-top: 2px solid #1a1a1a; border-bottom: 1px solid #e6e2d9; }
+.cover-letter { font-family: 'JetBrains Mono', monospace; font-size: 72px; font-weight: 700; line-height: 1; }
+.cover-overall { font-size: 30px; font-weight: 500; }
+.cover-meta { font-size: 11px; color: #666; margin-top: 14px; }
+.cover-actions { margin-top: 14px; }
+.cover-actions a { display: inline-block; background: #1a1a1a; color: #fff; padding: 8px 14px; font-size: 12px; text-decoration: none; margin-right: 8px; }
+
+/* Scorecard */
+.scorecard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tile { background: #ffffff; border: 1px solid #e6e2d9; padding: 16px; }
+.tile-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.tile-number { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; line-height: 1; }
+.tile-number .unit { color: #bbb; font-size: 14px; }
+.tile-bar { height: 3px; background: #f0ece2; margin: 10px 0; overflow: hidden; }
+.tile-bar > div { height: 100%; }
+.tile-summary { font-size: 11px; color: #555; line-height: 1.4; }
+
+/* Raw responses */
+.probe-group { background: #ffffff; border: 1px solid #e6e2d9; margin-bottom: 8px; }
+.probe-header { padding: 12px 16px; border-bottom: 1px solid #f0ece2; background: #faf7ee; }
+.probe-answers { padding: 0; }
+.probe-answer { padding: 14px 16px; border-bottom: 1px solid #f0ece2; }
+.probe-answer:last-child { border-bottom: 0; }
+.probe-answer-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.probe-answer-body { font-size: 12px; color: #444; line-height: 1.6; font-family: Georgia, serif; }
+
+/* Accuracy table */
+.accuracy-card { background: #ffffff; border: 1px solid #e6e2d9; padding: 16px; margin-bottom: 16px; }
+.accuracy-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.accuracy-table th { text-align: left; padding: 6px 8px; font-size: 10px; letter-spacing: 0.05em; color: #666; font-weight: 500; border-bottom: 1px solid #1a1a1a; }
+.accuracy-table td { padding: 8px; vertical-align: top; border-bottom: 1px solid #f0ece2; }
+.accuracy-table tr.truth { background: #f5fff7; }
+.accuracy-table tr.truth td { color: #333; font-family: Georgia, serif; }
+.accuracy-summary { background: #fafaf2; border-top: 1px solid #f0ece2; margin: 12px -16px -16px; padding: 10px 16px; font-size: 11px; color: #333; }
+
+/* SEO checklist */
+.seo-list { background: #ffffff; border: 1px solid #e6e2d9; padding: 16px; }
+.seo-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0ece2; }
+.seo-row:last-child { border-bottom: 0; }
+.seo-row.fail { background: #fff7f2; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+.seo-mark { font-family: 'JetBrains Mono', monospace; font-size: 14px; width: 14px; }
+.seo-label { font-size: 12px; font-weight: 500; }
+.seo-detail { font-size: 11px; color: #888; font-family: 'JetBrains Mono', monospace; }
+
+/* Recommendations */
+.rec-card { background: #ffffff; border: 1px solid #e6e2d9; padding: 20px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr 140px; gap: 20px; }
+.rec-header { font-size: 10px; letter-spacing: 0.1em; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+.rec-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: #1a1a1a; }
+.rec-prose { font-size: 13px; line-height: 1.6; color: #333; margin-bottom: 12px; }
+.rec-how { background: #faf7ee; border-left: 2px solid #ff7a1a; padding: 10px 12px; font-size: 12px; color: #444; line-height: 1.5; }
+.rec-rail { border-left: 1px solid #f0ece2; padding-left: 16px; }
+.rec-priority { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; color: #ff7a1a; line-height: 1; }
+.rec-priority-label { font-size: 9px; letter-spacing: 0.1em; color: #888; text-transform: uppercase; margin-bottom: 16px; }
+.rec-bar-label { font-size: 10px; color: #888; margin-bottom: 4px; }
+.rec-bar { height: 4px; background: #f0ece2; margin-bottom: 10px; }
+.rec-bar > div { height: 100%; background: #ff7a1a; }
+.rec-bar.effort > div { background: #bbb; }
+
+/* Methodology */
+.method dl { margin-top: 14px; }
+.method dt { font-size: 13px; font-weight: 600; margin-top: 12px; color: #1a1a1a; }
+.method dd { font-size: 13px; color: #444; line-height: 1.5; }
+.method ul { margin-left: 20px; font-size: 13px; color: #333; line-height: 1.6; }
+
+/* Print / PDF */
+@media print {
+  body { background: #fff; padding: 0; }
+  .page { max-width: none; }
+  details { display: block !important; }
+  summary { display: none !important; }
+  details > *:not(summary) { display: block !important; }
+  .cover-actions { display: none; }
+  section { page-break-inside: avoid; }
+  .rec-card, .accuracy-card, .tile, .probe-group { page-break-inside: avoid; }
+}
