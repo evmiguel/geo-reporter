@@ -18,7 +18,8 @@ const cssPath = resolve(fileURLToPath(new URL('./report.css', import.meta.url)))
 const CSS = readFileSync(cssPath, 'utf8')
 
 export interface RenderOptions {
-  pdfUrl: string
+  /** URL to link from the "Download PDF" button. Pass `null` when rendering for PDF output to omit the link. */
+  pdfUrl: string | null
 }
 
 export function renderReport(input: ReportInput, opts: RenderOptions): string {

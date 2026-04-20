@@ -22,8 +22,22 @@ describe('Cover component', () => {
 
   it('shows "not graded" when letter is null', () => {
     const html = renderToStaticMarkup(
-      <Cover domain="x.test" letter={null} overall={null} generatedAt={new Date()} pdfUrl="" />,
+      <Cover domain="x.test" letter={null} overall={null} generatedAt={new Date()} pdfUrl={null} />,
     )
     expect(html).toContain('—')
+  })
+
+  it('omits the Download PDF link when pdfUrl is null (PDF render path)', () => {
+    const html = renderToStaticMarkup(
+      <Cover
+        domain="stripe.com"
+        letter="B+"
+        overall={87}
+        generatedAt={new Date('2026-04-19T14:32:00Z')}
+        pdfUrl={null}
+      />,
+    )
+    expect(html).not.toContain('Download PDF')
+    expect(html).not.toContain('cover-actions')
   })
 })

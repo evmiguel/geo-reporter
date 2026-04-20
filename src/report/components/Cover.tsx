@@ -5,7 +5,7 @@ interface CoverProps {
   letter: string | null
   overall: number | null
   generatedAt: Date
-  pdfUrl: string
+  pdfUrl: string | null
 }
 
 function fmtDate(d: Date): string {

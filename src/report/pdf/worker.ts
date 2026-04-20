@@ -11,8 +11,9 @@ export async function processRenderPdf(deps: RenderPdfDeps, job: RenderPdfJob): 
   const record = await deps.store.getReportById(job.reportId)
   if (!record) throw new Error(`render-pdf: report ${job.reportId} not found or not ready`)
   const input = buildReportInput(record)
-  const pdfUrl = `/report/${record.report.id}.pdf?t=${record.report.token}`
-  const html = renderReport(input, { pdfUrl })
+  // Omit the "Download PDF" link when rendering HTML destined for the PDF itself —
+  // it would otherwise ship a self-pointing server-relative URL inside the downloaded artifact.
+  const html = renderReport(input, { pdfUrl: null })
   const bytes = await deps.browserPool.withPage(async (page) => {
     await page.setContent(html, { waitUntil: 'domcontentloaded' })
     return page.pdf({ format: 'Letter', printBackground: true, margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' } })
