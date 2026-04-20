@@ -19,7 +19,7 @@ export function Header(): JSX.Element {
         to="/"
         className="font-mono text-sm tracking-tight text-[var(--color-fg)] no-underline"
       >
-        geo-reporter
+        geo reporter
       </Link>
       <div className="flex items-center gap-3">
         {verified && credits > 0 && <CreditBadge credits={credits} />}
