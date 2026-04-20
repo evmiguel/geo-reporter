@@ -42,9 +42,10 @@ export function DeleteAccountForm({ email }: Props): JSX.Element {
         <button
           type="submit"
           disabled={!matches || pending}
+          aria-busy={pending}
           className="bg-[var(--color-warn)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
         >
-          {pending ? '...' : 'Delete permanently'}
+          {pending ? 'Deleting…' : 'Delete permanently'}
         </button>
       </form>
       {error !== null && <div className="text-xs text-[var(--color-brand)] mt-2">{error}</div>}

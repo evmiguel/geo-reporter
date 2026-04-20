@@ -1,5 +1,5 @@
 import React from 'react'
-import { scoreBandClass } from '../../scoring/letter.ts'
+import { scoreBandClass, letterDescriptor } from '../../scoring/letter.ts'
 
 export interface GradeLetterProps {
   letter: string
@@ -8,10 +8,18 @@ export interface GradeLetterProps {
 
 export function GradeLetter(props: GradeLetterProps): JSX.Element {
   const color = scoreBandClass(props.overall)
+  const desc = letterDescriptor(props.overall)
   return (
-    <div className="flex items-baseline gap-4">
-      <div className={`text-6xl font-mono font-bold ${color}`}>{props.letter}</div>
-      <div className="text-xl font-mono text-[var(--color-fg-dim)]">{props.overall}/100</div>
+    <div>
+      <div className="flex items-baseline gap-4">
+        <div className={`text-6xl font-mono font-bold ${color}`}>{props.letter}</div>
+        <div className="text-xl font-mono text-[var(--color-fg-dim)]">{props.overall}/100</div>
+      </div>
+      {desc !== null && (
+        <div className="text-xs tracking-wider uppercase text-[var(--color-fg-muted)] mt-2">
+          {desc.label} · {desc.range}
+        </div>
+      )}
     </div>
   )
 }

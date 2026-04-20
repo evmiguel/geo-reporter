@@ -31,6 +31,7 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
         <button
           type="submit"
           disabled={props.pending}
+          aria-busy={props.pending}
           className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
         >
           {props.pending ? 'grading…' : 'grade'}

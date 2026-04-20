@@ -46,3 +46,16 @@ export function scoreBandBgClass(score: number | null): string {
   if (score >= 60) return 'bg-[var(--color-warn)]'
   return 'bg-[var(--color-bad)]'
 }
+
+/**
+ * One-word summary + range for a score band. Used under the hero letter so
+ * users see meaning, not just a letter in isolation.
+ */
+export function letterDescriptor(score: number | null): { label: string; range: string } | null {
+  if (score === null) return null
+  if (score >= 90) return { label: 'Excellent', range: '90-100' }
+  if (score >= 80) return { label: 'Good', range: '80-89' }
+  if (score >= 70) return { label: 'Fair', range: '70-79' }
+  if (score >= 60) return { label: 'Weak', range: '60-69' }
+  return { label: 'Poor', range: '<60' }
+}
