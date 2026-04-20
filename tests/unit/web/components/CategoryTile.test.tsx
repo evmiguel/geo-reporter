@@ -25,14 +25,24 @@ describe('CategoryTile', () => {
     expect(screen.getByText(/unscored/i)).toBeInTheDocument()
   })
 
-  it('uses green class for score ≥ 80', () => {
+  it('uses good (green) class for score ≥ 80', () => {
     const { container } = render(<CategoryTile category="seo" weight={10} score={90} phase="done" />)
     expect(container.querySelector('[data-score]')?.className).toContain('color-good')
   })
 
-  it('uses warn class for score between 60 and 79', () => {
-    const { container } = render(<CategoryTile category="seo" weight={10} score={70} phase="done" />)
+  it('uses brand (orange) class for score in 70-79 (C tier)', () => {
+    const { container } = render(<CategoryTile category="seo" weight={10} score={75} phase="done" />)
+    expect(container.querySelector('[data-score]')?.className).toContain('color-brand')
+  })
+
+  it('uses warn class for score in 60-69 (D tier)', () => {
+    const { container } = render(<CategoryTile category="seo" weight={10} score={65} phase="done" />)
     expect(container.querySelector('[data-score]')?.className).toContain('color-warn')
+  })
+
+  it('uses bad (red) class for score < 60 (F)', () => {
+    const { container } = render(<CategoryTile category="seo" weight={10} score={40} phase="done" />)
+    expect(container.querySelector('[data-score]')?.className).toContain('color-bad')
   })
 
   it('renders letter grade for numeric score', () => {
