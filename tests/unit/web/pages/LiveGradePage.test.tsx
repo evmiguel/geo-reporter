@@ -21,6 +21,10 @@ vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
   }),
 }))
 
+vi.mock('../../../../src/web/hooks/usePaidReportStatus.ts', () => ({
+  usePaidReportStatus: () => ({ pdf: 'pending', loading: false }),
+}))
+
 import { LiveGradePage } from '../../../../src/web/pages/LiveGradePage.tsx'
 
 function renderAt(id: string, search = ''): ReturnType<typeof render> {
@@ -121,7 +125,7 @@ describe('LiveGradePage — paid flow', () => {
     expect(screen.getByText(/Checkout canceled/i)).toBeInTheDocument()
   })
 
-  it('shows "View your report" link when paidStatus=ready', () => {
+  it('shows "View report" link when paidStatus=ready', () => {
     stubState.current = {
       phase: 'done',
       scraped: { rendered: false, textLength: 3000 },
@@ -133,7 +137,7 @@ describe('LiveGradePage — paid flow', () => {
       paidStatus: 'ready', reportId: 'r-1', reportToken: 'abc',
     }
     renderAt('g-1')
-    const link = screen.getByRole('link', { name: /View your report/i })
+    const link = screen.getByRole('link', { name: /View report/i })
     expect(link).toBeInTheDocument()
     expect(link).toHaveAttribute('href', '/report/r-1?t=abc')
     // BuyReportButton should NOT show when paidStatus=ready
