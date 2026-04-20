@@ -9,6 +9,7 @@ import { GradeLetter } from '../components/GradeLetter.tsx'
 import { BuyReportButton } from '../components/BuyReportButton.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { HowWeGradeCard } from '../components/HowWeGradeCard.tsx'
+import { PaidReportPreview } from '../components/PaidReportPreview.tsx'
 import { PaidReportStatus } from '../components/PaidReportStatus.tsx'
 import { ReportProgress } from '../components/ReportProgress.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
@@ -116,6 +117,14 @@ export function LiveGradePage(): JSX.Element {
       </div>
 
       <HowWeGradeCard />
+
+      {isFreeTierDone && gradeMeta !== null && state.letter !== null && state.overall !== null && (
+        <PaidReportPreview
+          domain={gradeMeta.domain}
+          letter={state.letter}
+          overall={state.overall}
+        />
+      )}
 
       {isFreeTierDone && (
         <BuyReportButton
