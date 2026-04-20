@@ -32,7 +32,7 @@ describe('AccountPage', () => {
     expect(screen.getByRole('heading', { name: /delete account/i })).toBeInTheDocument()
   })
 
-  it('shows "buy 10 for $29" link when credits === 0', () => {
+  it('mounts BuyCreditsCTA when credits === 0', () => {
     useAuthMock.mockReturnValue({
       verified: true, email: 'u@example.com', credits: 0,
       refresh: async () => {}, logout: async () => {},
@@ -42,7 +42,8 @@ describe('AccountPage', () => {
         <Routes><Route path="/account" element={<AccountPage />} /></Routes>
       </MemoryRouter>,
     )
-    expect(screen.getByRole('link', { name: /buy 10 for \$29/i })).toBeInTheDocument()
+    expect(screen.getByText(/10 reports for \$29/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /get credits/i })).toBeInTheDocument()
   })
 
   it('redirects to /email?next=/account when not verified', () => {

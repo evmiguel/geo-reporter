@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
 import { DeleteAccountForm } from '../components/DeleteAccountForm.tsx'
+import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 
 export function AccountPage(): JSX.Element {
   const { verified, email, credits, logout } = useAuth()
@@ -24,13 +25,14 @@ export function AccountPage(): JSX.Element {
 
       <section className="mb-8">
         <div className="text-xs uppercase tracking-wider text-[var(--color-fg-muted)]">credits</div>
-        <div className="text-lg">
-          {credits > 0 ? (
-            <>{credits} remaining</>
-          ) : (
-            <>None — <a href="/billing/buy-credits" className="text-[var(--color-brand)] underline">buy 10 for $29</a></>
-          )}
-        </div>
+        {credits > 0 ? (
+          <div className="text-lg">{credits} remaining</div>
+        ) : (
+          <>
+            <div className="text-lg text-[var(--color-fg-muted)]">None</div>
+            <BuyCreditsCTA />
+          </>
+        )}
       </section>
 
       <section className="mb-8">
