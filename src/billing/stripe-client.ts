@@ -25,6 +25,7 @@ export class StripeBillingClient implements BillingClient {
       client_reference_id: input.gradeId ?? input.userId ?? '',
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
+      allow_promotion_codes: true,
     })
     return this.toSession(session)
   }
