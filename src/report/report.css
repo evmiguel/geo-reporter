@@ -40,6 +40,9 @@ p { font-size: 14px; color: #333; }
 
 /* Cover */
 .cover { padding: 24px 0 32px; border-bottom: 1px solid #e6e2d9; margin-bottom: 0; }
+.cover-nav { font-size: 12px; margin-bottom: 16px; }
+.cover-nav a { color: #888; text-decoration: none; }
+.cover-nav a:hover { color: #ff7a1a; }
 .cover-header { font-size: 10px; letter-spacing: 0.12em; color: #ff7a1a; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }
 .cover-domain { font-size: 22px; font-weight: 500; margin-bottom: 24px; }
 .cover-score { display: flex; align-items: baseline; gap: 20px; padding: 20px 0; border-top: 2px solid #1a1a1a; border-bottom: 1px solid #e6e2d9; }
@@ -150,6 +153,7 @@ p { font-size: 14px; color: #333; }
   summary { display: none !important; }
   details > *:not(summary) { display: block !important; }
   .cover-actions { display: none; }
+  .cover-nav { display: none; }
   section { page-break-inside: avoid; }
   .rec-card, .accuracy-card, .tile, .probe-group { page-break-inside: avoid; }
 }

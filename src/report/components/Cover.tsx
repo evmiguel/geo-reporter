@@ -15,6 +15,9 @@ function fmtDate(d: Date): string {
 export function Cover({ domain, letter, overall, generatedAt, pdfUrl }: CoverProps): JSX.Element {
   return (
     <section id="cover" className="cover">
+      <div className="cover-nav">
+        <a href="/">← back to home</a>
+      </div>
       <div className="cover-header">GEO Report</div>
       <h1 className="cover-domain">{domain}</h1>
       <div className="cover-score">
