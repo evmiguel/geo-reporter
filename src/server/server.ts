@@ -5,6 +5,8 @@ import { db, closeDb } from '../db/client.ts'
 import { PostgresStore } from '../store/postgres.ts'
 import { createRedis } from '../queue/redis.ts'
 import { ConsoleMailer } from '../mail/console-mailer.ts'
+import { ResendMailer } from '../mail/resend-mailer.ts'
+import type { Mailer } from '../mail/types.ts'
 import { StripeBillingClient } from '../billing/stripe-client.ts'
 import { getReportQueue } from '../queue/queues.ts'
 import { buildApp } from './app.ts'
@@ -33,7 +35,16 @@ if (!publicBaseUrl) {
   publicBaseUrl = DEV_PUBLIC_BASE_URL
 }
 
-const mailer = new ConsoleMailer()
+const mailer: Mailer =
+  env.RESEND_API_KEY !== undefined && env.MAIL_FROM !== undefined
+    ? new ResendMailer({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM })
+    : new ConsoleMailer()
+
+if (env.NODE_ENV !== 'production' && !(mailer instanceof ResendMailer)) {
+  console.log(JSON.stringify({
+    msg: 'mailer: using ConsoleMailer (set RESEND_API_KEY + MAIL_FROM for real email)',
+  }))
+}
 
 const billing = env.STRIPE_SECRET_KEY
   ? new StripeBillingClient({ secretKey: env.STRIPE_SECRET_KEY })
