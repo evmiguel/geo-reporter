@@ -38,6 +38,12 @@ export type GradeEvent =
 
 export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed'
 
+export type PdfStatus = 'pending' | 'ready' | 'failed'
+export interface ReportStatusResponse {
+  html: 'ready'
+  pdf: PdfStatus
+}
+
 export type Phase = 'queued' | 'running' | 'scraped' | 'done' | 'failed'
 
 export interface ProbeEntry {
