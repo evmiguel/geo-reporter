@@ -6,6 +6,6 @@ export async function detectClaudeOrOpenAIOutage(
 ): Promise<{ message: string } | null> {
   const hasFailure = await store.hasTerminalProviderFailures(gradeId)
   return hasFailure
-    ? { message: 'An LLM provider (Claude or OpenAI) returned a terminal error after fallback retries.' }
+    ? { message: 'An LLM provider (Claude or ChatGPT) returned a terminal error after fallback retries.' }
     : null
 }
