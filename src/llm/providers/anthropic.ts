@@ -19,8 +19,8 @@ interface AnthropicResponse {
 
 export class AnthropicProvider implements Provider {
   readonly id: ProviderId = 'claude'
+  readonly model: string
   private readonly apiKey: string
-  private readonly model: string
   private readonly fetchFn: typeof globalThis.fetch
 
   constructor(opts: AnthropicProviderOptions) {

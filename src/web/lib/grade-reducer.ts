@@ -1,4 +1,4 @@
-import type { GradeEvent, GradeState, CategoryId, ProbeEntry } from './types.ts'
+import type { GradeAction, GradeState, CategoryId, ProbeEntry } from './types.ts'
 
 export function initialGradeState(): GradeState {
   return {
@@ -22,7 +22,7 @@ function probeKey(category: CategoryId, provider: string | null, label: string):
   return `${category}:${provider ?? '-'}:${label}`
 }
 
-export function reduceGradeEvents(state: GradeState, event: GradeEvent, now: number): GradeState {
+export function reduceGradeEvents(state: GradeState, event: GradeAction, now: number): GradeState {
   switch (event.type) {
     case 'running':
       return { ...state, phase: 'running' }
@@ -122,5 +122,7 @@ export function reduceGradeEvents(state: GradeState, event: GradeEvent, now: num
       return { ...state, paidStatus: 'ready', reportId: event.reportId, reportToken: event.token }
     case 'report.failed':
       return { ...state, paidStatus: 'failed', error: event.error }
+    case 'hydrate_paid':
+      return { ...state, paidStatus: 'ready', reportId: event.reportId, reportToken: event.reportToken }
   }
 }

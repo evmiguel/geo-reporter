@@ -9,6 +9,7 @@ import { BuyReportButton } from '../components/BuyReportButton.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { PaidReportStatus } from '../components/PaidReportStatus.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
+import { getGrade } from '../lib/api.ts'
 import { CATEGORY_ORDER, CATEGORY_WEIGHTS, type PaidStatus } from '../lib/types.ts'
 
 export function LiveGradePage(): JSX.Element {
@@ -27,7 +28,22 @@ export function LiveGradePage(): JSX.Element {
   }, [])
 
   if (id === undefined) return <div className="p-8 text-[var(--color-warn)]">invalid grade id</div>
-  const { state } = useGradeEvents(id)
+  const { state, dispatch } = useGradeEvents(id)
+
+  // Hydrate paid-report state on mount from GET /grades/:id so that a refresh
+  // (after the SSE 'report.done' event has already fired) still shows the
+  // View-report + Download-PDF links.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const grade = await getGrade(id)
+      if (cancelled || !grade) return
+      if (grade.tier === 'paid' && grade.reportId !== undefined && grade.reportToken !== undefined) {
+        dispatch({ type: 'hydrate_paid', reportId: grade.reportId, reportToken: grade.reportToken })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [id, dispatch])
 
   const effectivePaidStatus: PaidStatus =
     state.paidStatus !== 'none' ? state.paidStatus :

@@ -14,8 +14,7 @@ export interface ReportJob {
   sessionId?: string
 }
 export interface PdfJob {
-  gradeId: string
-  token: string
+  reportId: string
 }
 
 let gradeQueue: Queue<GradeJob> | undefined
@@ -48,17 +47,12 @@ export async function enqueueReport(job: ReportJob, connection: Redis): Promise<
   await getReportQueue(connection).add('generate-report', job, { attempts: 3 })
 }
 
-import { QueueEvents } from 'bullmq'
-
-let pdfQueueEvents: QueueEvents | undefined
-function getPdfQueueEvents(connection: Redis): QueueEvents {
-  pdfQueueEvents ??= new QueueEvents(pdfQueueName, { connection })
-  return pdfQueueEvents
-}
-
-export async function enqueuePdf(job: PdfJob, connection: Redis): Promise<Buffer> {
-  const queued = await getPdfQueue(connection).add('render-pdf', job, { attempts: 2 })
-  const result = await queued.waitUntilFinished(getPdfQueueEvents(connection), 30_000)
-  if (!(result instanceof Buffer)) throw new Error('PDF job did not return a Buffer')
-  return result
+export async function enqueuePdf(job: PdfJob, connection: Redis): Promise<void> {
+  await getPdfQueue(connection).add('render-pdf', job, {
+    jobId: `render-pdf-${job.reportId}`,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2_000 },
+    removeOnComplete: { age: 3600 },
+    removeOnFail: { age: 24 * 3600 },
+  })
 }

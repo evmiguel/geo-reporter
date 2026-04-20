@@ -17,6 +17,16 @@ export type NewReport = InferInsertModel<typeof schema.reports>
 export type StripePayment = InferSelectModel<typeof schema.stripePayments>
 export type MagicToken = InferSelectModel<typeof schema.magicTokens>
 
+export type ReportPdfStatus = 'pending' | 'ready' | 'failed'
+
+export interface ReportRecord {
+  report: Report
+  grade: Grade
+  scrape: Scrape | null
+  probes: Probe[]
+  recommendations: Recommendation[]
+}
+
 export interface GradeStore {
   // Grades
   createGrade(input: NewGrade): Promise<Grade>
@@ -45,6 +55,11 @@ export interface GradeStore {
   // Reports (expanded in report plan)
   createReport(input: NewReport): Promise<Report>
   getReport(gradeId: string): Promise<Report | null>
+  getReportById(id: string): Promise<ReportRecord | null>
+  initReportPdfRow(reportId: string): Promise<void>
+  getReportPdf(reportId: string): Promise<{ status: ReportPdfStatus; bytes: Buffer | null } | null>
+  writeReportPdf(reportId: string, bytes: Buffer): Promise<void>
+  setReportPdfStatus(reportId: string, status: Exclude<ReportPdfStatus, 'ready'>, errorMessage?: string): Promise<void>
 
   // Auth — magic-link flow (Plan 7)
   issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }>

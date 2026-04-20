@@ -15,5 +15,6 @@ export interface QueryOpts {
 
 export interface Provider {
   readonly id: ProviderId
+  readonly model: string
   query(prompt: string, opts?: QueryOpts): Promise<QueryResult>
 }

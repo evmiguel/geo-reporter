@@ -4,9 +4,11 @@ import { createRedis } from '../queue/redis.ts'
 import { registerHealthWorker } from '../queue/workers/health.ts'
 import { registerRunGradeWorker } from '../queue/workers/run-grade/index.ts'
 import { registerGenerateReportWorker } from '../queue/workers/generate-report/index.ts'
+import { registerRenderPdfWorker } from '../report/pdf/worker.ts'
 import { buildProviders } from '../llm/providers/index.ts'
 import { PostgresStore } from '../store/postgres.ts'
 import { scrape, shutdownBrowserPool } from '../scraper/index.ts'
+import { getBrowserPool } from '../scraper/render.ts'
 
 const connection = createRedis(env.REDIS_URL)
 const store = new PostgresStore(db)
@@ -25,6 +27,7 @@ const workers = [
     { store, redis: connection, providers },
     connection,
   ),
+  registerRenderPdfWorker({ store, browserPool: getBrowserPool() }, connection),
 ]
 
 console.log(JSON.stringify({ msg: 'worker started', workers: workers.length }))

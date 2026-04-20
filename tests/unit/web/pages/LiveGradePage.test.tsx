@@ -8,7 +8,11 @@ afterEach(() => { cleanup() })
 
 const stubState: { current: GradeState } = { current: {} as GradeState }
 vi.mock('../../../../src/web/hooks/useGradeEvents.ts', () => ({
-  useGradeEvents: () => ({ state: stubState.current, connected: true }),
+  useGradeEvents: () => ({ state: stubState.current, connected: true, dispatch: () => {} }),
+}))
+
+vi.mock('../../../../src/web/lib/api.ts', () => ({
+  getGrade: vi.fn(async () => null),
 }))
 
 vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
@@ -19,6 +23,10 @@ vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
     refresh: async () => {},
     logout: async () => {},
   }),
+}))
+
+vi.mock('../../../../src/web/hooks/usePaidReportStatus.ts', () => ({
+  usePaidReportStatus: () => ({ pdf: 'pending', loading: false }),
 }))
 
 import { LiveGradePage } from '../../../../src/web/pages/LiveGradePage.tsx'
@@ -121,7 +129,7 @@ describe('LiveGradePage — paid flow', () => {
     expect(screen.getByText(/Checkout canceled/i)).toBeInTheDocument()
   })
 
-  it('shows "View your report" link when paidStatus=ready', () => {
+  it('shows "View report" link when paidStatus=ready', () => {
     stubState.current = {
       phase: 'done',
       scraped: { rendered: false, textLength: 3000 },
@@ -133,7 +141,7 @@ describe('LiveGradePage — paid flow', () => {
       paidStatus: 'ready', reportId: 'r-1', reportToken: 'abc',
     }
     renderAt('g-1')
-    const link = screen.getByRole('link', { name: /View your report/i })
+    const link = screen.getByRole('link', { name: /View report/i })
     expect(link).toBeInTheDocument()
     expect(link).toHaveAttribute('href', '/report/r-1?t=abc')
     // BuyReportButton should NOT show when paidStatus=ready

@@ -15,10 +15,11 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
+    "jsx": "react",
     "types": ["node"],
     "rootDir": ".",
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"],
   "exclude": ["src/web/**/*", "tests/unit/web/**/*", "node_modules", "dist"]
 }

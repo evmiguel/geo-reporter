@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq'
 import type Redis from 'ioredis'
-import { reportQueueName, type ReportJob } from '../../queues.ts'
+import { enqueuePdf, reportQueueName, type PdfJob, type ReportJob } from '../../queues.ts'
 import { generateReport, type GenerateReportJob } from './generate-report.ts'
 import { runRecommender } from './recommender.ts'
 import type { GenerateReportDeps } from './deps.ts'
@@ -8,10 +8,11 @@ import type { GenerateReportDeps } from './deps.ts'
 type JobDataInput = Pick<GenerateReportJob, 'gradeId' | 'sessionId'>
 
 export function registerGenerateReportWorker(
-  deps: Omit<GenerateReportDeps, 'recommenderFn'>,
+  deps: Omit<GenerateReportDeps, 'recommenderFn' | 'enqueuePdfFn'>,
   connection: Redis,
 ): Worker<ReportJob> {
-  const fullDeps: GenerateReportDeps = { ...deps, recommenderFn: runRecommender }
+  const enqueuePdfFn = (job: PdfJob): Promise<void> => enqueuePdf(job, connection)
+  const fullDeps: GenerateReportDeps = { ...deps, recommenderFn: runRecommender, enqueuePdfFn }
   return new Worker<ReportJob>(
     reportQueueName,
     async (job) => {

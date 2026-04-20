@@ -17,8 +17,8 @@ interface PerplexityResponse {
 
 export class PerplexityProvider implements Provider {
   readonly id: ProviderId = 'perplexity'
+  readonly model: string
   private readonly apiKey: string
-  private readonly model: string
   private readonly fetchFn: typeof globalThis.fetch
 
   constructor(opts: PerplexityProviderOptions) {

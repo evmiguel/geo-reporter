@@ -26,7 +26,7 @@ interface OpenRouterResponse {
 
 export class OpenRouterProvider implements Provider {
   readonly id: ProviderId
-  private readonly model: string
+  readonly model: string
   private readonly apiKey: string
   private readonly fetchFn: typeof globalThis.fetch
 

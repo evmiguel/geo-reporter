@@ -16,6 +16,7 @@ export interface MockCall {
 
 export class MockProvider implements Provider {
   readonly id: ProviderId
+  readonly model: string
   readonly calls: ReadonlyArray<MockCall>
   private readonly _calls: MockCall[] = []
   private readonly responses: MockResponses
@@ -24,6 +25,7 @@ export class MockProvider implements Provider {
 
   constructor(opts: MockProviderOptions) {
     this.id = opts.id
+    this.model = `mock:${opts.id}`
     this.calls = this._calls
     this.responses = opts.responses
     this.failWith = opts.failWith

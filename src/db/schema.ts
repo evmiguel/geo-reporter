@@ -1,5 +1,9 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, text, uuid, integer, boolean, jsonb, timestamp, unique, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, uuid, integer, boolean, jsonb, timestamp, unique, index, customType } from 'drizzle-orm/pg-core'
+
+const customBytea = customType<{ data: Buffer; driverData: Buffer; notNull: false; default: false }>({
+  dataType() { return 'bytea' },
+})
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -105,3 +109,11 @@ export const magicTokens = pgTable('magic_tokens', {
 }, (t) => ({
   uniqByHash: unique('magic_tokens_hash_unique').on(t.tokenHash),
 }))
+
+export const reportPdfs = pgTable('report_pdfs', {
+  reportId: uuid('report_id').primaryKey().references(() => reports.id, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['pending', 'ready', 'failed'] }).notNull().default('pending'),
+  bytes: customBytea('bytes'),
+  errorMessage: text('error_message'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})

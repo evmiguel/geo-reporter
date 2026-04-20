@@ -1,4 +1,4 @@
-import type { CategoryId } from './types.ts'
+import type { CategoryId, ReportStatusResponse } from './types.ts'
 
 export interface GradeSummary {
   id: string
@@ -11,6 +11,8 @@ export interface GradeSummary {
   scores: Record<CategoryId, number | null> | null
   createdAt: string
   updatedAt: string
+  reportId?: string
+  reportToken?: string
 }
 
 export interface CreateGradeOk { ok: true; gradeId: string }
@@ -168,6 +170,12 @@ export async function postBillingBuyCredits(): Promise<
 export type RedeemResult =
   | { ok: true }
   | { ok: false; kind: 'already_paid' | 'grade_not_done' | 'no_credits' | 'must_verify_email' | 'unavailable' | 'unknown'; status?: number }
+
+export async function getReportStatus(reportId: string, token: string): Promise<ReportStatusResponse | null> {
+  const res = await fetch(`/report/${reportId}/status?t=${encodeURIComponent(token)}`, { credentials: 'same-origin' })
+  if (!res.ok) return null
+  return (await res.json()) as ReportStatusResponse
+}
 
 export async function postBillingRedeemCredit(gradeId: string): Promise<RedeemResult> {
   let res: Response

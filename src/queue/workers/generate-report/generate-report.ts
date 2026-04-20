@@ -82,6 +82,20 @@ export async function generateReport(
   const token = randomBytes(32).toString('hex')
   const report = await deps.store.createReport({ gradeId, token })
 
+  // Step 4b: chain render-pdf — initialise the pdf row (status='pending'), then
+  // enqueue the render-pdf job. Failure to enqueue is logged but never fails
+  // the report job; HTML works without PDF.
+  await deps.store.initReportPdfRow(report.id)
+  try {
+    await deps.enqueuePdfFn({ reportId: report.id })
+  } catch (err) {
+    console.error(JSON.stringify({
+      msg: 'failed to enqueue render-pdf',
+      reportId: report.id,
+      error: (err as Error).message,
+    }))
+  }
+
   // Step 5: scores update (penultimate write)
   const existingScores = (grade.scores as { metadata?: Record<string, unknown> } | null) ?? {}
   const newScores: Record<string, unknown> = {

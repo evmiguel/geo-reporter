@@ -4,7 +4,7 @@ import { ProviderError } from '../../../../src/llm/providers/errors.ts'
 import type { Provider, QueryResult } from '../../../../src/llm/providers/types.ts'
 
 function stubProvider(id: 'claude' | 'gpt' | 'gemini', impl: (prompt: string) => Promise<QueryResult>): Provider {
-  return { id, query: vi.fn().mockImplementation(impl) }
+  return { id, model: `stub:${id}`, query: vi.fn().mockImplementation(impl) }
 }
 
 function ok(text: string, markerTokens = 10): QueryResult {

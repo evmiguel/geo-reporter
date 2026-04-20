@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import type {
   GradeStore, Grade, Probe, Scrape, NewGrade, NewProbe, NewScrape, GradeUpdate,
   User, Cookie, Recommendation, NewRecommendation, Report, NewReport, MagicToken,
-  StripePayment,
+  ReportRecord, ReportPdfStatus, StripePayment,
 } from '../../../src/store/types.ts'
 
 export interface FakeGradeStore extends GradeStore {
@@ -30,6 +30,7 @@ export function makeFakeStore(): FakeGradeStore {
   const stripePaymentsMap = new Map<string, StripePayment>()
   const recommendations: Recommendation[] = []
   const reportsMap = new Map<string, Report>()
+  const reportPdfsMap = new Map<string, { status: ReportPdfStatus; bytes: Buffer | null; errorMessage: string | null }>()
   function hashToken(raw: string): string {
     return createHash('sha256').update(raw).digest('hex')
   }
@@ -291,6 +292,44 @@ export function makeFakeStore(): FakeGradeStore {
     },
     async getReport(gradeId: string): Promise<Report | null> {
       return reportsMap.get(gradeId) ?? null
+    },
+    async getReportById(id: string): Promise<ReportRecord | null> {
+      const report = [...reportsMap.values()].find((r) => r.id === id)
+      if (!report) return null
+      const grade = gradesMap.get(report.gradeId)
+      if (!grade) return null
+      if (grade.tier !== 'paid' || grade.status !== 'done') return null
+      const scrape = scrapesMap.get(grade.id) ?? null
+      const probesForGrade = probes
+        .filter((p) => p.gradeId === grade.id)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      const recsForGrade = recommendations
+        .filter((r) => r.gradeId === grade.id)
+        .sort((a, b) => a.rank - b.rank)
+      return { report, grade, scrape, probes: probesForGrade, recommendations: recsForGrade }
+    },
+    async initReportPdfRow(reportId: string): Promise<void> {
+      if (reportPdfsMap.has(reportId)) return
+      reportPdfsMap.set(reportId, { status: 'pending', bytes: null, errorMessage: null })
+    },
+    async getReportPdf(reportId: string): Promise<{ status: ReportPdfStatus; bytes: Buffer | null } | null> {
+      const row = reportPdfsMap.get(reportId)
+      if (!row) return null
+      return { status: row.status, bytes: row.bytes }
+    },
+    async writeReportPdf(reportId: string, bytes: Buffer): Promise<void> {
+      const row = reportPdfsMap.get(reportId)
+      if (!row) return
+      reportPdfsMap.set(reportId, { status: 'ready', bytes, errorMessage: null })
+    },
+    async setReportPdfStatus(
+      reportId: string,
+      status: Exclude<ReportPdfStatus, 'ready'>,
+      errorMessage?: string,
+    ): Promise<void> {
+      const row = reportPdfsMap.get(reportId)
+      if (!row) return
+      reportPdfsMap.set(reportId, { ...row, status, errorMessage: errorMessage ?? null })
     },
   }
 }

@@ -37,7 +37,7 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     const grade = await deps.store.getGrade(id)
     if (!grade) return c.json({ error: 'not found' }, 404)
     if (grade.cookie !== c.var.cookie) return c.json({ error: 'forbidden' }, 403)
-    return c.json({
+    const body: Record<string, unknown> = {
       id: grade.id,
       url: grade.url,
       domain: grade.domain,
@@ -48,7 +48,15 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
       scores: grade.scores,
       createdAt: grade.createdAt,
       updatedAt: grade.updatedAt,
-    })
+    }
+    if (grade.tier === 'paid') {
+      const report = await deps.store.getReport(grade.id)
+      if (report) {
+        body.reportId = report.id
+        body.reportToken = report.token
+      }
+    }
+    return c.json(body)
   })
 
   return app

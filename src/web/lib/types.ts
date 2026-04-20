@@ -36,7 +36,19 @@ export type GradeEvent =
   | { type: 'report.done'; reportId: string; token: string }
   | { type: 'report.failed'; error: string }
 
+// Client-only actions dispatched outside the SSE stream (e.g. rehydrating
+// paid-report state from `GET /grades/:id` on page refresh).
+export type GradeAction =
+  | GradeEvent
+  | { type: 'hydrate_paid'; reportId: string; reportToken: string }
+
 export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed'
+
+export type PdfStatus = 'pending' | 'ready' | 'failed'
+export interface ReportStatusResponse {
+  html: 'ready'
+  pdf: PdfStatus
+}
 
 export type Phase = 'queued' | 'running' | 'scraped' | 'done' | 'failed'
 
