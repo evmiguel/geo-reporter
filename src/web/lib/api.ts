@@ -111,7 +111,8 @@ export async function getAuthMe(): Promise<{ verified: boolean; email?: string; 
 }
 
 export type CheckoutResult =
-  | { ok: true; url: string }
+  | { ok: true; kind: 'checkout'; url: string }
+  | { ok: true; kind: 'redeemed' }
   | { ok: false; kind: 'already_paid'; reportId: string }
   | { ok: false; kind: 'grade_not_done' }
   | { ok: false; kind: 'must_verify_email' }
@@ -132,8 +133,12 @@ export async function postBillingCheckout(gradeId: string): Promise<CheckoutResu
   }
 
   if (res.status === 200) {
-    const body = await res.json() as { url: string }
-    return { ok: true, url: body.url }
+    const body = await res.json() as { url?: string; redeemed?: boolean }
+    // Server short-circuits to credit-redeem when credits > 0 (defense against
+    // a stale frontend showing "$19"). No Stripe URL in that case.
+    if (body.redeemed === true) return { ok: true, kind: 'redeemed' }
+    if (typeof body.url === 'string') return { ok: true, kind: 'checkout', url: body.url }
+    return { ok: false, kind: 'unknown', status: 200 }
   }
   if (res.status === 409) {
     const body = (await res.json().catch(() => ({}))) as { error?: string; reportId?: string }

@@ -48,6 +48,33 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       const paid = payments.find((p) => p.status === 'paid')
       if (paid) return c.json({ error: 'already_paid', reportId: grade.id }, 409)
 
+      // Defense-in-depth: if the user already has credits, spend one instead
+      // of charging $19. The frontend button normally shows "Redeem credit"
+      // in this case, but a stale useAuth() state (e.g. race right after
+      // purchase) could still present "$19". Never charge a user who's already
+      // paying — always prefer the credit.
+      if (cookieRow.credits > 0) {
+        const redeem = await deps.store.redeemCredit(cookieRow.userId)
+        if (redeem.ok) {
+          const auditSessionId = `credit:${gradeId}`
+          await deps.store.createStripePayment({
+            gradeId, sessionId: auditSessionId,
+            amountCents: 0, currency: 'usd', kind: 'credits',
+          })
+          await deps.store.updateStripePaymentStatus(auditSessionId, { status: 'paid' })
+          const jobId = `generate-report-credit-${gradeId}`
+          await deps.reportQueue.add(
+            'generate-report',
+            { gradeId, sessionId: auditSessionId },
+            { jobId, attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
+          )
+          return c.json({ redeemed: true })
+        }
+        // redeem.ok === false means a concurrent redemption drained the last
+        // credit between our read and the decrement. Fall through to Stripe —
+        // the user did click "buy", so charging them is the correct fallback.
+      }
+
       const pending = payments.find((p) => p.status === 'pending')
       if (pending) {
         const remote = await deps.billing.retrieveCheckoutSession(pending.sessionId)

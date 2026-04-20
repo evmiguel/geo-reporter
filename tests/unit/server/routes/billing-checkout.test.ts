@@ -164,6 +164,56 @@ describe('POST /billing/checkout', () => {
     expect(priorRow!.status).toBe('failed')
   })
 
+  it('server-side redeem when verified user already has credits (defense against stale client)', async () => {
+    // Build the app with a real queue stub so the redeem path can enqueue.
+    const store = makeFakeStore()
+    const billing = new FakeStripe()
+    const enqueued: Array<{ name: string; data: unknown; opts: unknown }> = []
+    const reportQueue = {
+      add: async (name: string, data: unknown, opts: unknown) => {
+        enqueued.push({ name, data, opts })
+      },
+    } as unknown as import('bullmq').Queue
+    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+    app.use('*', clientIp(), cookieMiddleware(store, false, HMAC_KEY))
+    app.route('/billing', billingRouter({
+      store, billing,
+      priceId: 'price_test_abc',
+      creditsPriceId: 'price_test_credits',
+      publicBaseUrl: 'http://localhost:5173',
+      webhookSecret: 'whsec_test_fake',
+      reportQueue,
+    }))
+
+    const cookie = await issueCookie(app)
+    const uuid = cookie.split('.')[0]!
+    // Verified user with credits
+    const user = await store.upsertUser('credits@example.com')
+    await store.upsertCookie(uuid, user.id)
+    await store.createStripePayment({
+      gradeId: null, sessionId: 'cs_grant', amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid('cs_grant', user.id, 10, 2900, 'usd')
+    const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
+
+    const res = await app.fetch(new Request('http://test/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+    expect(res.status).toBe(200)
+    const body = await res.json() as { redeemed?: boolean; url?: string }
+    expect(body.redeemed).toBe(true)
+    expect(body.url).toBeUndefined()
+    // No Stripe session was created
+    expect(billing.createdSessions).toHaveLength(0)
+    // Credit was consumed (10 → 9)
+    expect(await store.getCredits(user.id)).toBe(9)
+    // generate-report was enqueued
+    expect(enqueued).toHaveLength(1)
+    expect((enqueued[0]!.data as { gradeId: string }).gradeId).toBe(grade.id)
+  })
+
   it('409 must_verify_email when cookie is not bound to a user', async () => {
     const { app, store } = build()
     const cookie = await issueCookie(app)

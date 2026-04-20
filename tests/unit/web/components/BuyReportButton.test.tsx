@@ -33,7 +33,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('BuyReportButton', () => {
   it('clicking redirects on success', async () => {
-    vi.spyOn(api, 'postBillingCheckout').mockResolvedValue({ ok: true, url: 'https://stripe.test/cs_1' })
+    vi.spyOn(api, 'postBillingCheckout').mockResolvedValue({ ok: true, kind: 'checkout', url: 'https://stripe.test/cs_1' })
     const assignMock = vi.fn()
     vi.stubGlobal('location', { assign: assignMock, href: '' })
     const user = userEvent.setup()
@@ -104,5 +104,22 @@ describe('BuyReportButton — credits branch', () => {
     render(<BuyReportButton gradeId="g-1" onAlreadyPaid={() => {}} />)
     await user.click(screen.getByRole('button', { name: /redeem/i }))
     expect(await screen.findByText(/no credits available/i)).toBeInTheDocument()
+  })
+
+  it('server-side redeem on stale frontend: $19 button, but server redeems credit instead', async () => {
+    // Stale auth state — client thinks credits === 0 so button says "$19",
+    // but the server sees credits > 0 and returns redeemed:true. User must
+    // not be charged; no Stripe redirect.
+    authState.current = {
+      verified: true, email: 'u@ex.com', credits: 0,
+      refresh: async () => {}, logout: async () => {},
+    }
+    vi.spyOn(api, 'postBillingCheckout').mockResolvedValue({ ok: true, kind: 'redeemed' })
+    const assignMock = vi.fn()
+    vi.stubGlobal('location', { assign: assignMock, href: '' })
+    const user = userEvent.setup()
+    render(<BuyReportButton gradeId="g-1" onAlreadyPaid={() => {}} />)
+    await user.click(screen.getByRole('button', { name: /full report — \$19/i }))
+    expect(assignMock).not.toHaveBeenCalled()
   })
 })

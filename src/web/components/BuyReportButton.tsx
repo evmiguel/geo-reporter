@@ -43,7 +43,15 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
       return
     }
     const result = await postBillingCheckout(gradeId)
-    if (result.ok) { window.location.assign(result.url); return }
+    if (result.ok) {
+      if (result.kind === 'checkout') { window.location.assign(result.url); return }
+      // Server used a credit on our behalf — no Stripe round-trip.
+      // Refresh credits and stay on the page; the paid report will
+      // materialize via the existing SSE pipeline.
+      await refresh()
+      setPending(false)
+      return
+    }
     setPending(false)
     if (result.kind === 'already_paid') { onAlreadyPaid(result.reportId); return }
     if (result.kind === 'grade_not_done') { setError('This grade is not done yet.'); return }
