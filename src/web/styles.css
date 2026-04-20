@@ -1,22 +1,32 @@
 @import "tailwindcss";
 
+/* Palette aligned with the paid report (cream / charcoal / orange).
+   --color-brand stays #ff7a1a so brand accents feel identical across pages.
+   Dark-era values kept in comments in case we want a theme switch later. */
 @theme {
-  --color-bg: #0a0a0a;
-  --color-bg-elevated: #0f0f0f;
-  --color-bg-sidebar: #070707;
-  --color-fg: #e8e8e8;
-  --color-fg-dim: #9a9a9a;
-  --color-fg-muted: #6e6e6e;
-  --color-fg-faint: #3a3a3a;
-  --color-line: #1f1f1f;
+  --color-bg: #fafaf7;              /* was #0a0a0a */
+  --color-bg-elevated: #ffffff;     /* was #0f0f0f — white cards on cream */
+  --color-bg-sidebar: #ffffff;      /* was #070707 — header sits on white */
+  --color-fg: #1a1a1a;              /* was #e8e8e8 */
+  --color-fg-dim: #444;             /* was #9a9a9a */
+  --color-fg-muted: #888;           /* was #6e6e6e */
+  --color-fg-faint: #bbb;           /* was #3a3a3a */
+  --color-line: #e6e2d9;            /* was #1f1f1f — warm beige divider */
   --color-brand: #ff7a1a;
-  --color-brand-dim: #b85a14;
-  --color-good: #5cf28e;
+  --color-brand-dim: #d97700;       /* was #b85a14 */
+  --color-good: #2a8a4a;            /* was #5cf28e — report's deeper green */
   --color-good-dim: #3da45e;
-  --color-warn: #f5b94a;
+  --color-warn: #d97700;            /* was #f5b94a — matches report's warn */
+  --color-bad: #c23030;             /* new — for errors / destructive */
 
+  /* Button-on-brand text. Keeps labels readable when bg=orange regardless
+     of the page palette. Previously we piggy-backed on --color-bg which
+     happens to work in dark mode but lost contrast after the flip. */
+  --color-on-brand: #ffffff;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-display: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Inter", -apple-system, sans-serif;
 }
 
 html, body, #root {
@@ -26,18 +36,19 @@ html, body, #root {
 }
 
 body {
-  font-family: var(--font-mono);
-  font-feature-settings: "calt", "ss01";
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   background: var(--color-bg);
   color: var(--color-fg);
+  line-height: 1.55;
 }
 
 * { box-sizing: border-box; }
 
 ::selection {
   background: var(--color-brand);
-  color: var(--color-bg);
+  color: var(--color-on-brand);
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }

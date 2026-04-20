@@ -30,7 +30,7 @@ export function BuyCreditsCTA(): JSX.Element {
         type="button"
         onClick={() => void handleClick()}
         disabled={pending}
-        className="bg-[var(--color-good)] text-[var(--color-bg)] px-4 py-2 font-semibold disabled:opacity-50"
+        className="bg-[var(--color-good)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
       >
         {pending ? '...' : 'Get credits'}
       </button>

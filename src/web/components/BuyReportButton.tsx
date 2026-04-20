@@ -126,7 +126,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
             <button
               type="submit"
               disabled={pending}
-              className="bg-[var(--color-brand)] text-[var(--color-bg)] px-4 py-2 font-semibold disabled:opacity-50"
+              className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
             >
               {pending ? '...' : 'send link'}
             </button>
@@ -167,7 +167,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
         type="button"
         onClick={() => void handleClick()}
         disabled={pending}
-        className="bg-[var(--color-brand)] text-[var(--color-bg)] px-4 py-2 font-semibold disabled:opacity-50"
+        className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
       >
         {pending ? '...' : label}
       </button>

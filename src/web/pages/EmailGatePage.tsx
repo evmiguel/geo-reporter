@@ -97,7 +97,7 @@ export function EmailGatePage(): JSX.Element {
           <button
             type="submit"
             disabled={pending}
-            className="bg-[var(--color-brand)] text-[var(--color-bg)] px-4 py-2 font-semibold disabled:opacity-50"
+            className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
           >
             {pending ? '...' : 'send link'}
           </button>

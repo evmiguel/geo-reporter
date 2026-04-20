@@ -21,7 +21,7 @@ export function PaidReportStatus({ status, reportId, reportToken, error }: PaidR
         <div className="flex gap-2 items-center">
           <a
             href={`/report/${reportId}?t=${reportToken}`}
-            className="bg-[var(--color-good)] text-[var(--color-bg)] px-4 py-2 font-semibold"
+            className="bg-[var(--color-good)] text-[var(--color-on-brand)] px-4 py-2 font-semibold"
           >
             View report →
           </a>
