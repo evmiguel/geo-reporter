@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
 import { Hono } from 'hono'
+import { setCookie } from 'hono/cookie'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import type Redis from 'ioredis'
 import type { GradeStore } from '../../store/types.ts'
 import type { Mailer } from '../../mail/types.ts'
+import { COOKIE_NAME } from '../middleware/cookie.ts'
 import {
   peekMagicEmailBucket, peekMagicIpBucket,
   addMagicEmailBucket, addMagicIpBucket,
@@ -32,6 +34,10 @@ const NEXT_PATH_RE = /^\/[^/]/
 const magicSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   next: z.string().regex(NEXT_PATH_RE).max(512).optional(),
+})
+
+const deleteAccountSchema = z.object({
+  email: z.string().trim().toLowerCase(),
 })
 
 export function authRouter(deps: AuthRouterDeps): Hono<Env> {
@@ -104,6 +110,35 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
     await deps.store.unbindCookie(c.var.cookie)
     return c.body(null, 204)
   })
+
+  app.post(
+    '/delete-account',
+    zValidator('json', deleteAccountSchema, (result, c) => {
+      if (!result.success) return c.json({ error: 'invalid_body' }, 400)
+    }),
+    async (c) => {
+      const { email } = c.req.valid('json')
+      const row = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
+      if (row.userId === null || row.email === null) {
+        return c.json({ error: 'not_authenticated' }, 401)
+      }
+      if (row.email.toLowerCase() !== email) {
+        return c.json({ error: 'email_mismatch' }, 400)
+      }
+
+      await deps.store.deleteUser(row.userId, email)
+
+      // Clear the cookie so the browser treats the next request as a fresh session.
+      setCookie(c, COOKIE_NAME, '', {
+        httpOnly: true,
+        sameSite: 'Lax',
+        secure: deps.nodeEnv === 'production',
+        path: '/',
+        maxAge: 0,
+      })
+      return c.body(null, 204)
+    },
+  )
 
   app.get('/me', async (c) => {
     const row = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
