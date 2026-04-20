@@ -18,6 +18,7 @@ export function LiveGradePage(): JSX.Element {
   const [params, setParams] = useSearchParams()
   const [canceledToast, setCanceledToast] = useState<boolean>(params.get('checkout') === 'canceled')
   const [checkoutComplete] = useState<boolean>(params.get('checkout') === 'complete')
+  const [gradeMeta, setGradeMeta] = useState<{ url: string; domain: string } | null>(null)
 
   useEffect(() => {
     if (params.get('checkout') !== null || params.get('verified') !== null) {
@@ -41,6 +42,7 @@ export function LiveGradePage(): JSX.Element {
     void (async () => {
       const grade = await getGrade(id)
       if (cancelled || !grade) return
+      setGradeMeta({ url: grade.url, domain: grade.domain })
       if (grade.tier === 'paid' && grade.reportId !== undefined && grade.reportToken !== undefined) {
         dispatch({ type: 'hydrate_paid', reportId: grade.reportId, reportToken: grade.reportToken })
       }
@@ -67,7 +69,15 @@ export function LiveGradePage(): JSX.Element {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">live grade</div>
+      <div className="mb-6">
+        <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">live grade</div>
+        {gradeMeta && (
+          <>
+            <h1 className="text-2xl text-[var(--color-fg)] mt-1">{gradeMeta.domain}</h1>
+            <div className="text-sm text-[var(--color-fg-dim)] mt-1 break-all">{gradeMeta.url}</div>
+          </>
+        )}
+      </div>
 
       {state.phase === 'done' && state.letter !== null && state.overall !== null ? (
         <div className="mt-4 mb-6">
