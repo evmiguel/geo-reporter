@@ -161,6 +161,15 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       if (grade.cookie !== c.var.cookie) return c.json({ error: 'not_found' }, 404)
       if (grade.status !== 'done') return c.json({ error: 'grade_not_done' }, 409)
 
+      // Plan 12: block unlock when the underlying free grade had Claude/GPT
+      // terminal probe failures — the report is incomplete, so don't let
+      // the user spend a credit on a dud. Placed BEFORE `already_paid` so
+      // we never leak paid state, and AFTER `grade_not_done` so we only
+      // check settled grades.
+      if (await deps.store.hasTerminalProviderFailures(grade.id)) {
+        return c.json({ error: 'provider_outage' }, 409)
+      }
+
       const payments = await deps.store.listStripePaymentsByGrade(gradeId)
       if (payments.some((p) => p.status === 'paid')) {
         return c.json({ error: 'already_paid', reportId: grade.id }, 409)
