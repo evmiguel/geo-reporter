@@ -9,8 +9,8 @@
   --color-bg-sidebar: #ffffff;      /* was #070707 — header sits on white */
   --color-fg: #1a1a1a;              /* was #e8e8e8 */
   --color-fg-dim: #444;             /* was #9a9a9a */
-  --color-fg-muted: #888;           /* was #6e6e6e */
-  --color-fg-faint: #bbb;           /* was #3a3a3a */
+  --color-fg-muted: #6b6b6b;        /* bumped from #888 to pass WCAG AA on cream (≈5.5:1) */
+  --color-fg-faint: #999;           /* was #3a3a3a — lightened slightly now that -muted is darker */
   --color-line: #e6e2d9;            /* was #1f1f1f — warm beige divider */
   --color-brand: #ff7a1a;
   --color-brand-dim: #d97700;       /* was #b85a14 */
@@ -45,6 +45,15 @@ body {
 }
 
 * { box-sizing: border-box; }
+
+/* Keyboard-only focus ring — :focus-visible keeps the ring off mouse clicks
+   while guaranteeing WCAG 2.4.7 compliance for keyboard and AT users. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:focus:not(:focus-visible) { outline: none; }
 
 ::selection {
   background: var(--color-brand);

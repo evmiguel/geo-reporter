@@ -20,11 +20,12 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <div className="flex gap-2">
         <input
-          type="text"
+          type="url"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="https://..."
-          className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:border-[var(--color-brand)]"
+          aria-label="Site URL to grade"
+          className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-brand)]"
           disabled={props.pending}
         />
         <button

@@ -35,7 +35,8 @@ export function DeleteAccountForm({ email }: Props): JSX.Element {
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           placeholder={`Type ${email}`}
-          className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:border-[var(--color-brand)]"
+          aria-label={`Type your email (${email}) to confirm account deletion`}
+          className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-brand)]"
           disabled={pending}
         />
         <button
