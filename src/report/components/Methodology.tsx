@@ -1,6 +1,7 @@
 import React from 'react'
 import type { ModelSnapshot } from '../types.ts'
 import { friendlyModelName } from '../model-names.ts'
+import { CATEGORY_DESCRIPTIONS } from '../../scoring/descriptions.ts'
 
 interface MethodologyProps {
   models: ModelSnapshot[]
@@ -9,15 +10,6 @@ interface MethodologyProps {
   generatedAt: Date
 }
 
-const CATEGORIES = [
-  { label: 'Discoverability (30%)', copy: 'Can LLMs find you from generic queries in your category?' },
-  { label: 'Recognition (20%)', copy: 'Do LLMs correctly associate your brand name with your category?' },
-  { label: 'Accuracy (20%)', copy: 'When LLMs answer specific questions about you, are the facts right? Verified against a live scrape.' },
-  { label: 'Coverage (10%)', copy: 'Do LLMs know the depth of your site, not just the homepage?' },
-  { label: 'Citation (10%)', copy: 'Do LLMs cite your domain when summarizing content from your site?' },
-  { label: 'SEO (10%)', copy: '10 deterministic signals — llms.txt, robots.txt, sitemap, canonical, JSON-LD, OpenGraph, alt text, HTTPS, viewport, meta description.' },
-]
-
 export function Methodology({ models, reportId, gradeId, generatedAt }: MethodologyProps): JSX.Element {
   return (
     <section id="methodology" className="method">
@@ -25,10 +17,10 @@ export function Methodology({ models, reportId, gradeId, generatedAt }: Methodol
 
       <h3>How we score</h3>
       <dl>
-        {CATEGORIES.map((c) => (
-          <React.Fragment key={c.label}>
-            <dt>{c.label}</dt>
-            <dd>{c.copy}</dd>
+        {CATEGORY_DESCRIPTIONS.map((c) => (
+          <React.Fragment key={c.id}>
+            <dt>{c.label} ({c.weight}%)</dt>
+            <dd>{c.short}</dd>
           </React.Fragment>
         ))}
       </dl>

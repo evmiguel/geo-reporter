@@ -8,6 +8,7 @@ import { ProbeLogRow } from '../components/ProbeLogRow.tsx'
 import { GradeLetter } from '../components/GradeLetter.tsx'
 import { BuyReportButton } from '../components/BuyReportButton.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
+import { HowWeGradeCard } from '../components/HowWeGradeCard.tsx'
 import { PaidReportStatus } from '../components/PaidReportStatus.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
 import { getGrade } from '../lib/api.ts'
@@ -101,7 +102,7 @@ export function LiveGradePage(): JSX.Element {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-6">
         {CATEGORY_ORDER.map((cat) => (
           <CategoryTile
             key={cat}
@@ -112,6 +113,8 @@ export function LiveGradePage(): JSX.Element {
           />
         ))}
       </div>
+
+      <HowWeGradeCard />
 
       {isFreeTierDone && (
         <BuyReportButton
