@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useGradeEvents } from '../hooks/useGradeEvents.ts'
+import { useAuth } from '../hooks/useAuth.ts'
 import { StatusBar } from '../components/StatusBar.tsx'
 import { CategoryTile } from '../components/CategoryTile.tsx'
 import { ProbeLogRow } from '../components/ProbeLogRow.tsx'
@@ -29,6 +30,7 @@ export function LiveGradePage(): JSX.Element {
 
   if (id === undefined) return <div className="p-8 text-[var(--color-warn)]">invalid grade id</div>
   const { state, dispatch } = useGradeEvents(id)
+  const { credits } = useAuth()
 
   // Hydrate paid-report state on mount from GET /grades/:id so that a refresh
   // (after the SSE 'report.done' event has already fired) still shows the
@@ -103,7 +105,7 @@ export function LiveGradePage(): JSX.Element {
             reportToken={state.reportToken}
             error={state.error}
           />
-          {effectivePaidStatus === 'ready' && <BuyCreditsCTA />}
+          {effectivePaidStatus === 'ready' && credits === 0 && <BuyCreditsCTA />}
         </>
       )}
 

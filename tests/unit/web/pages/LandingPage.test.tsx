@@ -7,14 +7,15 @@ vi.mock('../../../../src/web/hooks/useCreateGrade.ts', () => ({
   useCreateGrade: () => ({ create: vi.fn(), pending: false, error: null }),
 }))
 
+const useAuthMock = vi.fn(() => ({
+  verified: false,
+  email: null,
+  credits: 0,
+  refresh: async () => {},
+  logout: async () => {},
+}))
 vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
-  useAuth: () => ({
-    verified: false,
-    email: null,
-    credits: 0,
-    refresh: async () => {},
-    logout: async () => {},
-  }),
+  useAuth: () => useAuthMock(),
 }))
 
 import { LandingPage } from '../../../../src/web/pages/LandingPage.tsx'
@@ -64,6 +65,42 @@ describe('LandingPage — auth feedback', () => {
     )
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.queryByText(/sign-in link didn't work/i)).toBeNull()
+  })
+})
+
+describe('LandingPage — BuyCreditsCTA visibility', () => {
+  afterEach(() => {
+    useAuthMock.mockReturnValue({
+      verified: false, email: null, credits: 0,
+      refresh: async () => {}, logout: async () => {},
+    })
+  })
+
+  it('hides BuyCreditsCTA when not verified', () => {
+    useAuthMock.mockReturnValue({
+      verified: false, email: null, credits: 0,
+      refresh: async () => {}, logout: async () => {},
+    })
+    render(<MemoryRouter initialEntries={['/']}><LandingPage /></MemoryRouter>)
+    expect(screen.queryByRole('button', { name: /get credits/i })).toBeNull()
+  })
+
+  it('shows BuyCreditsCTA when verified with 0 credits', () => {
+    useAuthMock.mockReturnValue({
+      verified: true, email: 'u@example.com', credits: 0,
+      refresh: async () => {}, logout: async () => {},
+    })
+    render(<MemoryRouter initialEntries={['/']}><LandingPage /></MemoryRouter>)
+    expect(screen.getByRole('button', { name: /get credits/i })).toBeInTheDocument()
+  })
+
+  it('hides BuyCreditsCTA when verified with credits > 0', () => {
+    useAuthMock.mockReturnValue({
+      verified: true, email: 'u@example.com', credits: 5,
+      refresh: async () => {}, logout: async () => {},
+    })
+    render(<MemoryRouter initialEntries={['/']}><LandingPage /></MemoryRouter>)
+    expect(screen.queryByRole('button', { name: /get credits/i })).toBeNull()
   })
 })
 
