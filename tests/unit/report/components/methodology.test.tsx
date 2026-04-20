@@ -22,4 +22,16 @@ describe('Methodology', () => {
     expect(html).toContain('abc')
     expect(html).toContain('def')
   })
+
+  it('includes an absolute-URL link to the privacy policy', () => {
+    const html = renderToStaticMarkup(
+      <Methodology
+        models={[{ providerId: 'claude', modelId: 'claude-sonnet-4-6' }]}
+        reportId="abc" gradeId="def"
+        generatedAt={new Date('2026-04-20T12:00:00Z')}
+      />,
+    )
+    expect(html).toContain('https://geo.erikamiguel.com/privacy')
+    expect(html).toMatch(/privacy policy/i)
+  })
 })
