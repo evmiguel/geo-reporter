@@ -11,12 +11,12 @@ type Env = { Variables: { cookie: string } }
 
 let graceWarned = false
 
-function issueFresh(
+async function issueFresh(
   c: Context<Env>,
   store: GradeStore,
   hmacKey: string,
   isProduction: boolean,
-): string {
+): Promise<string> {
   const uuid = crypto.randomUUID()
   const signed = signCookie(uuid, hmacKey)
   setCookie(c, COOKIE_NAME, signed, {
@@ -26,7 +26,7 @@ function issueFresh(
     path: '/',
     maxAge: ONE_YEAR_SECONDS,
   })
-  void store.upsertCookie(uuid)
+  await store.upsertCookie(uuid)
   return uuid
 }
 
@@ -56,7 +56,7 @@ export function cookieMiddleware(
     let uuid: string
 
     if (!raw) {
-      uuid = issueFresh(c, store, hmacKey, isProduction)
+      uuid = await issueFresh(c, store, hmacKey, isProduction)
     } else {
       const parsed = parseCookie(raw)
       if (parsed.kind === 'plain') {
@@ -73,12 +73,18 @@ export function cookieMiddleware(
       } else if (parsed.kind === 'signed') {
         const verified = verifyCookie(raw, hmacKey)
         if (verified) {
+          // Idempotently ensure the cookies row exists. Normally a no-op (the
+          // row was created when the cookie was first issued), but heals the
+          // case where a browser holds a valid signed cookie referencing a
+          // UUID that no longer exists in the table — e.g. after a DB wipe.
+          // Without this, downstream grade inserts would FK-fail.
+          await store.upsertCookie(verified)
           uuid = verified
         } else {
-          uuid = issueFresh(c, store, hmacKey, isProduction)
+          uuid = await issueFresh(c, store, hmacKey, isProduction)
         }
       } else {
-        uuid = issueFresh(c, store, hmacKey, isProduction)
+        uuid = await issueFresh(c, store, hmacKey, isProduction)
       }
     }
 

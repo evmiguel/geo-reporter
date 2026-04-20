@@ -54,15 +54,37 @@ describe('cookie middleware', () => {
     expect(store.cookiesMap.size).toBe(1)   // no new rows
   })
 
-  it('calls upsertCookie exactly once on issuance', async () => {
+  it('upserts on every request but never duplicates the row', async () => {
     const { app, store } = buildTestApp()
     await app.request('/')
     const issued = [...store.cookiesMap.keys()][0]!
     const signed = signCookie(issued, HMAC_KEY)
+    // Second request uses the valid-signed cookie. The middleware calls
+    // upsertCookie idempotently (onConflictDoNothing) so the table size stays
+    // at 1 — the upsert is a safety net for the "row missing" case, not an
+    // insert-or-bust.
     await app.request('/', { headers: { cookie: `ggcookie=${signed}` } })
-    // First request: upsertCookie called once (issuance).
-    // Second request: cookie exists and is valid-signed, no upsert.
     expect(store.cookiesMap.size).toBe(1)
+  })
+
+  it('heals stale signed cookie after DB wipe (regression)', async () => {
+    // Scenario: browser holds a signed cookie from a previous run. Dev wiped
+    // the database, so the cookies table is empty. A request lands with the
+    // old cookie. Without the upsert on the signed-verified path, a downstream
+    // grade insert would FK-fail. With the upsert, the row is recreated and
+    // the request succeeds end-to-end.
+    const uuid = crypto.randomUUID()
+    const signed = signCookie(uuid, HMAC_KEY)
+    const emptyStore = makeFakeStore()   // empty — simulates post-wipe
+    expect(emptyStore.cookiesMap.size).toBe(0)
+    const { app } = buildTestApp(emptyStore)
+    const res = await app.request('/', { headers: { cookie: `ggcookie=${signed}` } })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { cookie: string }
+    expect(body.cookie).toBe(uuid)
+    // The row was created by the upsert, not re-issued — no set-cookie header.
+    expect(res.headers.get('set-cookie')).toBeNull()
+    expect(emptyStore.cookiesMap.has(uuid)).toBe(true)
   })
 })
 
