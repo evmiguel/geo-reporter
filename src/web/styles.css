@@ -7,6 +7,7 @@
   --color-bg: #fafaf7;              /* was #0a0a0a */
   --color-bg-elevated: #ffffff;     /* was #0f0f0f — white cards on cream */
   --color-bg-sidebar: #ffffff;      /* was #070707 — header sits on white */
+  --color-bg-accent: #faf7ee;       /* warm-tinted surface for premium / teaser cards (matches report probe-header bg) */
   --color-fg: #1a1a1a;              /* was #e8e8e8 */
   --color-fg-dim: #444;             /* was #9a9a9a */
   --color-fg-muted: #6b6b6b;        /* bumped from #888 to pass WCAG AA on cream (≈5.5:1) */

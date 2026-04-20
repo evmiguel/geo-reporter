@@ -40,10 +40,7 @@ function effortBar(level: 'low' | 'medium' | 'high'): string {
 
 export function PaidReportPreview({ domain, letter, overall }: Props): JSX.Element {
   return (
-    <section
-      className="mt-6 border border-[var(--color-line)] p-4"
-      style={{ background: '#faf7ee' }}
-    >
+    <section className="mt-6 border border-[var(--color-line)] bg-[var(--color-bg-accent)] p-4">
       <div className="text-[10px] tracking-wider uppercase text-[var(--color-fg-muted)] mb-3">
         Preview · full report
       </div>
