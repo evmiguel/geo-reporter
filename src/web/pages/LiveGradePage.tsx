@@ -10,6 +10,7 @@ import { BuyReportButton } from '../components/BuyReportButton.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { HowWeGradeCard } from '../components/HowWeGradeCard.tsx'
 import { PaidReportStatus } from '../components/PaidReportStatus.tsx'
+import { ReportProgress } from '../components/ReportProgress.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
 import { getGrade } from '../lib/api.ts'
 import { CATEGORY_ORDER, CATEGORY_WEIGHTS, type PaidStatus } from '../lib/types.ts'
@@ -123,10 +124,13 @@ export function LiveGradePage(): JSX.Element {
         />
       )}
 
-      {effectivePaidStatus !== 'none' && (
+      {(effectivePaidStatus === 'checking_out' || effectivePaidStatus === 'generating') && (
+        <ReportProgress paidStatus={effectivePaidStatus} reportProbeCount={state.reportProbeCount} />
+      )}
+      {(effectivePaidStatus === 'ready' || effectivePaidStatus === 'failed') && (
         <>
           <PaidReportStatus
-            status={effectivePaidStatus as Exclude<PaidStatus, 'none'>}
+            status={effectivePaidStatus}
             reportId={state.reportId}
             reportToken={state.reportToken}
             error={state.error}

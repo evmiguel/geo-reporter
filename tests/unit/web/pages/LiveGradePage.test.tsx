@@ -94,7 +94,7 @@ describe('LiveGradePage — paid flow', () => {
     expect(screen.getByRole('button', { name: /Get the full report/i })).toBeInTheDocument()
   })
 
-  it('shows PaidReportStatus "generating" banner when ?checkout=complete is in URL', () => {
+  it('shows ReportProgress banner when ?checkout=complete is in URL', () => {
     stubState.current = {
       phase: 'done',
       scraped: { rendered: false, textLength: 3000 },
@@ -106,7 +106,7 @@ describe('LiveGradePage — paid flow', () => {
       paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
     }
     renderAt('g-1', '?checkout=complete')
-    expect(screen.getByText(/being generated/i)).toBeInTheDocument()
+    expect(screen.getByText(/generating your full report/i)).toBeInTheDocument()
     // BuyReportButton should NOT show while checking_out
     expect(screen.queryByRole('button', { name: /Get the full report/i })).not.toBeInTheDocument()
     // URL param stripped (no longer visible on the location — we assert via behavior:

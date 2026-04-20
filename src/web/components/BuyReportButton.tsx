@@ -7,7 +7,7 @@ interface BuyReportButtonProps {
   onAlreadyPaid: (reportId: string) => void
 }
 
-type Mode = 'idle' | 'verify_email' | 'email_sent' | 'generating'
+type Mode = 'idle' | 'verify_email' | 'email_sent'
 
 export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps): JSX.Element {
   const { credits, refresh } = useAuth()
@@ -34,7 +34,6 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
       const result = await postBillingRedeemCredit(gradeId)
       setPending(false)
       if (result.ok) {
-        setMode('generating')
         await refresh()
         return
       }
@@ -53,10 +52,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     const result = await postBillingCheckout(gradeId)
     if (result.ok) {
       if (result.kind === 'checkout') { window.location.assign(result.url); return }
-      // Server used a credit on our behalf — no Stripe round-trip.
-      // Stay on the page and show the generating loader; the paid report will
-      // materialize via the existing SSE pipeline.
-      setMode('generating')
+      // Server short-circuited — reducer will pick up report.started via SSE.
       await refresh()
       setPending(false)
       return
@@ -149,17 +145,6 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
           </div>
         )}
         {error !== null && <div className="text-xs text-[var(--color-warn)] mt-2">{error}</div>}
-      </div>
-    )
-  }
-
-  if (mode === 'generating') {
-    return (
-      <div className="mt-6 border border-[var(--color-brand)] p-4">
-        <div className="text-sm text-[var(--color-fg)] flex items-center gap-2">
-          <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-brand)] animate-pulse" />
-          Generating your full report — usually 30-60 seconds.
-        </div>
       </div>
     )
   }
