@@ -97,7 +97,7 @@ describe('runGrade', () => {
       scrapeFn: async () => LONG_SCRAPE,
     }
 
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('done')
@@ -135,7 +135,7 @@ describe('runGrade', () => {
       scrapeFn: async () => shortScrape,
     }
 
-    await expect(runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)).rejects.toThrow(/< 100 chars/)
+    await expect(runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)).rejects.toThrow(/< 100 chars/)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('failed')
@@ -161,8 +161,8 @@ describe('runGrade', () => {
       scrapeFn: async () => LONG_SCRAPE,
     }
 
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     expect(store.clearedFor).toEqual([grade.id, grade.id])
     const probes = await store.listProbes(grade.id)
@@ -194,7 +194,7 @@ describe('runGrade', () => {
       scrapeFn: async () => LONG_SCRAPE,
     }
 
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('done')

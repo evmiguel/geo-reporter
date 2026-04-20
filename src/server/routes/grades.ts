@@ -30,7 +30,7 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     })
     await commitRateLimit(deps.redis, deps.store, c.var.clientIp, c.var.cookie, grade.id)
     await enqueueGrade(
-      { gradeId: grade.id, tier: 'free', ip: c.var.clientIp, cookie: c.var.cookie } as never,
+      { gradeId: grade.id, tier: 'free', ip: c.var.clientIp, cookie: c.var.cookie },
       deps.redis,
     )
     return c.json({ gradeId: grade.id }, 202)

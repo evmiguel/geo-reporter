@@ -98,7 +98,7 @@ describe('run-grade worker end-to-end', () => {
 
       await new Promise((r) => setTimeout(r, 100))
       const queue = new Queue<GradeJob>(gradeQueueName, { connection })
-      await queue.add('run-grade', { gradeId: grade.id, tier: 'free' }, {
+      await queue.add('run-grade', { gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }, {
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 24 * 3600 },
         attempts: 3,
@@ -171,7 +171,7 @@ describe('run-grade worker end-to-end', () => {
 
       await new Promise((r) => setTimeout(r, 100))
       const queue = new Queue<GradeJob>(gradeQueueName, { connection })
-      await queue.add('run-grade', { gradeId: grade.id, tier: 'paid' }, {
+      await queue.add('run-grade', { gradeId: grade.id, tier: 'paid', ip: 'test-ip', cookie: 'test-cookie' }, {
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 24 * 3600 },
         attempts: 3,
@@ -229,7 +229,7 @@ describe('run-grade worker end-to-end', () => {
       const grade = await store.createGrade({ url: 'https://acme.com', domain: 'acme.com', tier: 'free', cookie: cookie.cookie, status: 'queued' })
 
       const queue = new Queue<GradeJob>(gradeQueueName, { connection })
-      await queue.add('run-grade', { gradeId: grade.id, tier: 'free' }, {
+      await queue.add('run-grade', { gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }, {
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 24 * 3600 },
         attempts: 3,

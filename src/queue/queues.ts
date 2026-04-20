@@ -8,6 +8,8 @@ export const pdfQueueName = 'pdf' as const
 export interface GradeJob {
   gradeId: string
   tier: 'free' | 'paid'
+  ip: string
+  cookie: string
 }
 export interface ReportJob {
   gradeId: string
