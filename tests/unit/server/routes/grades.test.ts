@@ -195,3 +195,68 @@ describe('GET /grades/:id', () => {
     expect(res.status).toBe(400)
   })
 })
+
+/**
+ * Helper: issue a fresh signed cookie by hitting any grade-scope route.
+ * Returns the raw signed cookie value (uuid.hmac).
+ */
+async function issueCookie(app: ReturnType<typeof buildApp>): Promise<string> {
+  const res = await app.request('/grades/00000000-0000-0000-0000-000000000000')
+  const setCookie = res.headers.get('set-cookie') ?? ''
+  const raw = setCookie.split('ggcookie=')[1]?.split(';')[0]
+  if (!raw) throw new Error('no cookie issued')
+  return raw
+}
+
+describe('GET /grades/:id ownership (cookie-or-userId)', () => {
+  it('allows a verified user with a DIFFERENT cookie when userId matches', async () => {
+    const deps = makeDeps()
+    const store = deps.store as ReturnType<typeof makeFakeStore>
+    const app = buildApp(deps)
+    const cookie = await issueCookie(app)
+    const uuid = cookie.split('.')[0]!
+    const user = await store.upsertUser('cross@example.com')
+    await store.upsertCookie(uuid, user.id)
+    // Grade was created under a different cookie, but is owned by the same user.
+    await store.upsertCookie('old-cookie', user.id)
+    const grade = await store.createGrade({
+      url: 'https://x.example', domain: 'x.example', tier: 'free',
+      cookie: 'old-cookie', userId: user.id, status: 'done',
+    })
+    const res = await app.request(`/grades/${grade.id}`, {
+      headers: { cookie: `ggcookie=${cookie}` },
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('still allows when cookie matches and userId differs/null', async () => {
+    const deps = makeDeps()
+    const store = deps.store as ReturnType<typeof makeFakeStore>
+    const app = buildApp(deps)
+    const cookie = await issueCookie(app)
+    const uuid = cookie.split('.')[0]!
+    const grade = await store.createGrade({
+      url: 'https://x.example', domain: 'x.example', tier: 'free',
+      cookie: uuid, userId: null, status: 'done',
+    })
+    const res = await app.request(`/grades/${grade.id}`, {
+      headers: { cookie: `ggcookie=${cookie}` },
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('denies when neither cookie nor userId matches', async () => {
+    const deps = makeDeps()
+    const store = deps.store as ReturnType<typeof makeFakeStore>
+    const app = buildApp(deps)
+    const cookie = await issueCookie(app)
+    const grade = await store.createGrade({
+      url: 'https://x.example', domain: 'x.example', tier: 'free',
+      cookie: 'unrelated-cookie', userId: 'unrelated-user', status: 'done',
+    })
+    const res = await app.request(`/grades/${grade.id}`, {
+      headers: { cookie: `ggcookie=${cookie}` },
+    })
+    expect(res.status).toBe(403)
+  })
+})
