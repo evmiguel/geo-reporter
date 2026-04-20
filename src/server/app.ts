@@ -41,6 +41,7 @@ export function buildApp(deps: ServerDeps): Hono {
     redis: deps.redis,
     mailer: deps.mailer,
     publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+    nodeEnv: deps.env.NODE_ENV,
   }))
   app.route('/auth', authScope)
 

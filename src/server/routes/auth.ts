@@ -15,6 +15,12 @@ export interface AuthRouterDeps {
   redis: Redis
   mailer: Mailer
   publicBaseUrl: string
+  /**
+   * When 'development', skip the magic-link rate-limit buckets entirely.
+   * Cycling through test emails on localhost would otherwise hit the
+   * 5/10min IP cap after a handful of attempts. Production limits unchanged.
+   */
+  nodeEnv?: 'development' | 'test' | 'production'
 }
 
 type Env = { Variables: { cookie: string; clientIp: string } }
@@ -39,25 +45,28 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
     async (c) => {
       const { email, next } = c.req.valid('json')
       const ip = c.var.clientIp
+      const skipRateLimit = deps.nodeEnv === 'development'
 
-      const emailPeek = await peekMagicEmailBucket(deps.redis, email)
-      if (!emailPeek.allowed) {
-        return c.json({
-          paywall: 'email_cooldown' as const,
-          limit: emailPeek.limit,
-          used: emailPeek.used,
-          retryAfter: emailPeek.retryAfter,
-        }, 429)
-      }
+      if (!skipRateLimit) {
+        const emailPeek = await peekMagicEmailBucket(deps.redis, email)
+        if (!emailPeek.allowed) {
+          return c.json({
+            paywall: 'email_cooldown' as const,
+            limit: emailPeek.limit,
+            used: emailPeek.used,
+            retryAfter: emailPeek.retryAfter,
+          }, 429)
+        }
 
-      const ipPeek = await peekMagicIpBucket(deps.redis, ip)
-      if (!ipPeek.allowed) {
-        return c.json({
-          paywall: 'ip_cooldown' as const,
-          limit: ipPeek.limit,
-          used: ipPeek.used,
-          retryAfter: ipPeek.retryAfter,
-        }, 429)
+        const ipPeek = await peekMagicIpBucket(deps.redis, ip)
+        if (!ipPeek.allowed) {
+          return c.json({
+            paywall: 'ip_cooldown' as const,
+            limit: ipPeek.limit,
+            used: ipPeek.used,
+            retryAfter: ipPeek.retryAfter,
+          }, 429)
+        }
       }
 
       const { rawToken, expiresAt } = await deps.store.issueMagicToken(email, c.var.cookie)
@@ -65,8 +74,10 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
       const url = `${deps.publicBaseUrl}/auth/verify?t=${rawToken}${nextParam}`
       await deps.mailer.sendMagicLink({ email, url, expiresAt })
 
-      await addMagicEmailBucket(deps.redis, email)
-      await addMagicIpBucket(deps.redis, ip)
+      if (!skipRateLimit) {
+        await addMagicEmailBucket(deps.redis, email)
+        await addMagicIpBucket(deps.redis, ip)
+      }
 
       return c.body(null, 204)
     },
