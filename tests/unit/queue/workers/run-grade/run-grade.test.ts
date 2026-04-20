@@ -11,12 +11,38 @@ import { makeFakeStore } from '../../../_helpers/fake-store.ts'
 
 function makeStubRedis(): Redis & { published: { channel: string; message: string }[] } {
   const published: { channel: string; message: string }[] = []
+  const zsets = new Map<string, Array<{ score: number; member: string }>>()
   const stub = {
     published,
     async publish(channel: string, message: string): Promise<number> {
       published.push({ channel, message })
       return 1
     },
+    // Sorted-set ops needed by refundRateLimit when the canary-halt path fires.
+    async zremrangebyscore(key: string, _min: string, max: string): Promise<number> {
+      const arr = zsets.get(key) ?? []
+      const cutoff = Number(max)
+      const kept = arr.filter((e) => e.score > cutoff)
+      zsets.set(key, kept)
+      return arr.length - kept.length
+    },
+    async zcard(key: string): Promise<number> { return (zsets.get(key) ?? []).length },
+    async zadd(key: string, score: number, member: string): Promise<number> {
+      const arr = zsets.get(key) ?? []
+      arr.push({ score, member })
+      zsets.set(key, arr)
+      return 1
+    },
+    async zrem(key: string, member: string): Promise<number> {
+      const arr = zsets.get(key) ?? []
+      const kept = arr.filter((e) => e.member !== member)
+      zsets.set(key, kept)
+      return arr.length - kept.length
+    },
+    async zrange(_key: string, _start: number, _stop: number, _w?: string): Promise<string[]> {
+      return []
+    },
+    async expire(): Promise<number> { return 1 },
   }
   return stub as unknown as Redis & { published: { channel: string; message: string }[] }
 }
@@ -97,7 +123,7 @@ describe('runGrade', () => {
       scrapeFn: async () => LONG_SCRAPE,
     }
 
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('done')
@@ -135,7 +161,7 @@ describe('runGrade', () => {
       scrapeFn: async () => shortScrape,
     }
 
-    await expect(runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)).rejects.toThrow(/< 100 chars/)
+    await expect(runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)).rejects.toThrow(/< 100 chars/)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('failed')
@@ -161,45 +187,38 @@ describe('runGrade', () => {
       scrapeFn: async () => LONG_SCRAPE,
     }
 
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     expect(store.clearedFor).toEqual([grade.id, grade.id])
     const probes = await store.listProbes(grade.id)
     expect(probes).toHaveLength(25)
   })
 
-  it('one provider failing consistently still finalizes grade', async () => {
+  it('non-gated provider failing consistently still finalizes grade (paid tier)', async () => {
+    // Only Claude + GPT gate the Plan 12 outage halt. A failing Gemini or
+    // Perplexity (which only run at paid tier) must not stall the pipeline.
     const store = makeFakeStore()
     const redis = makeStubRedis()
     await store.upsertCookie('c4')
-    const grade = await seedGrade(store, 'g-partial', 'https://acme.com')
+    const grade = await seedGrade(store, 'g-partial', 'https://acme.com', 'paid')
     const deps = {
       store, redis: redis as unknown as Redis,
       providers: {
-        claude: new MockProvider({
-          id: 'claude',
-          responses: (p) => {
-            if (p.includes('Write one specific factual question')) return 'q?'
-            if (p.includes('You are verifying')) return JSON.stringify({ correct: true, confidence: 0.9, rationale: '' })
-            if (p.includes('You are evaluating how well')) return JSON.stringify({ probe_1: { accuracy: 80, coverage: 75, notes: '' }, probe_2: { accuracy: 75, coverage: 70, notes: '' } })
-            if (p.includes('Do NOT reference')) return 'question'
-            return 'Acme is the leading.'
-          },
-        }),
-        gpt: new MockProvider({ id: 'gpt', responses: {}, failWith: 'persistent down' }),
-        gemini: new MockProvider({ id: 'gemini', responses: () => '' }),
-        perplexity: new MockProvider({ id: 'perplexity', responses: () => '' }),
+        claude: happyClaudeAll(),
+        gpt: happyGpt(),
+        gemini: new MockProvider({ id: 'gemini', responses: {}, failWith: 'persistent down' }),
+        perplexity: new MockProvider({ id: 'perplexity', responses: () => 'Acme is a widget maker.' }),
       },
       scrapeFn: async () => LONG_SCRAPE,
     }
 
-    await runGrade(makeJob({ gradeId: grade.id, tier: 'free' }), deps)
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'paid', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('done')
     const probes = await store.listProbes(grade.id)
-    const nullScored = probes.filter((p) => p.provider === 'gpt' && p.score === null)
+    const nullScored = probes.filter((p) => p.provider === 'gemini' && p.score === null)
     expect(nullScored.length).toBeGreaterThan(0)
   })
 })

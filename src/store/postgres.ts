@@ -50,6 +50,18 @@ export class PostgresStore implements GradeStore {
     return this.db.select().from(schema.probes).where(eq(schema.probes.gradeId, gradeId)).orderBy(desc(schema.probes.createdAt))
   }
 
+  async hasTerminalProviderFailures(gradeId: string): Promise<boolean> {
+    const rows = await this.db.execute(sql`
+      SELECT 1 FROM probes
+      WHERE grade_id = ${gradeId}
+        AND provider IN ('claude', 'gpt')
+        AND score IS NULL
+        AND metadata->>'error' IS NOT NULL
+      LIMIT 1
+    `)
+    return rows.length > 0
+  }
+
   async createScrape(input: NewScrape): Promise<Scrape> {
     const [row] = await this.db.insert(schema.scrapes).values(input).returning()
     if (!row) throw new Error('createScrape returned no row')

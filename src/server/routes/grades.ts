@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { enqueueGrade } from '../../queue/queues.ts'
+import { commitRateLimit } from '../middleware/rate-limit.ts'
 import type { ServerDeps } from '../deps.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -27,7 +28,11 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     const grade = await deps.store.createGrade({
       url, domain, tier: 'free', cookie: c.var.cookie, userId: null, status: 'queued',
     })
-    await enqueueGrade({ gradeId: grade.id, tier: 'free' }, deps.redis)
+    await commitRateLimit(deps.redis, deps.store, c.var.clientIp, c.var.cookie, grade.id)
+    await enqueueGrade(
+      { gradeId: grade.id, tier: 'free', ip: c.var.clientIp, cookie: c.var.cookie },
+      deps.redis,
+    )
     return c.json({ gradeId: grade.id }, 202)
   })
 

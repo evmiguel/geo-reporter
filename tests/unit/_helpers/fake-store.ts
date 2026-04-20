@@ -74,6 +74,16 @@ export function makeFakeStore(): FakeGradeStore {
     async listProbes(gradeId: string): Promise<Probe[]> {
       return probes.filter((p) => p.gradeId === gradeId)
     },
+    async hasTerminalProviderFailures(gradeId: string): Promise<boolean> {
+      for (const p of probes) {
+        if (p.gradeId !== gradeId) continue
+        if (p.provider !== 'claude' && p.provider !== 'gpt') continue
+        if (p.score !== null) continue
+        const meta = (p.metadata ?? {}) as Record<string, unknown>
+        if (typeof meta.error === 'string') return true
+      }
+      return false
+    },
     async createScrape(input: NewScrape): Promise<Scrape> {
       const s: Scrape = {
         id: crypto.randomUUID(), gradeId: input.gradeId, rendered: input.rendered ?? false,

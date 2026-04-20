@@ -30,7 +30,7 @@ await store.upsertCookie(cookie)
 const grade = await store.createGrade({
   url: urlArg, domain, tier, cookie, userId: null, status: 'queued',
 })
-await enqueueGrade({ gradeId: grade.id, tier }, redis)
+await enqueueGrade({ gradeId: grade.id, tier, ip: 'dev-cli', cookie }, redis)
 
 console.log(`enqueued grade ${grade.id} (tier=${tier}) for ${urlArg}`)
 console.log(`watch: redis-cli -p 63790 subscribe grade:${grade.id}`)

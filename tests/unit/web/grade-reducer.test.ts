@@ -95,7 +95,7 @@ describe('reduceGradeEvents', () => {
   })
 
   it('failed event sets phase + error', () => {
-    const s = reduceGradeEvents(initialGradeState(), { type: 'failed', error: 'scrape too short' }, NOW)
+    const s = reduceGradeEvents(initialGradeState(), { type: 'failed', kind: 'other', error: 'scrape too short' }, NOW)
     expect(s.phase).toBe('failed')
     expect(s.error).toBe('scrape too short')
   })
@@ -156,5 +156,35 @@ describe('grade-reducer — paid flow', () => {
     state = reduceGradeEvents(state, { type: 'report.failed', error: 'boom' }, 0)
     expect(state.paidStatus).toBe('failed')
     expect(state.error).toBe('boom')
+  })
+})
+
+describe('grade-reducer failed event with kind', () => {
+  it('reduces failed event with kind=provider_outage into state.failedKind', () => {
+    const state = initialGradeState()
+    const next = reduceGradeEvents(
+      state,
+      { type: 'failed', kind: 'provider_outage', error: 'Anthropic 500 after retries' },
+      0,
+    )
+    expect(next.phase).toBe('failed')
+    expect(next.failedKind).toBe('provider_outage')
+    expect(next.error).toBe('Anthropic 500 after retries')
+  })
+
+  it('reduces failed event with kind=other into state.failedKind', () => {
+    const state = initialGradeState()
+    const next = reduceGradeEvents(
+      state,
+      { type: 'failed', kind: 'other', error: 'scrape too small' },
+      0,
+    )
+    expect(next.failedKind).toBe('other')
+    expect(next.error).toBe('scrape too small')
+  })
+
+  it('initialGradeState has failedKind === null', () => {
+    const state = initialGradeState()
+    expect(state.failedKind).toBeNull()
   })
 })

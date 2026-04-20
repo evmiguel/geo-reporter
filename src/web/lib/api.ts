@@ -141,6 +141,7 @@ export type CheckoutResult =
   | { ok: true; kind: 'redeemed' }
   | { ok: false; kind: 'already_paid'; reportId: string }
   | { ok: false; kind: 'grade_not_done' }
+  | { ok: false; kind: 'provider_outage' }
   | { ok: false; kind: 'must_verify_email' }
   | { ok: false; kind: 'rate_limited'; retryAfter: number }
   | { ok: false; kind: 'unavailable' }
@@ -177,6 +178,7 @@ export async function postBillingCheckout(gradeId: string): Promise<CheckoutResu
       return { ok: false, kind: 'already_paid', reportId: body.reportId }
     }
     if (body.error === 'grade_not_done') return { ok: false, kind: 'grade_not_done' }
+    if (body.error === 'provider_outage') return { ok: false, kind: 'provider_outage' }
     if (body.error === 'must_verify_email') return { ok: false, kind: 'must_verify_email' }
     return { ok: false, kind: 'unknown', status: res.status }
   }
@@ -209,7 +211,7 @@ export async function postBillingBuyCredits(): Promise<
 
 export type RedeemResult =
   | { ok: true }
-  | { ok: false; kind: 'already_paid' | 'grade_not_done' | 'no_credits' | 'must_verify_email' | 'unavailable' | 'unknown'; status?: number }
+  | { ok: false; kind: 'already_paid' | 'grade_not_done' | 'provider_outage' | 'no_credits' | 'must_verify_email' | 'unavailable' | 'unknown'; status?: number }
 
 export async function getReportStatus(reportId: string, token: string): Promise<ReportStatusResponse | null> {
   const res = await fetch(`/report/${reportId}/status?t=${encodeURIComponent(token)}`, { credentials: 'same-origin' })
@@ -234,6 +236,7 @@ export async function postBillingRedeemCredit(gradeId: string): Promise<RedeemRe
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     if (body.error === 'already_paid') return { ok: false, kind: 'already_paid' }
     if (body.error === 'grade_not_done') return { ok: false, kind: 'grade_not_done' }
+    if (body.error === 'provider_outage') return { ok: false, kind: 'provider_outage' }
     if (body.error === 'no_credits') return { ok: false, kind: 'no_credits' }
     if (body.error === 'must_verify_email') return { ok: false, kind: 'must_verify_email' }
     return { ok: false, kind: 'unknown', status: res.status }

@@ -20,6 +20,12 @@ export function makeStubRedis(): Redis {
       zsets.set(key, arr)
       return 1
     },
+    async zrem(key: string, member: string) {
+      const arr = zsets.get(key) ?? []
+      const kept = arr.filter((e) => e.member !== member)
+      zsets.set(key, kept)
+      return arr.length - kept.length
+    },
     async zrange(key: string, start: number, stop: number, _w?: string) {
       const arr = [...(zsets.get(key) ?? [])].sort((a, b) => a.score - b.score)
       const slice = arr.slice(start, stop + 1)

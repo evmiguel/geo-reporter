@@ -79,9 +79,9 @@ describe('publishGradeEvent + subscribeToGrade', () => {
     })()
 
     await new Promise((r) => setTimeout(r, 50))
-    await publishGradeEvent(publisher, gradeId, { type: 'failed', error: 'boom' })
+    await publishGradeEvent(publisher, gradeId, { type: 'failed', kind: 'other', error: 'boom' })
     const events = await pending
-    expect(events).toEqual([{ type: 'failed', error: 'boom' }])
+    expect(events).toEqual([{ type: 'failed', kind: 'other', error: 'boom' }])
 
     await publisher.quit()
     await subscriber.quit()

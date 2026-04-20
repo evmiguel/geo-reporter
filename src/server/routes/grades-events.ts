@@ -26,7 +26,7 @@ export function gradesEventsRouter(deps: ServerDeps): Hono<Env> {
 
       // Terminal: grade itself failed — emit failed and return.
       if (grade.status === 'failed') {
-        await send({ type: 'failed', error: 'grade failed' })
+        await send({ type: 'failed', kind: 'other', error: 'grade failed' })
         return
       }
 

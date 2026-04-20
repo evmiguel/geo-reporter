@@ -150,6 +150,32 @@ describe('POST /billing/redeem-credit', () => {
     expect(body.error).toBe('no_credits')
   })
 
+  it('409 provider_outage when grade has Claude or GPT terminal probe failures; credits untouched', async () => {
+    const { app, store } = build()
+    const { cookie, uuid, user } = await seedVerifiedUserWithCredits(app, store, 5)
+    const grade = await store.createGrade({
+      url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, userId: user.id, status: 'done',
+    })
+    // Seed a terminal Claude failure (score=null + metadata.error present).
+    await store.createProbe({
+      gradeId: grade.id, category: 'discoverability', provider: 'claude',
+      prompt: '', response: '', score: null, metadata: { error: 'Anthropic 500' },
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/redeem-credit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+
+    expect(res.status).toBe(409)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('provider_outage')
+
+    // Credits untouched
+    expect(await store.getCredits(user.id)).toBe(5)
+  })
+
   it('409 already_paid when a prior payment row exists', async () => {
     const { app, store } = build()
     const { cookie, uuid, user } = await seedVerifiedUserWithCredits(app, store, 5)

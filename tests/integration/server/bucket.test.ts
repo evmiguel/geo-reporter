@@ -30,8 +30,8 @@ describe('bucket', () => {
 
   it('add increments; peek reflects usage', async () => {
     const t = Date.now()
-    await addToBucket(redis, cfg, t)
-    await addToBucket(redis, cfg, t + 1)
+    await addToBucket(redis, cfg, t, `m:${crypto.randomUUID()}`)
+    await addToBucket(redis, cfg, t + 1, `m:${crypto.randomUUID()}`)
     const r = await peekBucket(redis, cfg, t + 2)
     expect(r.allowed).toBe(true)
     expect(r.used).toBe(2)
@@ -39,9 +39,9 @@ describe('bucket', () => {
 
   it('peek returns allowed=false when at limit', async () => {
     const t = Date.now()
-    await addToBucket(redis, cfg, t)
-    await addToBucket(redis, cfg, t + 1)
-    await addToBucket(redis, cfg, t + 2)
+    await addToBucket(redis, cfg, t, `m:${crypto.randomUUID()}`)
+    await addToBucket(redis, cfg, t + 1, `m:${crypto.randomUUID()}`)
+    await addToBucket(redis, cfg, t + 2, `m:${crypto.randomUUID()}`)
     const r = await peekBucket(redis, cfg, t + 3)
     expect(r.allowed).toBe(false)
     expect(r.used).toBe(3)
@@ -51,9 +51,9 @@ describe('bucket', () => {
 
   it('peek returns allowed=true after window rolls forward', async () => {
     const t0 = Date.now()
-    await addToBucket(redis, cfg, t0)
-    await addToBucket(redis, cfg, t0 + 1)
-    await addToBucket(redis, cfg, t0 + 2)
+    await addToBucket(redis, cfg, t0, `m:${crypto.randomUUID()}`)
+    await addToBucket(redis, cfg, t0 + 1, `m:${crypto.randomUUID()}`)
+    await addToBucket(redis, cfg, t0 + 2, `m:${crypto.randomUUID()}`)
     // Advance past all three entries' window expiry. The half-open window is
     // (cutoff, now]; ZREMRANGEBYSCORE removes scores strictly less than cutoff.
     // At t0 + 10_003, cutoff = t0 + 3 so entries at t0, t0+1, t0+2 all drop.
@@ -65,7 +65,7 @@ describe('bucket', () => {
   it('entries exactly at cutoff remain inside the window', async () => {
     const cfgShort = { key: 'test:bucket:b', limit: 1, windowMs: 100 }
     const t0 = Date.now()
-    await addToBucket(redis, cfgShort, t0)
+    await addToBucket(redis, cfgShort, t0, `m:${crypto.randomUUID()}`)
     const r = await peekBucket(redis, cfgShort, t0 + 100)
     expect(r.used).toBe(1)
     expect(r.allowed).toBe(false)

@@ -30,7 +30,7 @@ describe('enqueueGrade', () => {
       { connection: consumerRedis },
     )
 
-    await enqueueGrade({ gradeId: 'grade-1', tier: 'free' }, producerRedis)
+    await enqueueGrade({ gradeId: 'grade-1', tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }, producerRedis)
 
     await new Promise<void>((resolve) => {
       worker.on('completed', () => resolve())
