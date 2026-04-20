@@ -7,7 +7,7 @@ interface BuyReportButtonProps {
   onAlreadyPaid: (reportId: string) => void
 }
 
-type Mode = 'idle' | 'verify_email' | 'email_sent'
+type Mode = 'idle' | 'verify_email' | 'email_sent' | 'generating'
 
 export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps): JSX.Element {
   const { credits, refresh } = useAuth()
@@ -33,9 +33,17 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     if (hasCredits) {
       const result = await postBillingRedeemCredit(gradeId)
       setPending(false)
-      if (result.ok) { await refresh(); return }
+      if (result.ok) {
+        setMode('generating')
+        await refresh()
+        return
+      }
       if (result.kind === 'already_paid') { onAlreadyPaid(gradeId); return }
       if (result.kind === 'grade_not_done') { setError('This grade is not done yet.'); return }
+      if (result.kind === 'provider_outage') {
+        setError('LLM provider outage during grading. Start a new grade to unlock.')
+        return
+      }
       if (result.kind === 'no_credits') { setError('No credits available. Buy a pack below.'); return }
       if (result.kind === 'must_verify_email') { setError('Verify your email first.'); return }
       if (result.kind === 'unavailable') { setError('Checkout is temporarily unavailable.'); return }
@@ -46,8 +54,9 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     if (result.ok) {
       if (result.kind === 'checkout') { window.location.assign(result.url); return }
       // Server used a credit on our behalf — no Stripe round-trip.
-      // Refresh credits and stay on the page; the paid report will
+      // Stay on the page and show the generating loader; the paid report will
       // materialize via the existing SSE pipeline.
+      setMode('generating')
       await refresh()
       setPending(false)
       return
@@ -55,6 +64,10 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     setPending(false)
     if (result.kind === 'already_paid') { onAlreadyPaid(result.reportId); return }
     if (result.kind === 'grade_not_done') { setError('This grade is not done yet.'); return }
+    if (result.kind === 'provider_outage') {
+      setError('LLM provider outage during grading. Start a new grade to unlock.')
+      return
+    }
     if (result.kind === 'must_verify_email') { setMode('verify_email'); return }
     if (result.kind === 'rate_limited') {
       setError(`Too many checkout attempts. Try again in ${Math.ceil(result.retryAfter / 60)} min.`)
@@ -136,6 +149,26 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
           </div>
         )}
         {error !== null && <div className="text-xs text-[var(--color-warn)] mt-2">{error}</div>}
+      </div>
+    )
+  }
+
+  if (mode === 'generating') {
+    return (
+      <div className="mt-6 border border-[var(--color-brand)] p-4">
+        <div className="text-sm text-[var(--color-fg)] flex items-center gap-2">
+          <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-brand)] animate-pulse" />
+          Generating your full report — usually 30-60 seconds.
+        </div>
+      </div>
+    )
+  }
+
+  if (error !== null && error.startsWith('LLM provider outage')) {
+    return (
+      <div className="mt-6 border border-[var(--color-warn)] p-4">
+        <div className="text-sm text-[var(--color-warn)] font-semibold mb-1">LLM provider outage</div>
+        <div className="text-xs text-[var(--color-fg-dim)]">Start a new grade to unlock the full report.</div>
       </div>
     )
   }

@@ -123,3 +123,56 @@ describe('BuyReportButton — credits branch', () => {
     expect(assignMock).not.toHaveBeenCalled()
   })
 })
+
+describe('BuyReportButton — generating loader', () => {
+  it('renders "Generating your full report" after a successful credit redeem', async () => {
+    authState.current = {
+      verified: true, email: 'u@x', credits: 3,
+      refresh: async () => {}, logout: async () => {},
+    }
+    vi.spyOn(api, 'postBillingRedeemCredit').mockResolvedValue({ ok: true })
+    render(<BuyReportButton gradeId="g1" onAlreadyPaid={() => {}} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /redeem 1 credit/i }))
+    expect(await screen.findByText(/generating your full report/i)).toBeInTheDocument()
+  })
+
+  it('renders "Generating your full report" when checkout short-circuits with kind=redeemed', async () => {
+    authState.current = {
+      verified: true, email: 'u@x', credits: 0,
+      refresh: async () => {}, logout: async () => {},
+    }
+    vi.spyOn(api, 'postBillingCheckout').mockResolvedValue({ ok: true, kind: 'redeemed' })
+    render(<BuyReportButton gradeId="g1" onAlreadyPaid={() => {}} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /get the full report/i }))
+    expect(await screen.findByText(/generating your full report/i)).toBeInTheDocument()
+  })
+})
+
+describe('BuyReportButton — provider_outage', () => {
+  it('renders outage error block when redeem returns provider_outage', async () => {
+    authState.current = {
+      verified: true, email: 'u@x', credits: 3,
+      refresh: async () => {}, logout: async () => {},
+    }
+    vi.spyOn(api, 'postBillingRedeemCredit').mockResolvedValue({ ok: false, kind: 'provider_outage' })
+    render(<BuyReportButton gradeId="g1" onAlreadyPaid={() => {}} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /redeem 1 credit/i }))
+    expect(await screen.findByText(/llm provider outage/i)).toBeInTheDocument()
+    expect(screen.getByText(/start a new grade/i)).toBeInTheDocument()
+  })
+
+  it('renders outage error block when checkout returns provider_outage', async () => {
+    authState.current = {
+      verified: true, email: 'u@x', credits: 0,
+      refresh: async () => {}, logout: async () => {},
+    }
+    vi.spyOn(api, 'postBillingCheckout').mockResolvedValue({ ok: false, kind: 'provider_outage' })
+    render(<BuyReportButton gradeId="g1" onAlreadyPaid={() => {}} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /get the full report/i }))
+    expect(await screen.findByText(/llm provider outage/i)).toBeInTheDocument()
+  })
+})
