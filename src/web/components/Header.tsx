@@ -14,8 +14,13 @@ export function Header(): JSX.Element {
     : `/email?next=${encodeURIComponent(location.pathname + location.search)}`
 
   return (
-    <header className="border-b border-[var(--color-line)] bg-[var(--color-bg-sidebar)] px-4 py-2 text-xs flex items-center justify-between">
-      <Link to="/" className="text-[var(--color-brand)]">geo-reporter</Link>
+    <header className="border-b border-[var(--color-line)] bg-[var(--color-bg-sidebar)] px-6 py-4 text-xs flex items-center justify-between">
+      <Link
+        to="/"
+        className="font-mono text-sm tracking-tight text-[var(--color-fg)] no-underline"
+      >
+        geo-reporter
+      </Link>
       <div className="flex items-center gap-3">
         {verified && credits > 0 && <CreditBadge credits={credits} />}
         {verified ? (
