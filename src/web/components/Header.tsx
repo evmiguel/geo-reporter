@@ -27,14 +27,14 @@ export function Header(): JSX.Element {
           <>
             <Link
               to="/account"
-              className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+              className="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] px-3 py-2 -mx-1 -my-1"
             >
               account
             </Link>
             <button
               type="button"
               onClick={() => void logout()}
-              className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+              className="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] px-3 py-2 -mx-1 -my-1"
             >
               sign out
             </button>
@@ -42,7 +42,7 @@ export function Header(): JSX.Element {
         ) : (
           <Link
             to={signInHref}
-            className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+            className="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] px-3 py-2 -mx-1 -my-1"
           >
             sign in
           </Link>

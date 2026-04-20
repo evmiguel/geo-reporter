@@ -88,7 +88,7 @@ export function LiveGradePage(): JSX.Element {
         <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">live grade</div>
         {gradeMeta && (
           <>
-            <h1 className="text-3xl text-[var(--color-fg)] mt-1 font-mono">{gradeMeta.domain}</h1>
+            <h1 className="text-2xl sm:text-3xl text-[var(--color-fg)] mt-1 font-mono break-all">{gradeMeta.domain}</h1>
             <div className="text-sm text-[var(--color-fg-dim)] mt-1 break-all">{gradeMeta.url}</div>
           </>
         )}
@@ -104,7 +104,7 @@ export function LiveGradePage(): JSX.Element {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-6">
         {CATEGORY_ORDER.map((cat) => (
           <CategoryTile
             key={cat}
