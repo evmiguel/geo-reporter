@@ -12,9 +12,9 @@ function buildTestApp(
   hmacKey: string = HMAC_KEY,
   isProduction: boolean = false,
 ) {
-  const app = new Hono<{ Variables: { cookie: string } }>()
+  const app = new Hono<{ Variables: { cookie: string; userId: string | null } }>()
   app.use('*', cookieMiddleware(store, isProduction, hmacKey))
-  app.get('/', (c) => c.json({ cookie: c.var.cookie }))
+  app.get('/', (c) => c.json({ cookie: c.var.cookie, userId: c.var.userId }))
   return { app, store }
 }
 
@@ -137,5 +137,48 @@ describe('cookie middleware — Plan 7 HMAC', () => {
     expect(res.status).toBe(200)
     const setCookie = res.headers.get('set-cookie')
     expect(setCookie).toContain('ggcookie=')
+  })
+})
+
+describe('cookie middleware — Plan 13 userId on c.var', () => {
+  it('sets c.var.userId when cookie is bound to a user', async () => {
+    const store = makeFakeStore()
+    const user = await store.upsertUser('u@x')
+    const { app } = buildTestApp(store)
+
+    // First request issues a cookie
+    const first = await app.request('/')
+    const setCookie = first.headers.get('set-cookie') ?? ''
+    const signed = setCookie.split('ggcookie=')[1]?.split(';')[0] ?? ''
+    expect(signed).toBeTruthy()
+    const uuid = signed.split('.')[0]!
+
+    // Bind cookie to user
+    await store.upsertCookie(uuid, user.id)
+
+    // Second request: userId should be populated on c.var
+    const second = await app.request('/', { headers: { cookie: `ggcookie=${signed}` } })
+    const body = (await second.json()) as { cookie: string; userId: string | null }
+    expect(body.userId).toBe(user.id)
+    expect(body.cookie).toBe(uuid)
+  })
+
+  it('sets c.var.userId to null for an anonymous cookie', async () => {
+    const { app } = buildTestApp()
+    const res = await app.request('/')
+    const body = (await res.json()) as { cookie: string; userId: string | null }
+    expect(body.userId).toBeNull()
+  })
+
+  it('sets c.var.userId to null when a signed cookie has no bound user', async () => {
+    const store = makeFakeStore()
+    const uuid = crypto.randomUUID()
+    await store.upsertCookie(uuid) // unbound
+    const signed = signCookie(uuid, HMAC_KEY)
+    const { app } = buildTestApp(store)
+    const res = await app.request('/', { headers: { cookie: `ggcookie=${signed}` } })
+    const body = (await res.json()) as { cookie: string; userId: string | null }
+    expect(body.userId).toBeNull()
+    expect(body.cookie).toBe(uuid)
   })
 })

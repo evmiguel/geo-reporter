@@ -16,7 +16,7 @@ const CreateGradeBody = z.object({
   ),
 })
 
-type Env = { Variables: { cookie: string; clientIp: string } }
+type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
 
 export function gradesRouter(deps: ServerDeps): Hono<Env> {
   const app = new Hono<Env>()

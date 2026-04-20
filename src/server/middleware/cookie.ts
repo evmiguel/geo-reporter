@@ -7,7 +7,7 @@ import { parseCookie, signCookie, verifyCookie } from './cookie-sign.ts'
 export const COOKIE_NAME = 'ggcookie'
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
 
-type Env = { Variables: { cookie: string } }
+type Env = { Variables: { cookie: string; userId: string | null } }
 
 let graceWarned = false
 
@@ -16,7 +16,7 @@ async function issueFresh(
   store: GradeStore,
   hmacKey: string,
   isProduction: boolean,
-): Promise<string> {
+): Promise<{ uuid: string; userId: string | null }> {
   const uuid = crypto.randomUUID()
   const signed = signCookie(uuid, hmacKey)
   setCookie(c, COOKIE_NAME, signed, {
@@ -26,8 +26,8 @@ async function issueFresh(
     path: '/',
     maxAge: ONE_YEAR_SECONDS,
   })
-  await store.upsertCookie(uuid)
-  return uuid
+  const row = await store.upsertCookie(uuid)
+  return { uuid, userId: row.userId }
 }
 
 function reIssueSigned(
@@ -54,9 +54,12 @@ export function cookieMiddleware(
   return async (c, next) => {
     const raw = getCookie(c, COOKIE_NAME)
     let uuid: string
+    let userId: string | null
 
     if (!raw) {
-      uuid = await issueFresh(c, store, hmacKey, isProduction)
+      const fresh = await issueFresh(c, store, hmacKey, isProduction)
+      uuid = fresh.uuid
+      userId = fresh.userId
     } else {
       const parsed = parseCookie(raw)
       if (parsed.kind === 'plain') {
@@ -67,9 +70,10 @@ export function cookieMiddleware(
           }))
           graceWarned = true
         }
-        await store.upsertCookie(parsed.uuid)
+        const row = await store.upsertCookie(parsed.uuid)
         reIssueSigned(c, parsed.uuid, hmacKey, isProduction)
         uuid = parsed.uuid
+        userId = row.userId
       } else if (parsed.kind === 'signed') {
         const verified = verifyCookie(raw, hmacKey)
         if (verified) {
@@ -78,17 +82,25 @@ export function cookieMiddleware(
           // case where a browser holds a valid signed cookie referencing a
           // UUID that no longer exists in the table — e.g. after a DB wipe.
           // Without this, downstream grade inserts would FK-fail.
-          await store.upsertCookie(verified)
+          // The returned row carries the bound userId (or null), letting us
+          // expose c.var.userId without a second query.
+          const row = await store.upsertCookie(verified)
           uuid = verified
+          userId = row.userId
         } else {
-          uuid = await issueFresh(c, store, hmacKey, isProduction)
+          const fresh = await issueFresh(c, store, hmacKey, isProduction)
+          uuid = fresh.uuid
+          userId = fresh.userId
         }
       } else {
-        uuid = await issueFresh(c, store, hmacKey, isProduction)
+        const fresh = await issueFresh(c, store, hmacKey, isProduction)
+        uuid = fresh.uuid
+        userId = fresh.userId
       }
     }
 
     c.set('cookie', uuid)
+    c.set('userId', userId)
     await next()
   }
 }

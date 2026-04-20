@@ -53,7 +53,7 @@ export async function refundRateLimit(
   await removeFromBucket(redis, { key: gradeBucketKey(ip, cookie) }, gradeBucketMember(gradeId))
 }
 
-type Env = { Variables: { clientIp: string; cookie: string } }
+type Env = { Variables: { clientIp: string; cookie: string; userId: string | null } }
 
 export function rateLimitMiddleware(redis: Redis, store: GradeStore): MiddlewareHandler<Env> {
   return async (c, next) => {

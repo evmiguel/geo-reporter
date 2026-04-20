@@ -20,7 +20,7 @@ export interface BillingRouterDeps {
   reportQueue: Queue<ReportJob>
 }
 
-type Env = { Variables: { cookie: string; clientIp: string } }
+type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const checkoutSchema = z.object({ gradeId: z.string().regex(UUID_REGEX) })

@@ -10,7 +10,7 @@ import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 
 const HMAC_KEY = 'test-key-exactly-32-chars-long-aa'
 
-type AppType = Hono<{ Variables: { cookie: string; clientIp: string } }>
+type AppType = Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>
 
 let sharedRedis: IoRedis | null = null
 beforeEach(async () => { if (sharedRedis) await sharedRedis.flushall() })
@@ -20,7 +20,7 @@ function build(): { app: AppType; store: ReturnType<typeof makeFakeStore>; maile
   const mailer = new FakeMailer()
   const redis = new RedisMock() as unknown as IoRedis
   sharedRedis = redis
-  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/auth', authRouter({ store, redis, mailer, publicBaseUrl: 'http://localhost:5173' }))
   return { app, store, mailer }

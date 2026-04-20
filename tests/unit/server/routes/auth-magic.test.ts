@@ -22,7 +22,7 @@ function buildAuthApp() {
   const store = makeFakeStore()
   const mailer = new FakeMailer()
   const redis = new RedisMock() as unknown as IoRedis
-  const app = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const app = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/auth', authRouter({
     store,
@@ -33,7 +33,7 @@ function buildAuthApp() {
   return { app, store, mailer, redis }
 }
 
-type AppType = Hono<{ Variables: { cookie: string; clientIp: string } }>
+type AppType = Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>
 
 async function issueCookie(app: AppType): Promise<string> {
   // /auth/me will be added in Task 12. For Task 10 we just want a fresh signed cookie.

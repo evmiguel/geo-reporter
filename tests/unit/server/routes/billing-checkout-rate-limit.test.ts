@@ -9,7 +9,7 @@ import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 
 const HMAC_KEY = 'test-key-exactly-32-chars-long-aa'
 
-type AppType = Hono<{ Variables: { cookie: string; clientIp: string } }>
+type AppType = Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>
 
 async function issueCookie(app: AppType): Promise<string> {
   const res = await app.fetch(new Request('http://test/billing/checkout', {
@@ -27,7 +27,7 @@ describe('POST /billing/checkout — rate limit', () => {
     const billing = new FakeStripe()
     const redis = makeStubRedis()
 
-    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
     app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
     app.route('/billing', billingRouter({
       store, billing, redis,

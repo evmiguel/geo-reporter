@@ -9,12 +9,12 @@ import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 
 const HMAC_KEY = 'test-key-exactly-32-chars-long-aa'
 
-type AppType = Hono<{ Variables: { cookie: string; clientIp: string } }>
+type AppType = Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>
 
 function build() {
   const store = makeFakeStore()
   const billing = new FakeStripe()
-  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
     store, billing, redis: makeStubRedis(),
@@ -175,7 +175,7 @@ describe('POST /billing/checkout', () => {
         enqueued.push({ name, data, opts })
       },
     } as unknown as import('bullmq').Queue
-    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
     app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
     app.route('/billing', billingRouter({
       store, billing, redis: makeStubRedis(),
