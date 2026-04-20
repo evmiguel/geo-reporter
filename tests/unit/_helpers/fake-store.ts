@@ -113,6 +113,43 @@ export function makeFakeStore(): FakeGradeStore {
     async getCookie(cookie: string): Promise<Cookie | null> {
       return cookiesMap.get(cookie) ?? null
     },
+    async deleteUser(userId: string, expectedEmail: string): Promise<void> {
+      const user = usersMap.get(userId)
+      if (!user || user.email.toLowerCase() !== expectedEmail.toLowerCase()) {
+        throw new Error('deleteUser: user not found or email mismatch')
+      }
+      // Collect this user's grade ids
+      const userGradeIds = new Set<string>()
+      for (const g of gradesMap.values()) {
+        if (g.userId === userId) userGradeIds.add(g.id)
+      }
+      for (const gid of userGradeIds) {
+        gradesMap.delete(gid)
+        scrapesMap.delete(gid)
+        reportsMap.delete(gid)
+      }
+      // probes / recommendations are arrays keyed by gradeId
+      for (let i = probes.length - 1; i >= 0; i--) {
+        if (userGradeIds.has(probes[i]!.gradeId)) probes.splice(i, 1)
+      }
+      for (let i = recommendations.length - 1; i >= 0; i--) {
+        if (userGradeIds.has(recommendations[i]!.gradeId)) recommendations.splice(i, 1)
+      }
+      // Unbind cookies
+      for (const [k, c] of cookiesMap) {
+        if (c.userId === userId) cookiesMap.set(k, { ...c, userId: null })
+      }
+      // Purge magic tokens for this email
+      for (const [id, t] of magicTokensMap) {
+        if (t.email === user.email) magicTokensMap.delete(id)
+      }
+      // Anonymize stripe_payments
+      for (const [k, p] of stripePaymentsMap) {
+        if (p.userId === userId) stripePaymentsMap.set(k, { ...p, userId: null, gradeId: null })
+      }
+      // Delete user
+      usersMap.delete(userId)
+    },
     async issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }> {
       // Invalidate priors for this email.
       for (const [id, row] of magicTokensMap.entries()) {

@@ -110,6 +110,33 @@ export class PostgresStore implements GradeStore {
     return row ?? null
   }
 
+  async deleteUser(userId: string, expectedEmail: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const [user] = await tx.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1)
+      if (!user || user.email.toLowerCase() !== expectedEmail.toLowerCase()) {
+        throw new Error('deleteUser: user not found or email mismatch')
+      }
+
+      // Anonymize stripe_payments BEFORE deleting grades — stripe_payments.grade_id has ON DELETE CASCADE,
+      // so we must detach the FK first to retain rows for tax retention.
+      await tx.update(schema.stripePayments)
+        .set({ userId: null, gradeId: null })
+        .where(eq(schema.stripePayments.userId, userId))
+
+      // Grades cascade to scrapes, probes, recommendations, reports, report_pdfs via FK ON DELETE CASCADE.
+      await tx.delete(schema.grades).where(eq(schema.grades.userId, userId))
+
+      // Unbind every cookie tied to this user (cookies row preserved — other devices may still use it as anonymous).
+      await tx.update(schema.cookies).set({ userId: null }).where(eq(schema.cookies.userId, userId))
+
+      // Purge pending magic-link tokens for this email.
+      await tx.delete(schema.magicTokens).where(eq(schema.magicTokens.email, user.email))
+
+      // Finally the user row.
+      await tx.delete(schema.users).where(eq(schema.users.id, userId))
+    })
+  }
+
   async issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }> {
     const rawToken = randomBytes(32).toString('base64url')
     const tokenHash = createHash('sha256').update(rawToken).digest('hex')
