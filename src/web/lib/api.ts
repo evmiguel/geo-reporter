@@ -11,6 +11,8 @@ export interface GradeSummary {
   scores: Record<CategoryId, number | null> | null
   createdAt: string
   updatedAt: string
+  reportId?: string
+  reportToken?: string
 }
 
 export interface CreateGradeOk { ok: true; gradeId: string }

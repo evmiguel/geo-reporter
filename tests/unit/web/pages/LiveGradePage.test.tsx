@@ -8,7 +8,11 @@ afterEach(() => { cleanup() })
 
 const stubState: { current: GradeState } = { current: {} as GradeState }
 vi.mock('../../../../src/web/hooks/useGradeEvents.ts', () => ({
-  useGradeEvents: () => ({ state: stubState.current, connected: true }),
+  useGradeEvents: () => ({ state: stubState.current, connected: true, dispatch: () => {} }),
+}))
+
+vi.mock('../../../../src/web/lib/api.ts', () => ({
+  getGrade: vi.fn(async () => null),
 }))
 
 vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({

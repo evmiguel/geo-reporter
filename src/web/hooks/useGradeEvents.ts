@@ -1,15 +1,16 @@
 import { useEffect, useReducer, useState } from 'react'
 import { initialGradeState, reduceGradeEvents } from '../lib/grade-reducer.ts'
-import type { GradeEvent, GradeState } from '../lib/types.ts'
+import type { GradeAction, GradeEvent, GradeState } from '../lib/types.ts'
 
 export interface UseGradeEventsResult {
   state: GradeState
   connected: boolean
+  dispatch: (action: GradeAction) => void
 }
 
 export function useGradeEvents(gradeId: string): UseGradeEventsResult {
   const [state, dispatch] = useReducer(
-    (s: GradeState, e: GradeEvent) => reduceGradeEvents(s, e, performance.now()),
+    (s: GradeState, e: GradeAction) => reduceGradeEvents(s, e, performance.now()),
     undefined,
     initialGradeState,
   )
@@ -31,5 +32,5 @@ export function useGradeEvents(gradeId: string): UseGradeEventsResult {
     }
   }, [gradeId])
 
-  return { state, connected }
+  return { state, connected, dispatch }
 }
