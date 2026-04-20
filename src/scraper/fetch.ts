@@ -1,3 +1,5 @@
+import { resolveSafeHost, SSRFBlockedError } from './ssrf.ts'
+
 export type FetchFailureReason =
   | 'non-2xx'
   | 'non-html-content-type'
@@ -35,6 +37,22 @@ export async function fetchHtml(
 ): Promise<FetchHtmlResult> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const ua = opts.userAgent ?? DEFAULT_UA
+  if (process.env.NODE_ENV === 'production') {
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(url)
+    } catch (err) {
+      throw new FetchError(`invalid url: ${(err as Error).message}`, 'network')
+    }
+    try {
+      await resolveSafeHost(parsedUrl.hostname)
+    } catch (err) {
+      if (err instanceof SSRFBlockedError) {
+        throw new FetchError(`ssrf: ${err.message}`, 'network')
+      }
+      throw err
+    }
+  }
   const controller = new AbortController()
   const t = setTimeout(() => controller.abort(), timeoutMs)
   let res: Response
