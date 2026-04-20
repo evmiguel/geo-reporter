@@ -110,11 +110,10 @@ describe('runGrade canary halt', () => {
       id: 'j1', name: 'run-grade',
     } as unknown as Job<GradeJob>
 
-    // For the OpenAI halt test we want the probe row's provider column to read
-    // 'openai' (that's what hasTerminalProviderFailures checks). The production
-    // OpenAIProvider exposes id 'gpt' — not 'openai' — so we cast to reach the
-    // detector's gate. This is also what postgres.ts + fake-store expect.
-    const gptFailing = new MockProvider({ id: 'openai' as ProviderId, responses: () => '', failWith: 'openai is terminally down' })
+    // For the GPT halt test we want the probe row's provider column to read
+    // 'gpt' — the production OpenAIProvider's actual id, and what
+    // hasTerminalProviderFailures gates on in postgres.ts + fake-store.
+    const gptFailing = new MockProvider({ id: 'gpt', responses: () => '', failWith: 'gpt is terminally down' })
 
     const deps: RunGradeDeps = {
       store,
@@ -153,7 +152,7 @@ describe('runGrade canary halt', () => {
     expect(outageFailed?.kind).toBe('provider_outage')
   })
 
-  it('halts with provider_outage when OpenAI terminal-fails on discoverability', async () => {
+  it('halts with provider_outage when GPT terminal-fails on discoverability', async () => {
     const { store, redis, grade, job, deps } = await setup(false, true)
     await runGrade(job, deps)
 
@@ -167,7 +166,7 @@ describe('runGrade canary halt', () => {
     expect(outageFailed?.kind).toBe('provider_outage')
   })
 
-  it('does NOT halt when both Claude and OpenAI succeed on discoverability', async () => {
+  it('does NOT halt when both Claude and GPT succeed on discoverability', async () => {
     const { store, grade, job, deps } = await setup(false, false)
     await runGrade(job, deps)
 

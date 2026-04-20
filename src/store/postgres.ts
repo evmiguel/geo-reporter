@@ -54,7 +54,7 @@ export class PostgresStore implements GradeStore {
     const rows = await this.db.execute(sql`
       SELECT 1 FROM probes
       WHERE grade_id = ${gradeId}
-        AND provider IN ('claude', 'openai')
+        AND provider IN ('claude', 'gpt')
         AND score IS NULL
         AND metadata->>'error' IS NOT NULL
       LIMIT 1

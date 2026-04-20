@@ -22,24 +22,24 @@ describe('PostgresStore.hasTerminalProviderFailures', () => {
     return g.id
   }
 
-  it('returns false when all Claude/OpenAI probes have a score', async () => {
+  it('returns false when all Claude/GPT probes have a score', async () => {
     const gradeId = await freshGrade()
     await store.createProbe({ gradeId, category: 'discoverability', provider: 'claude', prompt: 'p', response: 'r', score: 50, metadata: {} })
-    await store.createProbe({ gradeId, category: 'discoverability', provider: 'openai', prompt: 'p', response: 'r', score: 50, metadata: {} })
+    await store.createProbe({ gradeId, category: 'discoverability', provider: 'gpt', prompt: 'p', response: 'r', score: 50, metadata: {} })
     expect(await store.hasTerminalProviderFailures(gradeId)).toBe(false)
   })
 
   it('returns true when Claude has a null score + error metadata', async () => {
     const gradeId = await freshGrade()
     await store.createProbe({ gradeId, category: 'discoverability', provider: 'claude', prompt: '', response: '', score: null, metadata: { error: 'Anthropic 500' } })
-    await store.createProbe({ gradeId, category: 'discoverability', provider: 'openai', prompt: 'p', response: 'r', score: 50, metadata: {} })
+    await store.createProbe({ gradeId, category: 'discoverability', provider: 'gpt', prompt: 'p', response: 'r', score: 50, metadata: {} })
     expect(await store.hasTerminalProviderFailures(gradeId)).toBe(true)
   })
 
-  it('returns true when OpenAI has a null score + error metadata', async () => {
+  it('returns true when GPT has a null score + error metadata', async () => {
     const gradeId = await freshGrade()
     await store.createProbe({ gradeId, category: 'discoverability', provider: 'claude', prompt: 'p', response: 'r', score: 50, metadata: {} })
-    await store.createProbe({ gradeId, category: 'discoverability', provider: 'openai', prompt: '', response: '', score: null, metadata: { error: 'OpenAI 429' } })
+    await store.createProbe({ gradeId, category: 'discoverability', provider: 'gpt', prompt: '', response: '', score: null, metadata: { error: 'OpenAI 429' } })
     expect(await store.hasTerminalProviderFailures(gradeId)).toBe(true)
   })
 
@@ -49,7 +49,7 @@ describe('PostgresStore.hasTerminalProviderFailures', () => {
     expect(await store.hasTerminalProviderFailures(gradeId)).toBe(false)
   })
 
-  it('ignores Gemini + Perplexity failures (only Claude + OpenAI gate)', async () => {
+  it('ignores Gemini + Perplexity failures (only Claude + GPT gate)', async () => {
     const gradeId = await freshGrade()
     await store.createProbe({ gradeId, category: 'recognition', provider: 'gemini', prompt: '', response: '', score: null, metadata: { error: 'Gemini down' } })
     await store.createProbe({ gradeId, category: 'recognition', provider: 'perplexity', prompt: '', response: '', score: null, metadata: { error: 'Perplexity down' } })

@@ -77,7 +77,7 @@ export function makeFakeStore(): FakeGradeStore {
     async hasTerminalProviderFailures(gradeId: string): Promise<boolean> {
       for (const p of probes) {
         if (p.gradeId !== gradeId) continue
-        if (p.provider !== 'claude' && p.provider !== 'openai') continue
+        if (p.provider !== 'claude' && p.provider !== 'gpt') continue
         if (p.score !== null) continue
         const meta = (p.metadata ?? {}) as Record<string, unknown>
         if (typeof meta.error === 'string') return true
