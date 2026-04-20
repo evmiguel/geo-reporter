@@ -28,9 +28,10 @@ export interface AuthRouterDeps {
 type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
 
 // `next` is an optional post-verify redirect target. Must be a same-origin
-// relative path (starts with `/` followed by non-`/` to block `//evil.com`).
+// relative path. Either exactly "/" (root), or starts with "/" followed by a
+// non-"/" character (blocks protocol-relative `//evil.com` redirects).
 // If absent or invalid, verify falls back to `/?verified=1`.
-const NEXT_PATH_RE = /^\/[^/]/
+const NEXT_PATH_RE = /^\/(?:$|[^/])/
 const magicSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   next: z.string().regex(NEXT_PATH_RE).max(512).optional(),
@@ -46,7 +47,12 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
   app.post(
     '/magic',
     zValidator('json', magicSchema, (result, c) => {
-      if (!result.success) return c.json({ error: 'invalid_email' }, 400)
+      if (!result.success) {
+        // Distinguish "bad email" (the common case, surfaced to user) from
+        // "bad next path" (a frontend bug — still 400 but different code).
+        const failedOnEmail = result.error.issues.some((i) => i.path[0] === 'email')
+        return c.json({ error: failedOnEmail ? 'invalid_email' : 'invalid_body' }, 400)
+      }
     }),
     async (c) => {
       const { email, next } = c.req.valid('json')

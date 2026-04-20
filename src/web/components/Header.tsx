@@ -6,7 +6,10 @@ import { CreditBadge } from './CreditBadge.tsx'
 export function Header(): JSX.Element {
   const { verified, credits, logout } = useAuth()
   const location = useLocation()
-  const signInHref = location.pathname === '/email'
+  // Only attach ?next= when the current path is worth returning to. Root (/)
+  // and /email both land at /?verified=1 by default, so omit next there —
+  // the server's path regex rejects bare "/" anyway.
+  const signInHref = (location.pathname === '/' || location.pathname === '/email')
     ? '/email'
     : `/email?next=${encodeURIComponent(location.pathname + location.search)}`
 

@@ -78,6 +78,44 @@ describe('POST /auth/magic', () => {
     expect(body.error).toBe('invalid_email')
   })
 
+  it('accepts bare "/" as a valid next path (landing-page sign-in)', async () => {
+    const { app, mailer } = buildAuthApp()
+    const cookie = await issueCookie(app)
+    const res = await app.fetch(new Request('http://test/auth/magic', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ email: 'user@example.com', next: '/' }),
+    }))
+    expect(res.status).toBe(204)
+    expect(mailer.sent[0]!.url).toMatch(/next=%2F/)
+  })
+
+  it('rejects protocol-relative next like "//evil.com" with invalid_body (not invalid_email)', async () => {
+    const { app } = buildAuthApp()
+    const cookie = await issueCookie(app)
+    const res = await app.fetch(new Request('http://test/auth/magic', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ email: 'user@example.com', next: '//evil.com' }),
+    }))
+    expect(res.status).toBe(400)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('invalid_body')
+  })
+
+  it('valid real-world emails (dots in local part) are accepted', async () => {
+    const { app } = buildAuthApp()
+    const cookie = await issueCookie(app)
+    for (const email of ['mx.erikamiguel@gmail.com', 'erika@erikamiguel.com']) {
+      const res = await app.fetch(new Request('http://test/auth/magic', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+        body: JSON.stringify({ email }),
+      }))
+      expect(res.status, `${email} rejected`).toBe(204)
+    }
+  })
+
   it('normalizes email (trim + lowercase)', async () => {
     const { app, mailer } = buildAuthApp()
     const cookie = await issueCookie(app)

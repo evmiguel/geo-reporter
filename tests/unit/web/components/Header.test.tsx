@@ -76,6 +76,13 @@ describe('Header', () => {
     expect(link).toHaveAttribute('href', '/email')
   })
 
+  it('sign-in link on / does not add a next=%2F (default destination anyway)', () => {
+    mockAuth.current = { verified: false, email: null, credits: 0, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter initialEntries={['/']}><Header /></MemoryRouter>)
+    const link = screen.getByRole('link', { name: /sign in/i })
+    expect(link).toHaveAttribute('href', '/email')
+  })
+
   it('shows account link when verified', () => {
     mockAuth.current = { verified: true, email: 'u@e.com', credits: 0, refresh: async () => {}, logout: vi.fn() }
     render(<MemoryRouter><Header /></MemoryRouter>)
