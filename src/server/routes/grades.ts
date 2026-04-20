@@ -37,6 +37,25 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     return c.json({ gradeId: grade.id }, 202)
   })
 
+  app.get('/', async (c) => {
+    if (c.var.userId === null) {
+      return c.json({ error: 'must_verify_email' }, 401)
+    }
+    const grades = await deps.store.listGradesByUser(c.var.userId, 50)
+    return c.json({
+      grades: grades.map((g) => ({
+        id: g.id,
+        url: g.url,
+        domain: g.domain,
+        tier: g.tier,
+        status: g.status,
+        overall: g.overall,
+        letter: g.letter,
+        createdAt: g.createdAt.toISOString(),
+      })),
+    })
+  })
+
   app.get('/:id', async (c) => {
     const id = c.req.param('id')
     if (!UUID_RE.test(id)) return c.json({ error: 'invalid id' }, 400)
