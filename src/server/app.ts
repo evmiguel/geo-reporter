@@ -9,6 +9,7 @@ import { gradesRouter } from './routes/grades.ts'
 import { gradesEventsRouter } from './routes/grades-events.ts'
 import { authRouter } from './routes/auth.ts'
 import { billingRouter } from './routes/billing.ts'
+import { reportRouter } from './routes/report.ts'
 
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
@@ -66,6 +67,8 @@ export function buildApp(deps: ServerDeps): Hono {
       console.warn('Stripe not configured — /billing endpoints return 503. Set STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET/STRIPE_PRICE_ID.')
     }
   }
+
+  app.route('/report', reportRouter({ store: deps.store }))
 
   if (deps.env.NODE_ENV === 'production') {
     // Serve built frontend from dist/web. Catch-all falls through to index.html
