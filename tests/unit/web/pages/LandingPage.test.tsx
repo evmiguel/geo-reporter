@@ -7,7 +7,14 @@ vi.mock('../../../../src/web/hooks/useCreateGrade.ts', () => ({
   useCreateGrade: () => ({ create: vi.fn(), pending: false, error: null }),
 }))
 
-const useAuthMock = vi.fn(() => ({
+interface AuthState {
+  verified: boolean
+  email: string | null
+  credits: number
+  refresh: () => Promise<void>
+  logout: () => Promise<void>
+}
+const useAuthMock = vi.fn((): AuthState => ({
   verified: false,
   email: null,
   credits: 0,

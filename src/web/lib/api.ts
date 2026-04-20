@@ -19,7 +19,7 @@ export interface CreateGradeOk { ok: true; gradeId: string }
 export interface CreateGradeRateLimited {
   ok: false
   kind: 'rate_limited'
-  paywall: 'email' | 'pay'
+  paywall: 'email' | 'daily_cap'
   limit: number
   used: number
   retryAfter: number
@@ -47,7 +47,7 @@ export async function postGrade(url: string): Promise<CreateGradeResponse> {
     return { ok: true, gradeId: body.gradeId }
   }
   if (res.status === 429) {
-    const body = (await res.json()) as { paywall: 'email' | 'pay'; limit: number; used: number; retryAfter: number }
+    const body = (await res.json()) as { paywall: 'email' | 'daily_cap'; limit: number; used: number; retryAfter: number }
     return { ok: false, kind: 'rate_limited', ...body }
   }
   if (res.status === 400) {

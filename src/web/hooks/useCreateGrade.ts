@@ -8,6 +8,15 @@ export interface UseCreateGradeResult {
   error: string | null
 }
 
+function formatRetry(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const leftoverMinutes = minutes % 60
+  return leftoverMinutes > 0 ? `${hours}h ${leftoverMinutes}m` : `${hours}h`
+}
+
 export function useCreateGrade(): UseCreateGradeResult {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,6 +32,13 @@ export function useCreateGrade(): UseCreateGradeResult {
       return
     }
     if (result.kind === 'rate_limited') {
+      if (result.paywall === 'daily_cap') {
+        // Credit holders hitting 10/24h aren't a paywall problem — just a wait.
+        // Keep them on the page with a clear message instead of bouncing them
+        // to the email-verify gate (which would show wrong copy).
+        setError(`Daily cap reached (${result.limit}/24h). Try again in ${formatRetry(result.retryAfter)}.`)
+        return
+      }
       navigate(`/email?retry=${result.retryAfter}`)
       return
     }
