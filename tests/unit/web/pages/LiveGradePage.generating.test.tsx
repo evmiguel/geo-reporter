@@ -26,7 +26,7 @@ vi.mock('../../../../src/web/hooks/useGradeEvents.ts', () => ({
       probes: new Map(),
       categoryScores: { discoverability: 80, recognition: 80, accuracy: 80, coverage: 80, citation: 80, seo: 80 },
       overall: 80, letter: 'B', error: null, failedKind: null,
-      paidStatus: 'generating' as const, reportId: null, reportToken: null,
+      paidStatus: 'generating' as const, reportId: null, reportToken: null, reportProbeCount: 0,
     },
     dispatch: vi.fn(),
     connected: true,

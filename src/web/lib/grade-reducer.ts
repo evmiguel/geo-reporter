@@ -16,6 +16,7 @@ export function initialGradeState(): GradeState {
     paidStatus: 'none',
     reportId: null,
     reportToken: null,
+    reportProbeCount: 0,
   }
 }
 
@@ -79,7 +80,7 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
     case 'failed':
       return { ...state, phase: 'failed', error: event.error, failedKind: event.kind }
     case 'report.started':
-      return { ...state, paidStatus: 'generating' }
+      return { ...state, paidStatus: 'generating', reportProbeCount: 0 }
     case 'report.probe.started': {
       const key = probeKey(event.category, event.provider, event.label)
       const existing = state.probes.get(key)
@@ -114,7 +115,7 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
       }
       const probes = new Map(state.probes)
       probes.set(key, entry)
-      return { ...state, probes }
+      return { ...state, probes, reportProbeCount: state.reportProbeCount + 1 }
     }
     case 'report.recommendations.started':
     case 'report.recommendations.completed':
