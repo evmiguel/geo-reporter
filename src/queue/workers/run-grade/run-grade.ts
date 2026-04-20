@@ -2,6 +2,7 @@ import type { Job } from 'bullmq'
 import { publishGradeEvent } from '../../events.ts'
 import { weightedOverall } from '../../../scoring/composite.ts'
 import { DEFAULT_WEIGHTS, type CategoryId } from '../../../scoring/weights.ts'
+import { refundRateLimit } from '../../../server/middleware/rate-limit.ts'
 import type { GradeJob } from '../../queues.ts'
 import { GradeFailure, type RunGradeDeps } from './deps.ts'
 import {
@@ -12,9 +13,10 @@ import {
   runCoverageCategory,
   runAccuracyCategory,
 } from './categories.ts'
+import { detectClaudeOrOpenAIOutage } from './outage-detect.ts'
 
 export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<void> {
-  const { gradeId, tier } = job.data
+  const { gradeId, tier, ip, cookie } = job.data
   const probers = tier === 'free'
     ? [deps.providers.claude, deps.providers.gpt]
     : [deps.providers.claude, deps.providers.gpt, deps.providers.gemini, deps.providers.perplexity]
@@ -44,12 +46,27 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
       type: 'scraped', rendered: scrape.rendered, textLength: scrape.text.length,
     })
 
-    // SEO first (sync, instant), then 5 LLM categories in parallel
+    // SEO first (sync, instant).
     const seoScore = await runSeoCategory({ gradeId, scrape, deps })
-    const [recScore, citScore, discScore, covScore, accScore] = await Promise.all([
+
+    // Discoverability acts as the canary — runs sequentially across providers.
+    // A terminal Claude/OpenAI error lands in the DB as a probe row with
+    // score=null + metadata.error before we fan out to the remaining categories.
+    const discScore = await runDiscoverabilityCategory({ gradeId, grade, scrape, probers, deps })
+
+    const outage = await detectClaudeOrOpenAIOutage(gradeId, deps.store)
+    if (outage !== null) {
+      await refundRateLimit(deps.redis, ip, cookie, gradeId)
+      await deps.store.updateGrade(gradeId, { status: 'failed' })
+      await publishGradeEvent(deps.redis, gradeId, {
+        type: 'failed', kind: 'provider_outage', error: outage.message,
+      })
+      return // graceful — do NOT throw; BullMQ should NOT retry a provider outage
+    }
+
+    const [recScore, citScore, covScore, accScore] = await Promise.all([
       runRecognitionCategory({ gradeId, grade, scrape, probers, deps }),
       runCitationCategory({ gradeId, grade, scrape, probers, deps }),
-      runDiscoverabilityCategory({ gradeId, grade, scrape, probers, deps }),
       runCoverageCategory({ gradeId, grade, scrape, probers, judge, deps }),
       runAccuracyCategory({ gradeId, grade, scrape, probers, generator, verifier, deps }),
     ])
