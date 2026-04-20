@@ -62,6 +62,6 @@ describe('EmailGatePage', () => {
     render(<MemoryRouter initialEntries={['/email?next=%2Fg%2Fabc']}><EmailGatePage /></MemoryRouter>)
     await user.type(screen.getByPlaceholderText(/you@example.com/i), 'me@example.com')
     await user.click(screen.getByRole('button', { name: /send link/i }))
-    expect(spy).toHaveBeenCalledWith('me@example.com', '/g/abc')
+    expect(spy).toHaveBeenCalledWith('me@example.com', '/g/abc', undefined)
   })
 })

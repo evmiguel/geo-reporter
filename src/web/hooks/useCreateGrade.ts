@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { postGrade, type CreateGradeResponse } from '../lib/api.ts'
 
 export interface UseCreateGradeResult {
-  create: (url: string) => Promise<void>
+  create: (url: string, turnstileToken?: string) => Promise<void>
   pending: boolean
   error: string | null
 }
@@ -22,10 +22,10 @@ export function useCreateGrade(): UseCreateGradeResult {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  async function create(url: string): Promise<void> {
+  async function create(url: string, turnstileToken?: string): Promise<void> {
     setPending(true)
     setError(null)
-    const result: CreateGradeResponse = await postGrade(url)
+    const result: CreateGradeResponse = await postGrade(url, turnstileToken)
     setPending(false)
     if (result.ok) {
       navigate(`/g/${result.gradeId}`)
@@ -53,6 +53,10 @@ export function useCreateGrade(): UseCreateGradeResult {
     }
     if (result.kind === 'validation') {
       setError(result.message)
+      return
+    }
+    if (result.kind === 'captcha_failed') {
+      setError("Couldn't verify you're human — please try again.")
       return
     }
     setError(`Request failed (${result.status})`)

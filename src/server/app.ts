@@ -47,6 +47,7 @@ export function buildApp(deps: ServerDeps): Hono {
     mailer: deps.mailer,
     publicBaseUrl: deps.env.PUBLIC_BASE_URL,
     nodeEnv: deps.env.NODE_ENV,
+    turnstileSecretKey: deps.env.TURNSTILE_SECRET_KEY ?? null,
   }))
   app.route('/auth', authScope)
 

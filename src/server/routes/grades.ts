@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { enqueueGrade } from '../../queue/queues.ts'
 import { commitRateLimit } from '../middleware/rate-limit.ts'
 import { isOwnedBy } from '../lib/grade-ownership.ts'
+import { verifyTurnstile } from '../middleware/turnstile.ts'
 import type { ServerDeps } from '../deps.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -15,6 +16,7 @@ const CreateGradeBody = z.object({
     },
     { message: 'url must be http:// or https://' },
   ),
+  turnstileToken: z.string().optional(),
 })
 
 type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
@@ -23,7 +25,15 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
   const app = new Hono<Env>()
 
   app.post('/', zValidator('json', CreateGradeBody), async (c) => {
-    const { url } = c.req.valid('json')
+    const { url, turnstileToken } = c.req.valid('json')
+    const captcha = await verifyTurnstile({
+      secretKey: deps.env.TURNSTILE_SECRET_KEY ?? undefined,
+      token: turnstileToken,
+      remoteIp: c.var.clientIp,
+    })
+    if (!captcha.ok) {
+      return c.json({ error: 'captcha_failed', codes: captcha.errorCodes }, 403)
+    }
     const parsed = new URL(url)
     const domain = parsed.hostname.toLowerCase().replace(/^www\./, '')
     const grade = await deps.store.createGrade({

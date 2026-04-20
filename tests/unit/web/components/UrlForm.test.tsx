@@ -14,7 +14,8 @@ describe('UrlForm', () => {
     render(<UrlForm onSubmit={onSubmit} pending={false} />)
     await userEvent.type(screen.getByRole('textbox'), '  https://acme.com  ')
     await userEvent.click(screen.getByRole('button', { name: 'grade' }))
-    expect(onSubmit).toHaveBeenCalledWith('https://acme.com')
+    // Second arg is the Turnstile token — undefined in test env (no site key set).
+    expect(onSubmit).toHaveBeenCalledWith('https://acme.com', undefined)
   })
 
   it('does not call onSubmit on empty input', async () => {

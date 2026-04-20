@@ -31,18 +31,26 @@ export interface CreateGradeRateLimited {
   retryAfter: number
 }
 export interface CreateGradeValidationError { ok: false; kind: 'validation'; message: string }
+export interface CreateGradeCaptchaError { ok: false; kind: 'captcha_failed' }
 export interface CreateGradeUnknownError { ok: false; kind: 'unknown'; status: number }
 
-export type CreateGradeResponse = CreateGradeOk | CreateGradeRateLimited | CreateGradeValidationError | CreateGradeUnknownError
+export type CreateGradeResponse =
+  | CreateGradeOk
+  | CreateGradeRateLimited
+  | CreateGradeValidationError
+  | CreateGradeCaptchaError
+  | CreateGradeUnknownError
 
-export async function postGrade(url: string): Promise<CreateGradeResponse> {
+export async function postGrade(url: string, turnstileToken?: string): Promise<CreateGradeResponse> {
   let res: Response
   try {
+    const body: { url: string; turnstileToken?: string } = { url }
+    if (turnstileToken !== undefined) body.turnstileToken = turnstileToken
     res = await fetch('/grades', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ url }),
+      body: JSON.stringify(body),
     })
   } catch {
     return { ok: false, kind: 'unknown', status: 0 }
@@ -53,8 +61,11 @@ export async function postGrade(url: string): Promise<CreateGradeResponse> {
     return { ok: true, gradeId: body.gradeId }
   }
   if (res.status === 429) {
-    const body = (await res.json()) as { paywall: 'email' | 'daily_cap'; limit: number; used: number; retryAfter: number }
+    const body = (await res.json()) as { paywall: 'email' | 'daily_cap' | 'ip_exhausted'; limit: number; used: number; retryAfter: number }
     return { ok: false, kind: 'rate_limited', ...body }
+  }
+  if (res.status === 403) {
+    return { ok: false, kind: 'captcha_failed' }
   }
   if (res.status === 400) {
     let message = 'Invalid URL'
@@ -77,13 +88,14 @@ export async function getGrade(id: string): Promise<GradeSummary | null> {
 
 export type MagicResult =
   | { ok: true }
-  | { ok: false; error: 'invalid_email' | 'rate_limit_email' | 'rate_limit_ip'; retryAfter?: number }
+  | { ok: false; error: 'invalid_email' | 'rate_limit_email' | 'rate_limit_ip' | 'captcha_failed'; retryAfter?: number }
 
-export async function postAuthMagic(email: string, next?: string): Promise<MagicResult> {
+export async function postAuthMagic(email: string, next?: string, turnstileToken?: string): Promise<MagicResult> {
   let res: Response
   try {
-    const body: { email: string; next?: string } = { email }
+    const body: { email: string; next?: string; turnstileToken?: string } = { email }
     if (next !== undefined) body.next = next
+    if (turnstileToken !== undefined) body.turnstileToken = turnstileToken
     res = await fetch('/auth/magic', {
       method: 'POST',
       credentials: 'include',
@@ -96,6 +108,7 @@ export async function postAuthMagic(email: string, next?: string): Promise<Magic
 
   if (res.status === 204) return { ok: true }
   if (res.status === 400) return { ok: false, error: 'invalid_email' }
+  if (res.status === 403) return { ok: false, error: 'captcha_failed' }
   if (res.status === 429) {
     const body = (await res.json().catch(() => ({}))) as { paywall?: string; retryAfter?: number }
     const error = body.paywall === 'email_cooldown' ? 'rate_limit_email' : 'rate_limit_ip'

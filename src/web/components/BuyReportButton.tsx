@@ -1,7 +1,8 @@
-import React, { useEffect, useState, type FormEvent } from 'react'
+import React, { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { postBillingCheckout, postBillingRedeemCredit, postAuthMagic } from '../lib/api.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Spinner } from './Spinner.tsx'
+import { Turnstile } from './Turnstile.tsx'
 
 interface BuyReportButtonProps {
   gradeId: string
@@ -18,6 +19,8 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
   const [email, setEmail] = useState('')
   const [cooldownUntil, setCooldownUntil] = useState<number>(0)
   const [now, setNow] = useState<number>(Date.now())
+  const [turnstileToken, setTurnstileToken] = useState<string>('')
+  const onToken = useCallback((t: string) => setTurnstileToken(t), [])
 
   const hasCredits = credits > 0
 
@@ -84,7 +87,8 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     setPending(true); setError(null)
     // After they click the magic link in email, send them back to this grade
     // page so they can resume checkout in one more click (verified will be true).
-    const result = await postAuthMagic(email.trim(), `/g/${gradeId}`)
+    const token = turnstileToken.length > 0 ? turnstileToken : undefined
+    const result = await postAuthMagic(email.trim(), `/g/${gradeId}`, token)
     setPending(false)
     if (result.ok) {
       setMode('email_sent')
@@ -92,6 +96,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
       return
     }
     if (result.error === 'invalid_email') { setError("That doesn't look like a valid email."); return }
+    if (result.error === 'captcha_failed') { setError("Couldn't verify you're human — please try again."); return }
     if (result.error === 'rate_limit_email') {
       setError(`Please wait ${result.retryAfter ?? 60}s before resending.`)
       if (result.retryAfter !== undefined) setCooldownUntil(Date.now() + result.retryAfter * 1000)
@@ -120,24 +125,27 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
           We need an email so your $19 report stays accessible if you switch devices or clear cookies.
         </div>
         {mode === 'verify_email' ? (
-          <form onSubmit={handleEmailSubmit} className="flex gap-2">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              aria-label="Email address for checkout"
-              className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-brand)]"
-              disabled={pending}
-            />
-            <button
-              type="submit"
-              disabled={pending}
-              aria-busy={pending}
-              className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
-            >
-              {pending ? (<><Spinner className="mr-2" /> Sending…</>) : 'send link'}
-            </button>
+          <form onSubmit={handleEmailSubmit} className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-label="Email address for checkout"
+                className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-brand)]"
+                disabled={pending}
+              />
+              <button
+                type="submit"
+                disabled={pending}
+                aria-busy={pending}
+                className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
+              >
+                {pending ? (<><Spinner className="mr-2" /> Sending…</>) : 'send link'}
+              </button>
+            </div>
+            <Turnstile onToken={onToken} />
           </form>
         ) : (
           <div className="space-y-3">

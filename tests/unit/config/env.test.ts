@@ -97,6 +97,7 @@ describe('env — Plan 7 auth vars', () => {
       STRIPE_WEBHOOK_SECRET: 'whsec_abc',
       STRIPE_PRICE_ID: 'price_abc',
       STRIPE_CREDITS_PRICE_ID: 'price_credits_abc',
+      TURNSTILE_SECRET_KEY: '0x4AAA-fake',
     })
     expect(env.PUBLIC_BASE_URL).toBe('https://geo-reporter.com')
   })
@@ -190,6 +191,7 @@ describe('env — OpenRouter fallback', () => {
       STRIPE_WEBHOOK_SECRET: 'whsec_a',
       STRIPE_PRICE_ID: 'price_a',
       STRIPE_CREDITS_PRICE_ID: 'price_credits_a',
+      TURNSTILE_SECRET_KEY: '0x4AAA-fake',
     })
     expect(env.OPENROUTER_API_KEY).toBeUndefined()
   })
@@ -226,6 +228,7 @@ describe('env — credits pack', () => {
     const env = loadEnv({
       ...base, NODE_ENV: 'production',
       STRIPE_CREDITS_PRICE_ID: 'price_credits_abc',
+      TURNSTILE_SECRET_KEY: '0x4AAA-fake',
     })
     expect(env.STRIPE_CREDITS_PRICE_ID).toBe('price_credits_abc')
   })

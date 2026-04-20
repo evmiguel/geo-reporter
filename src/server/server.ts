@@ -69,6 +69,7 @@ const app = buildApp({
     STRIPE_PRICE_ID: env.STRIPE_PRICE_ID ?? null,
     STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET ?? null,
     STRIPE_CREDITS_PRICE_ID: env.STRIPE_CREDITS_PRICE_ID ?? null,
+    TURNSTILE_SECRET_KEY: env.TURNSTILE_SECRET_KEY ?? null,
   },
 })
 

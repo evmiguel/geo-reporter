@@ -51,7 +51,7 @@ export function LandingPage(): JSX.Element {
       )}
 
       <UrlForm
-        onSubmit={(url) => { void create(url) }}
+        onSubmit={(url, token) => { void create(url, token) }}
         pending={pending}
         {...(error !== null ? { errorMessage: error } : {})}
       />

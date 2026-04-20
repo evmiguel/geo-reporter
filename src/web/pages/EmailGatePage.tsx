@@ -1,7 +1,8 @@
-import React, { useEffect, useState, type FormEvent } from 'react'
+import React, { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { postAuthMagic } from '../lib/api.ts'
 import { Spinner } from '../components/Spinner.tsx'
+import { Turnstile } from '../components/Turnstile.tsx'
 
 function formatRetry(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -23,6 +24,8 @@ export function EmailGatePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [cooldownUntil, setCooldownUntil] = useState<number>(0)
   const [now, setNow] = useState<number>(Date.now())
+  const [turnstileToken, setTurnstileToken] = useState<string>('')
+  const onToken = useCallback((t: string) => setTurnstileToken(t), [])
 
   useEffect(() => {
     const handle = setInterval(() => setNow(Date.now()), 1000)
@@ -34,7 +37,8 @@ export function EmailGatePage(): JSX.Element {
   async function submit(): Promise<void> {
     if (email.trim().length === 0) return
     setPending(true); setError(null)
-    const result = await postAuthMagic(email.trim(), next)
+    const token = turnstileToken.length > 0 ? turnstileToken : undefined
+    const result = await postAuthMagic(email.trim(), next, token)
     setPending(false)
     if (result.ok) {
       setSent(true)
@@ -42,6 +46,7 @@ export function EmailGatePage(): JSX.Element {
       return
     }
     if (result.error === 'invalid_email') { setError("That doesn't look like a valid email."); return }
+    if (result.error === 'captcha_failed') { setError("Couldn't verify you're human — please try again."); return }
     if (result.error === 'rate_limit_email') {
       setError(`Please wait ${result.retryAfter ?? 60}s before resending.`)
       if (result.retryAfter !== undefined) setCooldownUntil(Date.now() + result.retryAfter * 1000)
@@ -86,24 +91,27 @@ export function EmailGatePage(): JSX.Element {
       )}
 
       {!sent ? (
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            aria-label="Email address"
-            className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-brand)]"
-            disabled={pending}
-          />
-          <button
-            type="submit"
-            disabled={pending}
-            aria-busy={pending}
-            className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
-          >
-            {pending ? (<><Spinner className="mr-2" /> Sending…</>) : 'send link'}
-          </button>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              aria-label="Email address"
+              className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-line)] px-3 py-2 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:border-[var(--color-brand)]"
+              disabled={pending}
+            />
+            <button
+              type="submit"
+              disabled={pending}
+              aria-busy={pending}
+              className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
+            >
+              {pending ? (<><Spinner className="mr-2" /> Sending…</>) : 'send link'}
+            </button>
+          </div>
+          <Turnstile onToken={onToken} />
         </form>
       ) : (
         <div className="space-y-3">

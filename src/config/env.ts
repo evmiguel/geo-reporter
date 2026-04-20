@@ -21,6 +21,10 @@ const Schema = z.object({
   // Resend (and most providers) accept both. Validation lives at the mailer
   // boundary, not the env layer.
   MAIL_FROM: z.string().min(1).optional(),
+  // Cloudflare Turnstile — optional in dev. When absent, the verify middleware
+  // skips enforcement (logs a warning at startup) so `pnpm dev` keeps working
+  // without a real Cloudflare account. Required in production.
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
     const required = [
@@ -28,6 +32,7 @@ const Schema = z.object({
       'COOKIE_HMAC_KEY', 'PUBLIC_BASE_URL',
       'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID',
       'STRIPE_CREDITS_PRICE_ID',
+      'TURNSTILE_SECRET_KEY',
     ] as const
     for (const key of required) {
       if (!val[key]) {

@@ -7,6 +7,7 @@ import type Redis from 'ioredis'
 import type { GradeStore } from '../../store/types.ts'
 import type { Mailer } from '../../mail/types.ts'
 import { COOKIE_NAME } from '../middleware/cookie.ts'
+import { verifyTurnstile } from '../middleware/turnstile.ts'
 import {
   peekMagicEmailBucket, peekMagicIpBucket,
   addMagicEmailBucket, addMagicIpBucket,
@@ -23,6 +24,8 @@ export interface AuthRouterDeps {
    * 5/10min IP cap after a handful of attempts. Production limits unchanged.
    */
   nodeEnv?: 'development' | 'test' | 'production'
+  /** Cloudflare Turnstile secret. null disables bot verification (dev). */
+  turnstileSecretKey?: string | null
 }
 
 type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
@@ -35,6 +38,7 @@ const NEXT_PATH_RE = /^\/(?:$|[^/])/
 const magicSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   next: z.string().regex(NEXT_PATH_RE).max(512).optional(),
+  turnstileToken: z.string().optional(),
 })
 
 const deleteAccountSchema = z.object({
@@ -55,9 +59,18 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
       }
     }),
     async (c) => {
-      const { email, next } = c.req.valid('json')
+      const { email, next, turnstileToken } = c.req.valid('json')
       const ip = c.var.clientIp
       const skipRateLimit = deps.nodeEnv === 'development'
+
+      const captcha = await verifyTurnstile({
+        secretKey: deps.turnstileSecretKey ?? undefined,
+        token: turnstileToken,
+        remoteIp: ip,
+      })
+      if (!captcha.ok) {
+        return c.json({ error: 'captcha_failed', codes: captcha.errorCodes }, 403)
+      }
 
       if (!skipRateLimit) {
         const emailPeek = await peekMagicEmailBucket(deps.redis, email)
