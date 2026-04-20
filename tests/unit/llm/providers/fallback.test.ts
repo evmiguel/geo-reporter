@@ -90,24 +90,36 @@ describe('FallbackProvider', () => {
     expect(result.text).toBe('secondary')
   })
 
-  it('does NOT fall back on auth error (401/403)', async () => {
+  it('falls back on auth error (401/403) — secondary has independent credentials', async () => {
     const primary = stubProvider('gemini', async () => {
       throw new ProviderError('gemini', 401, 'auth', 'invalid api key')
     })
     const secondary = stubProvider('gemini', async () => ok('secondary'))
     const fp = new FallbackProvider({ primary, secondary })
-    await expect(fp.query('hi')).rejects.toBeInstanceOf(ProviderError)
-    expect(secondary.query).not.toHaveBeenCalled()
+    const result = await fp.query('hi')
+    expect(result.text).toBe('secondary')
+    expect(secondary.query).toHaveBeenCalledTimes(1)
   })
 
-  it('does NOT fall back on 400-class unknown errors', async () => {
+  it('falls back on 400-class unknown errors (quota, API-not-enabled, etc.)', async () => {
     const primary = stubProvider('gemini', async () => {
-      throw new ProviderError('gemini', 400, 'unknown', 'bad request')
+      throw new ProviderError('gemini', 400, 'unknown', 'quota exceeded')
     })
     const secondary = stubProvider('gemini', async () => ok('secondary'))
     const fp = new FallbackProvider({ primary, secondary })
-    await expect(fp.query('hi')).rejects.toBeInstanceOf(ProviderError)
-    expect(secondary.query).not.toHaveBeenCalled()
+    const result = await fp.query('hi')
+    expect(result.text).toBe('secondary')
+    expect(secondary.query).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back on 403 Gemini "API not enabled for region" style errors', async () => {
+    const primary = stubProvider('gemini', async () => {
+      throw new ProviderError('gemini', 403, 'auth', 'API not enabled')
+    })
+    const secondary = stubProvider('gemini', async () => ok('via openrouter'))
+    const fp = new FallbackProvider({ primary, secondary })
+    const result = await fp.query('hi')
+    expect(result.text).toBe('via openrouter')
   })
 
   it('re-throws secondary error if secondary also fails', async () => {
