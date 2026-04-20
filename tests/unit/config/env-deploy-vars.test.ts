@@ -22,6 +22,16 @@ describe('env — Plan 10 deploy vars', () => {
     expect(env.MAIL_FROM).toBe('noreply@send.geo.erikamiguel.com')
   })
 
+  it('accepts MAIL_FROM in display-name form (Name <addr>)', () => {
+    const env = loadEnv({
+      DATABASE_URL: 'postgres://x', REDIS_URL: 'redis://x', NODE_ENV: 'test',
+      COOKIE_HMAC_KEY: 'k'.repeat(32), PUBLIC_BASE_URL: 'http://localhost',
+      ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'a', GEMINI_API_KEY: 'a', PERPLEXITY_API_KEY: 'a',
+      MAIL_FROM: 'Geo Reporter <noreply@send.geo.erikamiguel.com>',
+    })
+    expect(env.MAIL_FROM).toBe('Geo Reporter <noreply@send.geo.erikamiguel.com>')
+  })
+
   it('accepts optional TRUSTED_PROXIES as a comma-separated CIDR string', () => {
     const env = loadEnv({
       DATABASE_URL: 'postgres://x', REDIS_URL: 'redis://x', NODE_ENV: 'test',
