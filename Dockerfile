@@ -5,8 +5,7 @@ FROM node:20-slim AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
 COPY package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # ---- build ----
 FROM node:20-slim AS build
@@ -35,8 +34,7 @@ RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
 
 # Prod dependencies only (keeps image small)
 COPY package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile
 
 # Bake Chromium into the image so cold-start doesn't download it
 RUN pnpm exec playwright install chromium
