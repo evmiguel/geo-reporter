@@ -15,11 +15,7 @@ import { reportRouter } from './routes/report.ts'
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
 
-  const trustedProxies = (deps.env.TRUSTED_PROXIES ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-  const clientIpOpts = { trustedProxies, isProduction: deps.env.NODE_ENV === 'production' }
+  const clientIpOpts = { isProduction: deps.env.NODE_ENV === 'production' }
 
   app.use('*', requestLog())
 

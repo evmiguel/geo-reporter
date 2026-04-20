@@ -5,7 +5,7 @@ import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 describe('clientIp middleware', () => {
   function buildTestApp(): Hono<{ Variables: { clientIp: string } }> {
     const app = new Hono<{ Variables: { clientIp: string } }>()
-    app.use('*', clientIp({ trustedProxies: [], isProduction: false }))
+    app.use('*', clientIp({ isProduction: false }))
     app.get('/', (c) => c.json({ ip: c.var.clientIp }))
     return app
   }

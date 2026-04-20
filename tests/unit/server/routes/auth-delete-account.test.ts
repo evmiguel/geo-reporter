@@ -15,7 +15,7 @@ function build() {
   const mailer = new FakeMailer()
   const redis = {} as never  // delete-account doesn't hit Redis
   const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
+  app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/auth', authRouter({
     store, redis, mailer,
     publicBaseUrl: 'http://localhost', nodeEnv: 'test',

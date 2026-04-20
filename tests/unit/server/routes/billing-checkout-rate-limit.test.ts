@@ -28,7 +28,7 @@ describe('POST /billing/checkout — rate limit', () => {
     const redis = makeStubRedis()
 
     const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-    app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
+    app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
     app.route('/billing', billingRouter({
       store, billing, redis,
       priceId: 'price_test_abc', creditsPriceId: 'price_test_credits',

@@ -21,7 +21,6 @@ const Schema = z.object({
   // Resend (and most providers) accept both. Validation lives at the mailer
   // boundary, not the env layer.
   MAIL_FROM: z.string().min(1).optional(),
-  TRUSTED_PROXIES: z.string().optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
     const required = [

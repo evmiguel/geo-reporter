@@ -4,7 +4,7 @@ import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 
 type Env = { Variables: { clientIp: string } }
 
-function buildApp(opts: { trustedProxies: string[]; isProduction: boolean }, socketAddr?: string) {
+function buildApp(opts: { isProduction: boolean }, socketAddr?: string) {
   const app = new Hono<Env>()
   // Inject a fake node-server env binding so tests can exercise the
   // socket-remote-address path without spinning up an HTTP server.
@@ -19,44 +19,50 @@ function buildApp(opts: { trustedProxies: string[]; isProduction: boolean }, soc
   return app
 }
 
-describe('clientIp — trusted-proxy enforcement', () => {
-  it('production: ignores XFF when socket peer not in allow-list', async () => {
-    const app = buildApp({ trustedProxies: ['10.0.0.0/8'], isProduction: true }, '203.0.113.5')
+describe('clientIp — production (rightmost-XFF)', () => {
+  it('uses the rightmost XFF value (Railway edge appends it)', async () => {
+    // A client injected `evil` upstream, the edge appended the real client IP.
+    // Rightmost wins regardless of what the client sent.
+    const app = buildApp({ isProduction: true })
     const res = await app.request('/', {
-      headers: { 'x-forwarded-for': '1.2.3.4' },
+      headers: { 'x-forwarded-for': 'evil, 1.2.3.4, 203.0.113.5' },
     })
     const body = await res.json() as { ip: string }
-    expect(body.ip).not.toBe('1.2.3.4')
+    expect(body.ip).toBe('203.0.113.5')
   })
 
-  it('production: honors XFF when SOCKET peer is in allow-list', async () => {
-    const app = buildApp({ trustedProxies: ['10.0.0.0/8'], isProduction: true }, '10.1.2.3')
+  it('handles a single-value XFF', async () => {
+    const app = buildApp({ isProduction: true })
     const res = await app.request('/', {
-      headers: { 'x-forwarded-for': '1.2.3.4' },
+      headers: { 'x-forwarded-for': '203.0.113.5' },
     })
     const body = await res.json() as { ip: string }
-    expect(body.ip).toBe('1.2.3.4')
+    expect(body.ip).toBe('203.0.113.5')
   })
 
-  it('production: rejects spoofed x-real-ip claiming trusted peer', async () => {
-    // Regression guard. A client outside the trusted CIDR must not be able to
-    // promote itself into the allow-list by setting x-real-ip. The trust
-    // decision MUST come from the kernel socket.
-    const app = buildApp({ trustedProxies: ['10.0.0.0/8'], isProduction: true }, '203.0.113.99')
+  it('falls back to socket peer when XFF is absent', async () => {
+    const app = buildApp({ isProduction: true }, '203.0.113.99')
+    const res = await app.request('/')
+    const body = await res.json() as { ip: string }
+    expect(body.ip).toBe('203.0.113.99')
+  })
+
+  it('ignores spoofed x-real-ip in production', async () => {
+    // x-real-ip is a client-controllable header if the request bypasses
+    // Railway's edge. Production must only consult XFF or socket peer.
+    const app = buildApp({ isProduction: true }, '203.0.113.99')
     const res = await app.request('/', {
-      headers: {
-        'x-forwarded-for': '1.2.3.4',
-        'x-real-ip': '10.1.2.3',   // attacker-controlled header
-      },
+      headers: { 'x-real-ip': '10.0.0.1' },
     })
     const body = await res.json() as { ip: string }
-    expect(body.ip).not.toBe('1.2.3.4')
+    expect(body.ip).toBe('203.0.113.99')
+    expect(body.ip).not.toBe('10.0.0.1')
   })
 
-  it('development: honors XFF unconditionally (ergonomic testing)', async () => {
-    const app = buildApp({ trustedProxies: [], isProduction: false })
+  it('development: honors leftmost XFF for ergonomic testing', async () => {
+    const app = buildApp({ isProduction: false })
     const res = await app.request('/', {
-      headers: { 'x-forwarded-for': '1.2.3.4' },
+      headers: { 'x-forwarded-for': '1.2.3.4, 10.0.0.1' },
     })
     const body = await res.json() as { ip: string }
     expect(body.ip).toBe('1.2.3.4')

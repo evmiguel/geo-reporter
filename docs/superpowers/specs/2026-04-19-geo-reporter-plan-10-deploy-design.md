@@ -13,7 +13,7 @@ The ship bar for Plan 10 is **soft launch** (per brainstorm Q): a public URL tha
 - `src/mail/resend-mailer.ts` implementing the existing `Mailer` interface. Factory in `src/server/server.ts` picks `RealMailer` when `RESEND_API_KEY` is set, else `ConsoleMailer`.
 - `src/server/middleware/request-log.ts` — Hono logger with `?t=` / `?token=` query-param redaction. Wired at the top of `buildApp()`.
 - SSRF pre-flight DNS check + IP-pinned `fetch`/Playwright in `src/scraper/fetch.ts` and `src/scraper/render.ts`.
-- Trusted-proxy allow-list (`TRUSTED_PROXIES` env) for `X-Forwarded-For` parsing in `src/server/middleware/client-ip.ts`.
+- Rightmost-XFF client IP resolution in `src/server/middleware/client-ip.ts` (revised from the originally-planned trusted-proxy allow-list; see §5.2).
 - Per-cookie rate limit on `POST /billing/checkout` (10/hour).
 - Secrets-in-logs audit pass: truncate provider-error bodies to 200 chars.
 - `worker.close(true)` with 30s drain-timeout on SIGTERM.
@@ -51,7 +51,7 @@ The ship bar for Plan 10 is **soft launch** (per brainstorm Q): a public URL tha
 | P10-8 | DB migrations | Pre-deploy hook on `web` service: `pnpm db:migrate` | Single-instance-safe (runs before new version goes live). Alternative patterns (app-start migration, manual) have concurrency or discipline hazards. |
 | P10-9 | Request logging | `hono/logger` with custom URL serializer + `?t=` redaction | No external aggregator needed for MVP; Railway's log viewer pipes from stdout. Unblocks the Plan 9 redaction deferral. |
 | P10-10 | SSRF defense | DNS-lookup-time check + IP-pinned outgoing request | Layered defense. Can't rely on Railway egress rules alone — some probes hit localhost intentionally in dev, which means the lookup-based check is the one that applies to the request path. |
-| P10-11 | Trusted-proxy | `TRUSTED_PROXIES` env (CIDR list), enforced only in `NODE_ENV=production` | Dev keeps the current unconditional XFF trust for ergonomic testing. |
+| P10-11 | Trusted-proxy | Rightmost-XFF in production (no CIDR allow-list) | **Revised during implementation 2026-04-20.** Railway does not publish edge CIDRs, making the allow-list approach unworkable. Railway's edge appends the real client IP as the rightmost XFF entry, so rightmost-of-XFF is authoritative regardless of what a client injected upstream. x-real-ip is deliberately not used as a fallback in production (bypassable by a direct-to-container request). Dev keeps leftmost-XFF for ergonomic testing. |
 | P10-12 | `/billing/checkout` rate limit | 10 per cookie per hour | Matches `peekBucket` pattern already in the codebase. Prevents pending-row spam without affecting legitimate paths (user typically hits this ~twice per report purchase). |
 | P10-13 | Secrets-in-logs | Truncate `ProviderError.message` body to 200 chars | Provider 4xx bodies sometimes echo request headers; truncation covers the accidental-echo case without losing useful diagnostic info. |
 | P10-14 | Graceful shutdown | `worker.close(true)` + 30s await | Railway sends SIGTERM 30s before SIGKILL; matches that window exactly. |
@@ -74,7 +74,7 @@ src/server/
 ├── app.ts                              MODIFY — mount request-log middleware first
 └── middleware/
     ├── request-log.ts                  NEW — hono/logger wrapper + URL redaction
-    └── client-ip.ts                    MODIFY — TRUSTED_PROXIES enforcement in production
+    └── client-ip.ts                    MODIFY — rightmost-XFF in production
 
 src/server/routes/
 └── billing.ts                          MODIFY — add per-cookie bucket on /checkout
@@ -86,7 +86,7 @@ src/scraper/
 src/llm/providers/
 └── errors.ts                           MODIFY — truncate stored message body to 200 chars
 
-src/config/env.ts                       MODIFY — accept RESEND_API_KEY, MAIL_FROM, TRUSTED_PROXIES, STRIPE_CREDITS_PRICE_ID (already present)
+src/config/env.ts                       MODIFY — accept RESEND_API_KEY, MAIL_FROM, STRIPE_CREDITS_PRICE_ID (already present)
 
 src/worker/worker.ts                    MODIFY — worker.close(true) + 30s await in SIGTERM
 
@@ -161,7 +161,6 @@ Pre-deploy (on `web` service): `pnpm --package=drizzle-kit@0.33 dlx drizzle-kit 
 | `PORT` | Auto (Railway) | web |
 | `PUBLIC_BASE_URL=https://geo.erikamiguel.com` | Shared | web (Stripe success/cancel URLs + magic-link URLs) |
 | `COOKIE_HMAC_KEY` | Shared (32-char random) | web |
-| `TRUSTED_PROXIES` (Railway edge CIDRs) | Shared | web |
 | `ANTHROPIC_API_KEY` + `OPENAI_API_KEY` + `GEMINI_API_KEY` + `PERPLEXITY_API_KEY` | Shared | worker (and web if any LLM call is added to the request path later) |
 | `OPENROUTER_API_KEY` | Shared (optional) | worker |
 | `RESEND_API_KEY` + `MAIL_FROM=noreply@send.geo.erikamiguel.com` | Shared | web |
@@ -278,27 +277,32 @@ Local dev bypass: `NODE_ENV !== 'production'` skips the check so `http://localho
 
 Test matrix: private IPs (10.x, 172.16.x, 192.168.x, 127.0.0.1), IPv6 loopback, link-local (169.254.169.254), CGNAT (100.64.x) — all rejected. Public IP (8.8.8.8) — allowed.
 
-### 5.2 Trusted-proxy XFF
+### 5.2 Rightmost-XFF client IP
 
 ```ts
-// src/server/middleware/client-ip.ts (modified)
-function trustedPeer(peer: string, cidrs: string[]): boolean { /* ... */ }
-
-export function clientIp(opts: { trustedProxies?: string[]; isProduction: boolean }): MiddlewareHandler {
+// src/server/middleware/client-ip.ts
+export function clientIp(opts: { isProduction: boolean }): MiddlewareHandler {
   return async (c, next) => {
-    const peer = c.req.header('x-real-ip') ?? c.env?.server?.remoteAddress ?? ''
+    const fromSocket = c.env?.incoming?.socket?.remoteAddress ?? ''
     const xff = c.req.header('x-forwarded-for')
-    const honorXff =
-      xff !== undefined
-      && (!opts.isProduction || trustedPeer(peer, opts.trustedProxies ?? []))
-    const ip = honorXff ? xff.split(',')[0]!.trim() : peer
-    c.set('clientIp', ip)
+    const entries = xff?.split(',').map((s) => s.trim()).filter(Boolean) ?? []
+    if (opts.isProduction) {
+      // Railway's edge appends the real client IP as the rightmost XFF entry,
+      // so it's authoritative regardless of what a client injected upstream.
+      // x-real-ip is NOT a fallback — a direct-to-container request could spoof it.
+      c.set('clientIp', entries.at(-1) || fromSocket || '0.0.0.0')
+    } else {
+      const realIp = c.req.header('x-real-ip') ?? ''
+      c.set('clientIp', entries[0] || realIp || fromSocket || '0.0.0.0')
+    }
     await next()
   }
 }
 ```
 
-Wired from `buildApp(deps)`. `TRUSTED_PROXIES` env parsed into CIDR list at server startup. Empty list in production + XFF present = ignore XFF (use socket peer), which is the safe default.
+**Why rightmost, not a trusted-proxy allow-list.** Railway does not publish edge CIDRs (confirmed against their docs and help station on 2026-04-20), so the allow-list approach from P10-11's original wording is not implementable. Railway's edge always appends the socket peer to XFF, which means the rightmost entry is the client IP as observed by the edge — a value a client cannot forge by sending their own `X-Forwarded-For`. Anything they inject ends up to the left of Railway's authoritative append. Falling back to `x-real-ip` in production would undo this defense (a request bypassing the edge could spoof it), so production ignores `x-real-ip` entirely.
+
+Dev mode keeps the original leftmost-XFF behavior so tests that simulate a forwarding chain (`XFF: client, hop1, hop2`) still read "client" as the origin.
 
 ### 5.3 `/billing/checkout` rate limit
 
@@ -352,13 +356,13 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
 1. Add Postgres add-on. Copy `DATABASE_URL` into shared env.
 2. Add Redis add-on. Copy `REDIS_URL` into shared env.
-3. Create `web` service pointing at this repo. Start command: `node dist/server.js`. Pre-deploy: `pnpm --package=drizzle-kit@0.33 dlx drizzle-kit migrate`.
-4. Create `worker` service pointing at the same repo. Start command: `node dist/worker.js`.
+3. Create `web` service pointing at this repo. Start command: `node dist/server.js`. Pre-deploy: `pnpm db:migrate:prod` (runs `node dist/migrate.js` — the runtime migrator; drizzle-kit is a devDep and not present in the prod image).
+4. Create `worker` service pointing at the same repo. Start command: `node dist/worker.js`. No pre-deploy.
 5. Both services use the `Dockerfile` at repo root. Configure in Railway service settings.
 
 ### 6.3 Shared env vars (paste at project level)
 
-See §3.2 matrix. Anything marked "Shared" goes in the Railway project-level env; add-on URLs are auto. Don't commit `TRUSTED_PROXIES` — fetch Railway's edge IPs from their docs at deploy time (documented in the runbook).
+See §3.2 matrix. Anything marked "Shared" goes in the Railway project-level env; add-on URLs are auto (`${{Postgres.DATABASE_URL}}` / `${{Redis.REDIS_URL}}`). There is no `TRUSTED_PROXIES` — see §5.2 for the rightmost-XFF approach that replaced it.
 
 ### 6.4 Custom domain
 
@@ -407,7 +411,7 @@ Railway service → Deployments → click prior revision → "Redeploy". DB sche
 
 - `resend-mailer.test.ts` — contract: stub `Resend.emails.send`, assert body shape + error propagation.
 - `request-log.test.ts` — `redactUrl` truth table: `?t=abc`, `?token=abc`, `?foo=bar&t=abc&baz=qux`, `?foo=bar` (unchanged), empty string.
-- `client-ip-trusted.test.ts` — XFF honored only when peer in allow-list; production default (empty list) ignores XFF.
+- `client-ip-trusted.test.ts` — rightmost XFF used in production; spoofed `x-real-ip` ignored; dev mode keeps leftmost XFF. (Filename kept for continuity; see §5.2 for the current approach.)
 - `billing-checkout-rate-limit.test.ts` — 10 attempts pass, 11th returns 429 with `paywall: 'checkout_throttled'`.
 - `ssrf.test.ts` — private IPv4/IPv6 rejected; cloud metadata (169.254.169.254) rejected; 8.8.8.8 allowed; bypassed in dev env.
 - `shutdown.test.ts` — `worker.close(true)` called; 30s timeout triggers force-exit (stubbed).
@@ -430,7 +434,7 @@ Railway service → Deployments → click prior revision → "Redeploy". DB sche
 | SSRF defense breaks `http://localhost` scraping during testing | Dev bypass (`NODE_ENV !== 'production'`). Production never scrapes localhost, by definition. |
 | Live Stripe fees on testing | Manual end-to-end smoke uses a real card; refund immediately via the Stripe dashboard. |
 | Migration fails mid-deploy | Pre-deploy hook fails the deploy; Railway keeps the prior version live. No partial migration state reaches users. |
-| Railway edge CIDRs change | Plan 11 can move to a cleaner trusted-proxy approach (e.g. mTLS between Cloudflare and Railway) if it becomes an issue. |
+| Railway changes XFF semantics (no longer appends socket peer) | Would silently flip us to trusting client-supplied values. Detection: rate limiting stops working per-IP (one user can't trigger bucket increments). Mitigation: a canary test in the deploy-smoke suite could assert "XFF with an injected leading value is not honored" against the live service — deferred. |
 
 ## 9. Deferred / production-checklist follow-ups
 

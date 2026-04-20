@@ -15,7 +15,7 @@ function build(creditsPriceId = 'price_test_credits') {
   const store = makeFakeStore()
   const billing = new FakeStripe('whsec_test_fake')
   const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
+  app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
     store, billing, redis: makeStubRedis(),
     priceId: 'price_test_report',

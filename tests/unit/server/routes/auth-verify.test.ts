@@ -26,7 +26,7 @@ function build(): { app: AppType; store: ReturnType<typeof makeFakeStore>; maile
   const redis = new RedisMock() as unknown as IoRedis
   sharedRedis = redis
   const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
+  app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/auth', authRouter({ store, redis, mailer, publicBaseUrl: PUBLIC_BASE_URL }))
   return { app, store, mailer }
 }
