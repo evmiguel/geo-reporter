@@ -37,7 +37,10 @@ export function StatusBar(props: StatusBarProps): JSX.Element {
           ? 'text-[var(--color-good-dim)]'
           : 'text-[var(--color-fg-faint)]'
         return (
-          <span key={step.key} className={color}>● {step.label}</span>
+          <span key={step.key} className={color}>
+            <span className={isCurrent ? 'inline-block animate-pulse' : 'inline-block'} aria-hidden="true">●</span>{' '}
+            {step.label}
+          </span>
         )
       })}
       {props.scraped !== null && (

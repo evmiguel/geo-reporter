@@ -16,7 +16,7 @@ export function GradeLetter(props: GradeLetterProps): JSX.Element {
         <div className="text-xl font-mono text-[var(--color-fg-dim)]">{props.overall}/100</div>
       </div>
       {desc !== null && (
-        <div className="text-xs tracking-wider uppercase text-[var(--color-fg-muted)] mt-2">
+        <div className={`text-xs tracking-wider uppercase mt-2 ${color}`}>
           {desc.label} · {desc.range}
         </div>
       )}

@@ -51,7 +51,7 @@ export function AccountPage(): JSX.Element {
       </section>
 
       <section className="mb-8">
-        <div className="text-xs uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">your grades</div>
+        <h2 className="text-lg text-[var(--color-fg)] mb-3 pb-2 border-b border-[var(--color-line)]">Your grades</h2>
         <GradeHistoryList />
       </section>
 

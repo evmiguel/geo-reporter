@@ -1,5 +1,6 @@
 import React from 'react'
 import type { PaidStatus } from '../lib/types.ts'
+import { Spinner } from './Spinner.tsx'
 
 interface Props {
   paidStatus: PaidStatus
@@ -54,7 +55,7 @@ export function ReportProgress({ paidStatus, reportProbeCount }: Props): JSX.Ele
             <span className="w-4 h-4 flex items-center justify-center shrink-0 font-mono text-xs">
               {p.status === 'done' && <span className="text-[var(--color-good)]">✓</span>}
               {p.status === 'active' && (
-                <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-brand)] animate-pulse" />
+                <Spinner size={14} className="text-[var(--color-brand)]" />
               )}
               {p.status === 'pending' && <span className="text-[var(--color-fg-muted)]">○</span>}
             </span>
