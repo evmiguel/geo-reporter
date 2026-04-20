@@ -248,6 +248,7 @@ export class PostgresStore implements GradeStore {
     amountCents: number
     currency: string
     kind?: 'report' | 'credits'
+    userId?: string | null
   }): Promise<StripePayment> {
     const [row] = await this.db.insert(schema.stripePayments).values({
       gradeId: input.gradeId,
@@ -256,6 +257,7 @@ export class PostgresStore implements GradeStore {
       currency: input.currency,
       kind: input.kind ?? 'report',
       status: 'pending',
+      userId: input.userId ?? null,
     }).returning()
     if (!row) throw new Error('createStripePayment returned no row')
     return row

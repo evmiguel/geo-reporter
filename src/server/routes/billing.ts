@@ -82,6 +82,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
           await deps.store.createStripePayment({
             gradeId, sessionId: auditSessionId,
             amountCents: 0, currency: 'usd', kind: 'credits',
+            userId: cookieRow.userId,
           })
           await deps.store.updateStripePaymentStatus(auditSessionId, { status: 'paid' })
           const jobId = `generate-report-credit-${gradeId}`
@@ -116,6 +117,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       await deps.store.createStripePayment({
         gradeId, sessionId: session.id,
         amountCents: PRICE_AMOUNT_CENTS, currency: PRICE_CURRENCY,
+        userId: cookieRow.userId,
       })
       return c.json({ url: session.url })
     },
@@ -142,6 +144,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       amountCents: 2900,
       currency: 'usd',
       kind: 'credits',
+      userId: row.userId,
     })
     return c.json({ url: session.url })
   })
@@ -173,6 +176,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       await deps.store.createStripePayment({
         gradeId, sessionId: auditSessionId,
         amountCents: 0, currency: 'usd', kind: 'credits',
+        userId: row.userId,
       })
       await deps.store.updateStripePaymentStatus(auditSessionId, { status: 'paid' })
 

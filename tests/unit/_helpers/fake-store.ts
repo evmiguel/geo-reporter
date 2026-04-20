@@ -184,11 +184,12 @@ export function makeFakeStore(): FakeGradeStore {
       amountCents: number
       currency: string
       kind?: 'report' | 'credits'
+      userId?: string | null
     }): Promise<StripePayment> {
       const row: StripePayment = {
         id: crypto.randomUUID(),
         gradeId: input.gradeId,
-        userId: null,
+        userId: input.userId ?? null,
         sessionId: input.sessionId,
         kind: input.kind ?? 'report',
         status: 'pending',

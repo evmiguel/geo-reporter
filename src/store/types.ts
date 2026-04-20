@@ -77,6 +77,7 @@ export interface GradeStore {
     amountCents: number
     currency: string
     kind?: 'report' | 'credits'
+    userId?: string | null
   }): Promise<StripePayment>
   getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null>
   updateStripePaymentStatus(
