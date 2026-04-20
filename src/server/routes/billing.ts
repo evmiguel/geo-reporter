@@ -2,14 +2,17 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import type { Queue } from 'bullmq'
+import type Redis from 'ioredis'
 import type { BillingClient } from '../../billing/types.ts'
 import { PRICE_AMOUNT_CENTS, PRICE_CURRENCY } from '../../billing/prices.ts'
 import type { GradeStore } from '../../store/types.ts'
 import type { ReportJob } from '../../queue/queues.ts'
+import { peekBucket, addToBucket } from '../middleware/bucket.ts'
 
 export interface BillingRouterDeps {
   store: GradeStore
   billing: BillingClient
+  redis: Redis
   priceId: string
   creditsPriceId: string   // NEW — can be '' when not configured
   publicBaseUrl: string
@@ -32,6 +35,25 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
     }),
     async (c) => {
       const { gradeId } = c.req.valid('json')
+
+      // Per-cookie rate limit: prevents a malicious cookie-holder from hammering
+      // /checkout and flooding the stripe_payments table with pending rows.
+      // 10 attempts per cookie per rolling hour.
+      const bucketCfg = {
+        key: `bucket:checkout:${c.var.cookie}`,
+        limit: 10,
+        windowMs: 3_600_000,
+      }
+      const peek = await peekBucket(deps.redis, bucketCfg, Date.now())
+      if (!peek.allowed) {
+        return c.json({
+          error: 'rate_limited' as const,
+          paywall: 'checkout_throttled' as const,
+          retryAfter: peek.retryAfter,
+        }, 429)
+      }
+      await addToBucket(deps.redis, bucketCfg, Date.now())
+
       const grade = await deps.store.getGrade(gradeId)
       if (!grade) return c.json({ error: 'not_found' }, 404)
       if (grade.cookie !== c.var.cookie) return c.json({ error: 'not_found' }, 404)

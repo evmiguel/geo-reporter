@@ -56,6 +56,10 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     if (result.kind === 'already_paid') { onAlreadyPaid(result.reportId); return }
     if (result.kind === 'grade_not_done') { setError('This grade is not done yet.'); return }
     if (result.kind === 'must_verify_email') { setMode('verify_email'); return }
+    if (result.kind === 'rate_limited') {
+      setError(`Too many checkout attempts. Try again in ${Math.ceil(result.retryAfter / 60)} min.`)
+      return
+    }
     if (result.kind === 'unavailable') { setError('Checkout is temporarily unavailable.'); return }
     setError('Something went wrong. Try again?')
   }

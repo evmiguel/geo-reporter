@@ -9,6 +9,8 @@ export type ProviderErrorKind =
   | 'insufficient_credit'
   | 'unknown'
 
+const MAX_MESSAGE_LEN = 200
+
 export class ProviderError extends Error {
   constructor(
     readonly provider: ProviderId,
@@ -16,7 +18,10 @@ export class ProviderError extends Error {
     readonly kind: ProviderErrorKind,
     message: string,
   ) {
-    super(message)
+    const truncated = message.length > MAX_MESSAGE_LEN
+      ? message.slice(0, MAX_MESSAGE_LEN) + '…[truncated]'
+      : message
+    super(truncated)
     this.name = 'ProviderError'
   }
 }

@@ -1,5 +1,6 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { FetchError } from './fetch.ts'
+import { resolveSafeHost, SSRFBlockedError } from './ssrf.ts'
 
 const DEFAULT_RENDER_TIMEOUT_MS = 15_000
 const MAX_CONCURRENT_PAGES = 2
@@ -111,5 +112,21 @@ export async function shutdownBrowserPool(): Promise<void> {
 }
 
 export async function render(url: string, opts: RenderOptions = {}): Promise<RenderResult> {
+  if (process.env.NODE_ENV === 'production') {
+    let parsed: URL
+    try {
+      parsed = new URL(url)
+    } catch (err) {
+      throw new FetchError(`render: invalid url ${url}: ${(err as Error).message}`, 'network')
+    }
+    try {
+      await resolveSafeHost(parsed.hostname)
+    } catch (err) {
+      if (err instanceof SSRFBlockedError) {
+        throw new FetchError(`ssrf: ${err.message}`, 'network')
+      }
+      throw err
+    }
+  }
   return getBrowserPool().render(url, opts)
 }

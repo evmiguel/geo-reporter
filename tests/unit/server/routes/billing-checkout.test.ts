@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { Hono } from 'hono'
 import { makeFakeStore } from '../../_helpers/fake-store.ts'
 import { FakeStripe } from '../../_helpers/fake-stripe.ts'
+import { makeStubRedis } from '../../_helpers/stub-redis.ts'
 import { billingRouter } from '../../../../src/server/routes/billing.ts'
 import { cookieMiddleware } from '../../../../src/server/middleware/cookie.ts'
 import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
@@ -14,9 +15,9 @@ function build() {
   const store = makeFakeStore()
   const billing = new FakeStripe()
   const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  app.use('*', clientIp(), cookieMiddleware(store, false, HMAC_KEY))
+  app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
-    store, billing,
+    store, billing, redis: makeStubRedis(),
     priceId: 'price_test_abc',
     creditsPriceId: 'price_test_credits',
     publicBaseUrl: 'http://localhost:5173',
@@ -175,9 +176,9 @@ describe('POST /billing/checkout', () => {
       },
     } as unknown as import('bullmq').Queue
     const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-    app.use('*', clientIp(), cookieMiddleware(store, false, HMAC_KEY))
+    app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
     app.route('/billing', billingRouter({
-      store, billing,
+      store, billing, redis: makeStubRedis(),
       priceId: 'price_test_abc',
       creditsPriceId: 'price_test_credits',
       publicBaseUrl: 'http://localhost:5173',

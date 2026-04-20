@@ -16,6 +16,12 @@ const Schema = z.object({
   STRIPE_PRICE_ID: z.string().startsWith('price_').optional(),
   STRIPE_CREDITS_PRICE_ID: z.string().startsWith('price_').optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  // RFC 5322 mailbox: can be bare `addr` or display-name form `Name <addr>`.
+  // Resend (and most providers) accept both. Validation lives at the mailer
+  // boundary, not the env layer.
+  MAIL_FROM: z.string().min(1).optional(),
+  TRUSTED_PROXIES: z.string().optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
     const required = [

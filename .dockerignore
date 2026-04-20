@@ -1,0 +1,33 @@
+# Version control
+.git/
+.gitignore
+.github/
+
+# Local dev state
+.worktrees/
+.superpowers/
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+node_modules/
+
+# Tests & docs (not needed in runtime image)
+tests/
+docs/
+CLAUDE.md
+README.md
+*.md
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Coverage & misc
+coverage/
+.nyc_output/
+*.log
