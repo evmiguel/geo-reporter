@@ -148,6 +148,9 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
 
   app.get('/me', async (c) => {
     const row = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
+    // Never cache auth state — a stale verified:true after logout leaves the
+    // Header showing signed-in UI even though the server cleared the binding.
+    c.header('Cache-Control', 'no-store')
     if (row.userId && row.email) {
       return c.json({ verified: true, email: row.email, credits: row.credits })
     }

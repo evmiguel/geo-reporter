@@ -131,7 +131,9 @@ export async function postAuthDeleteAccount(email: string): Promise<DeleteAccoun
 }
 
 export async function getAuthMe(): Promise<{ verified: boolean; email?: string; credits?: number }> {
-  const res = await fetch('/auth/me', { credentials: 'include' })
+  // cache:'no-store' — /auth/me reflects real-time auth state; a stale 'verified:true'
+  // from the browser cache after logout leaves the Header showing signed-in UI.
+  const res = await fetch('/auth/me', { credentials: 'include', cache: 'no-store' })
   if (!res.ok) return { verified: false }
   return res.json() as Promise<{ verified: boolean; email?: string; credits?: number }>
 }
