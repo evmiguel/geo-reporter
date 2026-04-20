@@ -116,6 +116,7 @@ export type CheckoutResult =
   | { ok: false; kind: 'already_paid'; reportId: string }
   | { ok: false; kind: 'grade_not_done' }
   | { ok: false; kind: 'must_verify_email' }
+  | { ok: false; kind: 'rate_limited'; retryAfter: number }
   | { ok: false; kind: 'unavailable' }
   | { ok: false; kind: 'unknown'; status: number }
 
@@ -139,6 +140,10 @@ export async function postBillingCheckout(gradeId: string): Promise<CheckoutResu
     if (body.redeemed === true) return { ok: true, kind: 'redeemed' }
     if (typeof body.url === 'string') return { ok: true, kind: 'checkout', url: body.url }
     return { ok: false, kind: 'unknown', status: 200 }
+  }
+  if (res.status === 429) {
+    const body = (await res.json().catch(() => ({}))) as { retryAfter?: number }
+    return { ok: false, kind: 'rate_limited', retryAfter: body.retryAfter ?? 3600 }
   }
   if (res.status === 409) {
     const body = (await res.json().catch(() => ({}))) as { error?: string; reportId?: string }

@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { Queue } from 'bullmq'
 import { makeFakeStore } from '../../_helpers/fake-store.ts'
 import { FakeStripe } from '../../_helpers/fake-stripe.ts'
+import { makeStubRedis } from '../../_helpers/stub-redis.ts'
 import { billingRouter } from '../../../../src/server/routes/billing.ts'
 import { cookieMiddleware } from '../../../../src/server/middleware/cookie.ts'
 import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
@@ -16,7 +17,7 @@ function build(creditsPriceId = 'price_test_credits') {
   const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
   app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
-    store, billing,
+    store, billing, redis: makeStubRedis(),
     priceId: 'price_test_report',
     creditsPriceId,
     publicBaseUrl: 'http://localhost:5173',

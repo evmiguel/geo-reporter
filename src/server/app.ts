@@ -65,7 +65,8 @@ export function buildApp(deps: ServerDeps): Hono {
     billingScope.use('/buy-credits', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.use('/redeem-credit', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.route('/', billingRouter({
-      store: deps.store, billing, priceId, creditsPriceId, publicBaseUrl: deps.env.PUBLIC_BASE_URL,
+      store: deps.store, billing, redis: deps.redis, priceId, creditsPriceId,
+      publicBaseUrl: deps.env.PUBLIC_BASE_URL,
       webhookSecret, reportQueue: deps.reportQueue,
     }))
     app.route('/billing', billingScope)

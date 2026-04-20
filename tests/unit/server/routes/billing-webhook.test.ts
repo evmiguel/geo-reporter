@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import type { Queue } from 'bullmq'
 import { makeFakeStore } from '../../_helpers/fake-store.ts'
 import { FakeStripe } from '../../_helpers/fake-stripe.ts'
+import { makeStubRedis } from '../../_helpers/stub-redis.ts'
 import { billingRouter } from '../../../../src/server/routes/billing.ts'
 
 function build() {
@@ -12,7 +13,7 @@ function build() {
   const reportQueue = { add: fakeAdd } as unknown as Queue
   const app = new Hono()
   app.route('/billing', billingRouter({
-    store, billing,
+    store, billing, redis: makeStubRedis(),
     priceId: 'price_test_abc',
     creditsPriceId: 'price_test_credits',
     publicBaseUrl: 'http://localhost:5173',
