@@ -126,5 +126,10 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
       return { ...state, paidStatus: 'failed', error: event.error }
     case 'hydrate_paid':
       return { ...state, paidStatus: 'ready', reportId: event.reportId, reportToken: event.reportToken }
+    case 'hydrate_generating':
+      // Only hydrate into 'generating' if nothing live has arrived yet — if the
+      // reducer already saw 'report.done' or 'report.failed' via SSE, keep that.
+      if (state.paidStatus === 'ready' || state.paidStatus === 'failed') return state
+      return { ...state, paidStatus: 'generating' }
   }
 }

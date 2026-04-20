@@ -33,11 +33,16 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     setPending(true); setError(null)
     if (hasCredits) {
       const result = await postBillingRedeemCredit(gradeId)
-      setPending(false)
       if (result.ok) {
-        await refresh()
+        // Keep pending=true (don't clear). The page-level ReportProgress
+        // takes over as soon as SSE 'report.started' flips paidStatus; at
+        // that point LiveGradePage unmounts this button entirely via
+        // isFreeTierDone. Clearing pending would give a ~500ms window
+        // where the button re-enables and the user can click again.
+        void refresh()
         return
       }
+      setPending(false)
       if (result.kind === 'already_paid') { onAlreadyPaid(gradeId); return }
       if (result.kind === 'grade_not_done') { setError('This grade is not done yet.'); return }
       if (result.kind === 'provider_outage') {
@@ -53,9 +58,9 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
     const result = await postBillingCheckout(gradeId)
     if (result.ok) {
       if (result.kind === 'checkout') { window.location.assign(result.url); return }
-      // Server short-circuited — reducer will pick up report.started via SSE.
-      await refresh()
-      setPending(false)
+      // Server short-circuited via credit — same reasoning as above: keep
+      // pending=true so the button stays disabled until SSE unmounts it.
+      void refresh()
       return
     }
     setPending(false)

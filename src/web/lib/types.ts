@@ -41,6 +41,7 @@ export type GradeEvent =
 export type GradeAction =
   | GradeEvent
   | { type: 'hydrate_paid'; reportId: string; reportToken: string }
+  | { type: 'hydrate_generating' }
 
 export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed'
 

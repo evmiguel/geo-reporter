@@ -76,7 +76,15 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
       createdAt: grade.createdAt,
       updatedAt: grade.updatedAt,
     }
-    if (grade.tier === 'paid') {
+    // Payment lookup covers two cases the client needs to hydrate from a refresh:
+    //  (a) tier === 'paid' AND report row present  → show "ready" + View/PDF links
+    //  (b) stripe_payments has a paid row but grade.tier is still 'free' and
+    //      report row not yet written → generation is in flight; show "generating"
+    //      (the worker flips tier=paid LAST, so this window can last 30-60s).
+    const payments = await deps.store.listStripePaymentsByGrade(grade.id)
+    const paymentPaid = payments.some((p) => p.status === 'paid')
+    body.paymentPaid = paymentPaid
+    if (paymentPaid) {
       const report = await deps.store.getReport(grade.id)
       if (report) {
         body.reportId = report.id

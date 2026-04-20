@@ -37,17 +37,22 @@ export function LiveGradePage(): JSX.Element {
   const { state, dispatch } = useGradeEvents(id)
   const { credits } = useAuth()
 
-  // Hydrate paid-report state on mount from GET /grades/:id so that a refresh
-  // (after the SSE 'report.done' event has already fired) still shows the
-  // View-report + Download-PDF links.
+  // Hydrate paid-report state on mount from GET /grades/:id so a refresh
+  // doesn't strand the user:
+  //  - Report already written → hydrate 'ready' with reportId/token
+  //  - Payment received but generation still in flight (tier flips to paid
+  //    LAST, ~30-60s window) → hydrate 'generating' so ReportProgress shows
+  //    instead of BuyReportButton asking them to pay again.
   useEffect(() => {
     let cancelled = false
     void (async () => {
       const grade = await getGrade(id)
       if (cancelled || !grade) return
       setGradeMeta({ url: grade.url, domain: grade.domain })
-      if (grade.tier === 'paid' && grade.reportId !== undefined && grade.reportToken !== undefined) {
+      if (grade.reportId !== undefined && grade.reportToken !== undefined) {
         dispatch({ type: 'hydrate_paid', reportId: grade.reportId, reportToken: grade.reportToken })
+      } else if (grade.paymentPaid === true) {
+        dispatch({ type: 'hydrate_generating' })
       }
     })()
     return () => { cancelled = true }

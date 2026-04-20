@@ -13,6 +13,12 @@ export interface GradeSummary {
   updatedAt: string
   reportId?: string
   reportToken?: string
+  /**
+   * True when a paid stripe_payments row exists for this grade. Lets the
+   * client hydrate paidStatus='generating' on page refresh during the
+   * 30–60s window between redeem/checkout and tier=paid finalization.
+   */
+  paymentPaid?: boolean
 }
 
 export interface CreateGradeOk { ok: true; gradeId: string }
