@@ -81,12 +81,14 @@ export function PaidReportPreview({ domain, letter, overall }: Props): JSX.Eleme
         ))}
       </div>
 
-      {/* Lock overlay CTA */}
+      {/* Lock teaser — points at the real BuyReportButton below, not itself a CTA. */}
       <div className="text-center py-3 border-t border-[var(--color-line)]">
         <div className="text-xs text-[var(--color-fg-muted)]">🔒</div>
-        <div className="text-sm text-[var(--color-fg)] mt-1">Unlock the full report</div>
         <div className="text-[10px] text-[var(--color-fg-muted)] mt-1">
           4 LLM providers · 5–8 tailored recommendations · HTML + PDF
+        </div>
+        <div className="text-xs text-[var(--color-fg-dim)] mt-2">
+          ↓ Unlock the full report below
         </div>
       </div>
     </section>
