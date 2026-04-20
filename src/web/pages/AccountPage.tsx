@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
 import { DeleteAccountForm } from '../components/DeleteAccountForm.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
+import { GradeHistoryList } from '../components/GradeHistoryList.tsx'
 
 export function AccountPage(): JSX.Element {
   const { verified, email, credits, logout } = useAuth()
@@ -37,6 +38,11 @@ export function AccountPage(): JSX.Element {
 
       <section className="mb-8">
         <button onClick={() => void logout()} className="text-sm underline">Sign out</button>
+      </section>
+
+      <section className="mb-8">
+        <div className="text-xs uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">your grades</div>
+        <GradeHistoryList />
       </section>
 
       <section className="border-t border-[var(--color-line)] pt-8">
