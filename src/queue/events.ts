@@ -17,7 +17,7 @@ export type GradeEvent =
     }
   | { type: 'category.completed'; category: CategoryId; score: number | null }
   | { type: 'done'; overall: number; letter: string; scores: Record<CategoryId, number | null> }
-  | { type: 'failed'; error: string }
+  | { type: 'failed'; kind: 'provider_outage' | 'other'; error: string }
   // Plan 8 — paid-report pipeline
   | { type: 'report.started' }
   | {

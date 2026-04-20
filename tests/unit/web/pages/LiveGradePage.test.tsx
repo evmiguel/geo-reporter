@@ -51,7 +51,7 @@ describe('LiveGradePage', () => {
         discoverability: null, recognition: null, accuracy: null,
         coverage: null, citation: null, seo: null,
       },
-      overall: null, letter: null, error: null,
+      overall: null, letter: null, error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('abc-123')
@@ -69,7 +69,7 @@ describe('LiveGradePage', () => {
       categoryScores: {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
-      overall: 78, letter: 'C+', error: null,
+      overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('done-grade')
@@ -87,7 +87,7 @@ describe('LiveGradePage — paid flow', () => {
       categoryScores: {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
-      overall: 78, letter: 'C+', error: null,
+      overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('g-1')
@@ -102,7 +102,7 @@ describe('LiveGradePage — paid flow', () => {
       categoryScores: {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
-      overall: 78, letter: 'C+', error: null,
+      overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('g-1', '?checkout=complete')
@@ -122,7 +122,7 @@ describe('LiveGradePage — paid flow', () => {
       categoryScores: {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
-      overall: 78, letter: 'C+', error: null,
+      overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null,
     }
     renderAt('g-1', '?checkout=canceled')
@@ -137,7 +137,7 @@ describe('LiveGradePage — paid flow', () => {
       categoryScores: {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
-      overall: 78, letter: 'C+', error: null,
+      overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'ready', reportId: 'r-1', reportToken: 'abc',
     }
     renderAt('g-1')

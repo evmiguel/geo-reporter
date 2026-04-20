@@ -76,7 +76,7 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     await deps.store.updateGrade(gradeId, { status: 'failed' })
-    await publishGradeEvent(deps.redis, gradeId, { type: 'failed', error: message })
+    await publishGradeEvent(deps.redis, gradeId, { type: 'failed', kind: 'other', error: message })
     throw err
   }
 }

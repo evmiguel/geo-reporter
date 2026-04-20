@@ -12,6 +12,7 @@ export function initialGradeState(): GradeState {
     overall: null,
     letter: null,
     error: null,
+    failedKind: null,
     paidStatus: 'none',
     reportId: null,
     reportToken: null,
@@ -76,7 +77,7 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
         categoryScores: event.scores,
       }
     case 'failed':
-      return { ...state, phase: 'failed', error: event.error }
+      return { ...state, phase: 'failed', error: event.error, failedKind: event.kind }
     case 'report.started':
       return { ...state, paidStatus: 'generating' }
     case 'report.probe.started': {
