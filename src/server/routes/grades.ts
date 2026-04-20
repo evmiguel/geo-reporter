@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { enqueueGrade } from '../../queue/queues.ts'
 import { commitRateLimit } from '../middleware/rate-limit.ts'
+import { isOwnedBy } from '../lib/grade-ownership.ts'
 import type { ServerDeps } from '../deps.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -16,7 +17,7 @@ const CreateGradeBody = z.object({
   ),
 })
 
-type Env = { Variables: { cookie: string; clientIp: string } }
+type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
 
 export function gradesRouter(deps: ServerDeps): Hono<Env> {
   const app = new Hono<Env>()
@@ -36,12 +37,33 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     return c.json({ gradeId: grade.id }, 202)
   })
 
+  app.get('/', async (c) => {
+    if (c.var.userId === null) {
+      return c.json({ error: 'must_verify_email' }, 401)
+    }
+    const grades = await deps.store.listGradesByUser(c.var.userId, 50)
+    return c.json({
+      grades: grades.map((g) => ({
+        id: g.id,
+        url: g.url,
+        domain: g.domain,
+        tier: g.tier,
+        status: g.status,
+        overall: g.overall,
+        letter: g.letter,
+        createdAt: g.createdAt.toISOString(),
+      })),
+    })
+  })
+
   app.get('/:id', async (c) => {
     const id = c.req.param('id')
     if (!UUID_RE.test(id)) return c.json({ error: 'invalid id' }, 400)
     const grade = await deps.store.getGrade(id)
     if (!grade) return c.json({ error: 'not found' }, 404)
-    if (grade.cookie !== c.var.cookie) return c.json({ error: 'forbidden' }, 403)
+    if (!isOwnedBy(grade, { cookie: c.var.cookie, userId: c.var.userId })) {
+      return c.json({ error: 'forbidden' }, 403)
+    }
     const body: Record<string, unknown> = {
       id: grade.id,
       url: grade.url,

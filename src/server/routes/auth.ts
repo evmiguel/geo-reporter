@@ -25,7 +25,7 @@ export interface AuthRouterDeps {
   nodeEnv?: 'development' | 'test' | 'production'
 }
 
-type Env = { Variables: { cookie: string; clientIp: string } }
+type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
 
 // `next` is an optional post-verify redirect target. Must be a same-origin
 // relative path (starts with `/` followed by non-`/` to block `//evil.com`).

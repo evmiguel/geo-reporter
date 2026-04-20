@@ -8,6 +8,7 @@ import { PRICE_AMOUNT_CENTS, PRICE_CURRENCY } from '../../billing/prices.ts'
 import type { GradeStore } from '../../store/types.ts'
 import type { ReportJob } from '../../queue/queues.ts'
 import { peekBucket, addToBucket } from '../middleware/bucket.ts'
+import { isOwnedBy } from '../lib/grade-ownership.ts'
 
 export interface BillingRouterDeps {
   store: GradeStore
@@ -20,7 +21,7 @@ export interface BillingRouterDeps {
   reportQueue: Queue<ReportJob>
 }
 
-type Env = { Variables: { cookie: string; clientIp: string } }
+type Env = { Variables: { cookie: string; clientIp: string; userId: string | null } }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const checkoutSchema = z.object({ gradeId: z.string().regex(UUID_REGEX) })
@@ -56,7 +57,9 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
 
       const grade = await deps.store.getGrade(gradeId)
       if (!grade) return c.json({ error: 'not_found' }, 404)
-      if (grade.cookie !== c.var.cookie) return c.json({ error: 'not_found' }, 404)
+      if (!isOwnedBy(grade, { cookie: c.var.cookie, userId: c.var.userId })) {
+        return c.json({ error: 'not_found' }, 404)
+      }
       if (grade.status !== 'done') return c.json({ error: 'grade_not_done' }, 409)
 
       // Require email verification before $19 checkout so the report stays
@@ -169,7 +172,9 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       const { gradeId } = c.req.valid('json')
       const grade = await deps.store.getGrade(gradeId)
       if (!grade) return c.json({ error: 'not_found' }, 404)
-      if (grade.cookie !== c.var.cookie) return c.json({ error: 'not_found' }, 404)
+      if (!isOwnedBy(grade, { cookie: c.var.cookie, userId: c.var.userId })) {
+        return c.json({ error: 'not_found' }, 404)
+      }
       if (grade.status !== 'done') return c.json({ error: 'grade_not_done' }, 409)
 
       // Plan 12: block unlock when the underlying free grade had Claude/GPT

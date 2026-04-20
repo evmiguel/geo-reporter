@@ -31,7 +31,7 @@ export function buildApp(deps: ServerDeps): Hono {
     app.use('*', cors({ origin: 'http://localhost:5173', credentials: true }))
   }
 
-  const gradeScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const gradeScope = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   gradeScope.use('*', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
   gradeScope.post('/', rateLimitMiddleware(deps.redis, deps.store))
   gradeScope.route('/', gradesRouter(deps))
@@ -39,7 +39,7 @@ export function buildApp(deps: ServerDeps): Hono {
 
   app.route('/grades', gradeScope)
 
-  const authScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const authScope = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   authScope.use('*', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
   authScope.route('/', authRouter({
     store: deps.store,
@@ -55,7 +55,7 @@ export function buildApp(deps: ServerDeps): Hono {
     const priceId = deps.env.STRIPE_PRICE_ID
     const webhookSecret = deps.env.STRIPE_WEBHOOK_SECRET
     const creditsPriceId = deps.env.STRIPE_CREDITS_PRICE_ID ?? ''
-    const billingScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+    const billingScope = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
     // Cookie middleware only on /checkout and /buy-credits; webhook explicitly skips it (Stripe doesn't send cookies).
     billingScope.use('/checkout', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.use('/buy-credits', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))

@@ -36,6 +36,15 @@ export class PostgresStore implements GradeStore {
     return row ?? null
   }
 
+  async listGradesByUser(userId: string, limit: number): Promise<Grade[]> {
+    return this.db
+      .select()
+      .from(schema.grades)
+      .where(eq(schema.grades.userId, userId))
+      .orderBy(desc(schema.grades.createdAt))
+      .limit(limit)
+  }
+
   async updateGrade(id: string, patch: GradeUpdate): Promise<void> {
     await this.db.update(schema.grades).set({ ...patch, updatedAt: new Date() }).where(eq(schema.grades.id, id))
   }
@@ -188,6 +197,15 @@ export class PostgresStore implements GradeStore {
       await tx.update(schema.cookies)
         .set({ userId: user.id })
         .where(eq(schema.cookies.cookie, clickingCookie))
+
+      // Retroactively bind unowned grades whose cookie is bound to this user.
+      // Covers same-device (grade before verify) and multi-device (laptop/phone) cases.
+      await tx.execute(sql`
+        UPDATE grades
+        SET user_id = ${user.id}
+        WHERE user_id IS NULL
+          AND cookie IN (SELECT cookie FROM cookies WHERE user_id = ${user.id})
+      `)
 
       await tx.update(schema.magicTokens)
         .set({ consumedAt: new Date() })

@@ -57,6 +57,12 @@ export function makeFakeStore(): FakeGradeStore {
       return g
     },
     async getGrade(id: string): Promise<Grade | null> { return gradesMap.get(id) ?? null },
+    async listGradesByUser(userId: string, limit: number): Promise<Grade[]> {
+      return [...gradesMap.values()]
+        .filter((g) => g.userId === userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit)
+    },
     async updateGrade(id: string, patch: GradeUpdate): Promise<void> {
       const g = gradesMap.get(id)
       if (!g) return
@@ -207,6 +213,16 @@ export function makeFakeStore(): FakeGradeStore {
         cookiesMap.set(clickingCookie, { ...clicker, userId: resolvedUser.id })
       } else {
         cookiesMap.set(clickingCookie, { cookie: clickingCookie, userId: resolvedUser.id, createdAt: new Date() })
+      }
+
+      // Retroactively bind any unowned grades whose cookie is bound to this user.
+      const userCookies = new Set(
+        [...cookiesMap.values()].filter((c) => c.userId === resolvedUser.id).map((c) => c.cookie),
+      )
+      for (const [gid, g] of gradesMap) {
+        if (g.userId === null && g.cookie !== null && userCookies.has(g.cookie)) {
+          gradesMap.set(gid, { ...g, userId: resolvedUser.id })
+        }
       }
 
       magicTokensMap.set(foundId, { ...found, consumedAt: new Date() })

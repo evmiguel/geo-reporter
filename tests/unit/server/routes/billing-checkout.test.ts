@@ -9,12 +9,12 @@ import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 
 const HMAC_KEY = 'test-key-exactly-32-chars-long-aa'
 
-type AppType = Hono<{ Variables: { cookie: string; clientIp: string } }>
+type AppType = Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>
 
 function build() {
   const store = makeFakeStore()
   const billing = new FakeStripe()
-  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
     store, billing, redis: makeStubRedis(),
@@ -175,7 +175,7 @@ describe('POST /billing/checkout', () => {
         enqueued.push({ name, data, opts })
       },
     } as unknown as import('bullmq').Queue
-    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+    const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
     app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
     app.route('/billing', billingRouter({
       store, billing, redis: makeStubRedis(),
@@ -251,6 +251,31 @@ describe('POST /billing/checkout', () => {
     expect(res.status).toBe(409)
     const body = await res.json() as { error: string }
     expect(body.error).toBe('must_verify_email')
+  })
+
+  it('allows checkout when grade.userId matches verified caller, even with a different cookie', async () => {
+    const { app, store } = build()
+    const cookie = await issueCookie(app)
+    const uuid = await verifyCookie(store, cookie, 'cross@example.com')
+    // uuid is now bound to the user. Find the user id.
+    const userRow = await store.getCookieWithUserAndCredits(uuid)
+    const userId = userRow.userId
+    if (userId === null) throw new Error('test setup: cookie did not bind to user')
+
+    // Create a grade under a DIFFERENT cookie, owned by the same user.
+    await store.upsertCookie('old-cookie', userId)
+    const grade = await store.createGrade({
+      url: 'https://x', domain: 'x', tier: 'free',
+      cookie: 'old-cookie', userId, status: 'done',
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+    // Either 200 (Stripe session) or 200 with redeemed:true — anything but 404 means ownership was accepted.
+    expect(res.status).toBe(200)
   })
 
   it('400 on missing / malformed body', async () => {

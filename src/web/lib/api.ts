@@ -136,6 +136,24 @@ export async function getAuthMe(): Promise<{ verified: boolean; email?: string; 
   return res.json() as Promise<{ verified: boolean; email?: string; credits?: number }>
 }
 
+export interface GradeHistoryEntry {
+  id: string
+  url: string
+  domain: string
+  tier: 'free' | 'paid'
+  status: 'queued' | 'running' | 'done' | 'failed'
+  overall: number | null
+  letter: string | null
+  createdAt: string
+}
+
+export async function listMyGrades(): Promise<GradeHistoryEntry[]> {
+  const res = await fetch('/grades', { credentials: 'include' })
+  if (res.status === 401 || !res.ok) return []
+  const body = await res.json() as { grades: GradeHistoryEntry[] }
+  return body.grades
+}
+
 export type CheckoutResult =
   | { ok: true; kind: 'checkout'; url: string }
   | { ok: true; kind: 'redeemed' }

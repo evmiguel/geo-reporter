@@ -9,14 +9,14 @@ import { cookieMiddleware } from '../../../../src/server/middleware/cookie.ts'
 import { clientIp } from '../../../../src/server/middleware/client-ip.ts'
 
 const HMAC_KEY = 'test-key-exactly-32-chars-long-aa'
-type AppType = Hono<{ Variables: { cookie: string; clientIp: string } }>
+type AppType = Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>
 
 function build() {
   const store = makeFakeStore()
   const billing = new FakeStripe('whsec_test_fake')
   const fakeAdd = vi.fn().mockResolvedValue(undefined)
   const reportQueue = { add: fakeAdd } as unknown as Queue
-  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
+  const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
   app.use('*', clientIp({ isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
     store, billing, redis: makeStubRedis(),
@@ -174,6 +174,32 @@ describe('POST /billing/redeem-credit', () => {
 
     // Credits untouched
     expect(await store.getCredits(user.id)).toBe(5)
+  })
+
+  it('allows redeem when grade.userId matches verified caller, even with a different cookie', async () => {
+    const { app, store } = build()
+    const cookie = await issueCookie(app)
+    const uuid = cookie.split('.')[0]!
+    const user = await store.upsertUser('xredeem@example.com')
+    await store.upsertCookie(uuid, user.id)
+    // Give credits
+    await store.createStripePayment({
+      gradeId: null, sessionId: 'cs_grant', amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid('cs_grant', user.id, 5, 2900, 'usd')
+    // Grade under a different cookie, same user
+    await store.upsertCookie('phone-cookie', user.id)
+    const grade = await store.createGrade({
+      url: 'https://x', domain: 'x', tier: 'free',
+      cookie: 'phone-cookie', userId: user.id, status: 'done',
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/redeem-credit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+    expect(res.status).toBe(204)
   })
 
   it('409 already_paid when a prior payment row exists', async () => {

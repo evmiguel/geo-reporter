@@ -1,7 +1,8 @@
 import React from 'react'
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import * as api from '../../../../src/web/lib/api.ts'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -14,6 +15,10 @@ vi.mock('../../../../src/web/hooks/useAuth.ts', () => ({
 }))
 
 import { AccountPage } from '../../../../src/web/pages/AccountPage.tsx'
+
+beforeEach(() => {
+  vi.spyOn(api, 'listMyGrades').mockResolvedValue([])
+})
 
 describe('AccountPage', () => {
   it('renders email + credits when verified', () => {
