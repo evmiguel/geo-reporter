@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { Header } from './components/Header.tsx'
+import { Footer } from './components/Footer.tsx'
 import { LandingPage } from './pages/LandingPage.tsx'
 import { LiveGradePage } from './pages/LiveGradePage.tsx'
 import { EmailGatePage } from './pages/EmailGatePage.tsx'
@@ -23,6 +24,7 @@ export function App(): JSX.Element {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   )
 }
