@@ -66,6 +66,17 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       const cookieRow = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
       if (!cookieRow.userId) return c.json({ error: 'must_verify_email' }, 409)
 
+      // Plan 12: block checkout when the underlying free grade had Claude/GPT
+      // terminal probe failures — the report is incomplete, so refuse both the
+      // $19 Stripe path and the server-side credit redemption below. Placed
+      // BEFORE `already_paid`, the credit short-circuit, and Stripe session
+      // creation so no side effect fires on the reject path; AFTER the auth +
+      // ownership + `grade_not_done` checks so we only gate settled grades the
+      // caller actually owns.
+      if (await deps.store.hasTerminalProviderFailures(grade.id)) {
+        return c.json({ error: 'provider_outage' }, 409)
+      }
+
       const payments = await deps.store.listStripePaymentsByGrade(gradeId)
       const paid = payments.find((p) => p.status === 'paid')
       if (paid) return c.json({ error: 'already_paid', reportId: grade.id }, 409)

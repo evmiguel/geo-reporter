@@ -215,6 +215,28 @@ describe('POST /billing/checkout', () => {
     expect((enqueued[0]!.data as { gradeId: string }).gradeId).toBe(grade.id)
   })
 
+  it('409 provider_outage when grade has Claude/GPT terminal failures; no Stripe session created', async () => {
+    const { app, store, billing } = build()
+    const cookie = await issueCookie(app)
+    const uuid = await verifyCookie(store, cookie, 'outage@example.com')
+    const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
+    await store.createProbe({
+      gradeId: grade.id, category: 'discoverability', provider: 'gpt',
+      prompt: '', response: '', score: null, metadata: { error: 'OpenAI 429' },
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+
+    expect(res.status).toBe(409)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('provider_outage')
+    expect(billing.createdSessions).toHaveLength(0)
+  })
+
   it('409 must_verify_email when cookie is not bound to a user', async () => {
     const { app, store } = build()
     const cookie = await issueCookie(app)
