@@ -170,7 +170,7 @@ describe('Provider.model', () => {
   })
 
   it('Mock exposes synthetic model name', () => {
-    const p = new MockProvider('claude', { responses: { default: 'x' } })
+    const p = new MockProvider({ id: 'claude', responses: { default: 'x' } })
     expect(p.model).toBe('mock:claude')
   })
 })
@@ -270,7 +270,7 @@ describe('run-grade writes model in probes.metadata', () => {
       },
       redis: { publish: async () => 0 } as never,
     } as never
-    const provider = new MockProvider('claude', { responses: { default: 'stripe.com is a payment processor' } })
+    const provider = new MockProvider({ id: 'claude', responses: { default: 'stripe.com is a payment processor' } })
 
     await runDiscoverabilityCategory({
       gradeId: 'g1',
@@ -371,9 +371,9 @@ describe('generate-report delta probes include metadata.model', () => {
     const store = {
       createProbe: async (input: NewProbe) => { created.push(input); return { id: 'x', ...input, createdAt: new Date() } as never },
     } as never
-    const gemini = new MockProvider('gemini', { responses: { default: 'ok' } })
-    const perplexity = new MockProvider('perplexity', { responses: { default: 'ok' } })
-    const claude = new MockProvider('claude', { responses: { default: 'ok' } })
+    const gemini = new MockProvider({ id: 'gemini', responses: { default: 'ok' } })
+    const perplexity = new MockProvider({ id: 'perplexity', responses: { default: 'ok' } })
+    const claude = new MockProvider({ id: 'claude', responses: { default: 'ok' } })
 
     await runDeltaProbes({
       store,
@@ -2754,10 +2754,10 @@ describe('generate-report chains render-pdf', () => {
       },
       redis: { publish: async () => 0 },
       providers: {
-        claude: new MockProvider('claude', { responses: { default: '{}' } }),
-        gpt: new MockProvider('gpt', { responses: { default: '{}' } }),
-        gemini: new MockProvider('gemini', { responses: { default: '{}' } }),
-        perplexity: new MockProvider('perplexity', { responses: { default: '{}' } }),
+        claude: new MockProvider({ id: 'claude', responses: { default: '{}' } }),
+        gpt: new MockProvider({ id: 'gpt', responses: { default: '{}' } }),
+        gemini: new MockProvider({ id: 'gemini', responses: { default: '{}' } }),
+        perplexity: new MockProvider({ id: 'perplexity', responses: { default: '{}' } }),
       },
       recommenderFn: async () => ({ recommendations: [], limited: false }),
       enqueuePdfFn: enqueuePdfMock,
@@ -2784,10 +2784,10 @@ describe('generate-report chains render-pdf', () => {
       },
       redis: { publish: async () => 0 },
       providers: {
-        claude: new MockProvider('claude', { responses: { default: '{}' } }),
-        gpt: new MockProvider('gpt', { responses: { default: '{}' } }),
-        gemini: new MockProvider('gemini', { responses: { default: '{}' } }),
-        perplexity: new MockProvider('perplexity', { responses: { default: '{}' } }),
+        claude: new MockProvider({ id: 'claude', responses: { default: '{}' } }),
+        gpt: new MockProvider({ id: 'gpt', responses: { default: '{}' } }),
+        gemini: new MockProvider({ id: 'gemini', responses: { default: '{}' } }),
+        perplexity: new MockProvider({ id: 'perplexity', responses: { default: '{}' } }),
       },
       recommenderFn: async () => ({ recommendations: [], limited: false }),
       enqueuePdfFn: async () => { throw new Error('queue is down') },
