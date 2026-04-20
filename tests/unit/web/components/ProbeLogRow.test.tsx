@@ -39,8 +39,13 @@ describe('ProbeLogRow', () => {
     expect(screen.getByText(/seo\/-\/title/)).toBeInTheDocument()
   })
 
-  it('renders the error message when present', () => {
-    render(<ProbeLogRow probe={makeProbe({ status: 'completed', score: null, error: 'rate limited' })} />)
-    expect(screen.getByText(/rate limited/)).toBeInTheDocument()
+  it('shows a generic "failed" chip on error, never the raw provider message', () => {
+    const raw = 'anthropic 400: {"type":"error","error":{"message":"Your credit balance is too low"}}'
+    render(<ProbeLogRow probe={makeProbe({ status: 'completed', score: null, error: raw })} />)
+    expect(screen.getByText(/· failed/)).toBeInTheDocument()
+    // Guardrail: no part of the raw provider diagnostic may leak to the user.
+    expect(screen.queryByText(/anthropic/i)).toBeNull()
+    expect(screen.queryByText(/credit balance/i)).toBeNull()
+    expect(screen.queryByText(/400/)).toBeNull()
   })
 })

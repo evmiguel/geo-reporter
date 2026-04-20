@@ -2,7 +2,7 @@ import type { Provider, QueryResult, QueryOpts, ProviderId } from './types.ts'
 import { ProviderError, type ProviderErrorKind } from './errors.ts'
 
 const TRANSIENT_KINDS: ReadonlySet<ProviderErrorKind> = new Set([
-  'network', 'server', 'rate_limit', 'timeout',
+  'network', 'server', 'rate_limit', 'timeout', 'insufficient_credit',
 ])
 
 export interface FallbackProviderOptions {

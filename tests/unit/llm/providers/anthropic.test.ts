@@ -87,6 +87,28 @@ describe('AnthropicProvider', () => {
     await expect(p.query('hi')).rejects.toMatchObject({ kind: 'server', status: 500 })
   })
 
+  it('classifies 400 credit-balance as insufficient_credit (fallback recoverable)', async () => {
+    const body = { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } }
+    const p = new AnthropicProvider({ apiKey: 'k', fetchFn: mockFetch(400, body) })
+    await expect(p.query('hi')).rejects.toMatchObject({ kind: 'insufficient_credit', status: 400, provider: 'claude' })
+  })
+
+  it('also matches "insufficient" wording in 400 body', async () => {
+    const p = new AnthropicProvider({
+      apiKey: 'k',
+      fetchFn: mockFetch(400, { error: { message: 'insufficient funds' } }),
+    })
+    await expect(p.query('hi')).rejects.toMatchObject({ kind: 'insufficient_credit', status: 400 })
+  })
+
+  it('leaves other 400s classified as unknown (not all 400s are recoverable)', async () => {
+    const p = new AnthropicProvider({
+      apiKey: 'k',
+      fetchFn: mockFetch(400, { error: { message: 'invalid model name' } }),
+    })
+    await expect(p.query('hi')).rejects.toMatchObject({ kind: 'unknown', status: 400 })
+  })
+
   it('throws ProviderError(network) on fetch throwing', async () => {
     const p = new AnthropicProvider({
       apiKey: 'k',

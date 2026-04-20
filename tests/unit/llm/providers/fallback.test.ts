@@ -59,6 +59,17 @@ describe('FallbackProvider', () => {
     expect(result.text).toBe('secondary')
   })
 
+  it('falls back on insufficient_credit (primary account out of funds)', async () => {
+    const primary = stubProvider('claude', async () => {
+      throw new ProviderError('claude', 400, 'insufficient_credit', 'anthropic 400: credit balance too low')
+    })
+    const secondary = stubProvider('claude', async () => ok('secondary'))
+    const fp = new FallbackProvider({ primary, secondary })
+    const result = await fp.query('hi')
+    expect(result.text).toBe('secondary')
+    expect(secondary.query).toHaveBeenCalledTimes(1)
+  })
+
   it('falls back on timeout', async () => {
     const primary = stubProvider('gemini', async () => {
       throw new ProviderError('gemini', 504, 'timeout', 'gateway timeout')

@@ -58,7 +58,14 @@ export class AnthropicProvider implements Provider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      throw new ProviderError('claude', res.status, classifyStatus(res.status), `anthropic ${res.status}: ${text}`)
+      // Anthropic returns 400 with body `{"type":"error","error":{"message":"Your credit balance is too low..."}}`
+      // when the account is out of funds. That's not a "bad request" — it's a
+      // provider-side failure that OpenRouter can absorb. Classify it distinctly
+      // so the fallback wrapper retries instead of propagating the raw error.
+      const kind = res.status === 400 && /credit balance|insufficient/i.test(text)
+        ? 'insufficient_credit' as const
+        : classifyStatus(res.status)
+      throw new ProviderError('claude', res.status, kind, `anthropic ${res.status}: ${text}`)
     }
 
     const data = (await res.json()) as AnthropicResponse

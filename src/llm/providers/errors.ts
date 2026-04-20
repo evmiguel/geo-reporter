@@ -6,6 +6,7 @@ export type ProviderErrorKind =
   | 'server'
   | 'timeout'
   | 'network'
+  | 'insufficient_credit'
   | 'unknown'
 
 export class ProviderError extends Error {

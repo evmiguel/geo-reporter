@@ -23,7 +23,10 @@ export function ProbeLogRow(props: ProbeLogRowProps): JSX.Element {
       <span className="text-[var(--color-fg-dim)]">{`${probe.category}/${providerLabel}/${probe.label}`}</span>
       <span className="text-[var(--color-fg-muted)]">{scoreText}</span>
       {probe.error !== null && (
-        <span className="text-[var(--color-warn)]">· {probe.error}</span>
+        // Never leak raw provider diagnostics (HTTP status, API messages,
+        // stack traces) to users. Show a generic chip; details stay server-side
+        // in probe.metadata.error for debugging.
+        <span className="text-[var(--color-warn)]" title="This probe could not be run">· failed</span>
       )}
     </div>
   )
