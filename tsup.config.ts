@@ -5,6 +5,7 @@ export default defineConfig({
   entry: {
     server: 'src/server/server.ts',
     worker: 'src/worker/worker.ts',
+    migrate: 'src/db/migrate.ts',
   },
   outDir: 'dist',
   format: ['esm'],
