@@ -176,6 +176,32 @@ describe('POST /billing/redeem-credit', () => {
     expect(await store.getCredits(user.id)).toBe(5)
   })
 
+  it('allows redeem when grade.userId matches verified caller, even with a different cookie', async () => {
+    const { app, store } = build()
+    const cookie = await issueCookie(app)
+    const uuid = cookie.split('.')[0]!
+    const user = await store.upsertUser('xredeem@example.com')
+    await store.upsertCookie(uuid, user.id)
+    // Give credits
+    await store.createStripePayment({
+      gradeId: null, sessionId: 'cs_grant', amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid('cs_grant', user.id, 5, 2900, 'usd')
+    // Grade under a different cookie, same user
+    await store.upsertCookie('phone-cookie', user.id)
+    const grade = await store.createGrade({
+      url: 'https://x', domain: 'x', tier: 'free',
+      cookie: 'phone-cookie', userId: user.id, status: 'done',
+    })
+
+    const res = await app.fetch(new Request('http://test/billing/redeem-credit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+    expect(res.status).toBe(204)
+  })
+
   it('409 already_paid when a prior payment row exists', async () => {
     const { app, store } = build()
     const { cookie, uuid, user } = await seedVerifiedUserWithCredits(app, store, 5)
