@@ -36,6 +36,15 @@ export class PostgresStore implements GradeStore {
     return row ?? null
   }
 
+  async listGradesByUser(userId: string, limit: number): Promise<Grade[]> {
+    return this.db
+      .select()
+      .from(schema.grades)
+      .where(eq(schema.grades.userId, userId))
+      .orderBy(desc(schema.grades.createdAt))
+      .limit(limit)
+  }
+
   async updateGrade(id: string, patch: GradeUpdate): Promise<void> {
     await this.db.update(schema.grades).set({ ...patch, updatedAt: new Date() }).where(eq(schema.grades.id, id))
   }

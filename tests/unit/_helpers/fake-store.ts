@@ -57,6 +57,12 @@ export function makeFakeStore(): FakeGradeStore {
       return g
     },
     async getGrade(id: string): Promise<Grade | null> { return gradesMap.get(id) ?? null },
+    async listGradesByUser(userId: string, limit: number): Promise<Grade[]> {
+      return [...gradesMap.values()]
+        .filter((g) => g.userId === userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit)
+    },
     async updateGrade(id: string, patch: GradeUpdate): Promise<void> {
       const g = gradesMap.get(id)
       if (!g) return

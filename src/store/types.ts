@@ -31,6 +31,7 @@ export interface GradeStore {
   // Grades
   createGrade(input: NewGrade): Promise<Grade>
   getGrade(id: string): Promise<Grade | null>
+  listGradesByUser(userId: string, limit: number): Promise<Grade[]>
   updateGrade(id: string, patch: GradeUpdate): Promise<void>
 
   // Probes
