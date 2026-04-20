@@ -18,6 +18,7 @@ import type {
   Report,
   NewReport,
   ReportRecord,
+  ReportPdfStatus,
   StripePayment,
 } from './types.ts'
 
@@ -214,6 +215,31 @@ export class PostgresStore implements GradeStore {
       .where(eq(schema.recommendations.gradeId, grade.id))
       .orderBy(schema.recommendations.rank)
     return { report, grade, scrape: scrape ?? null, probes, recommendations }
+  }
+
+  async initReportPdfRow(reportId: string): Promise<void> {
+    await this.db.insert(schema.reportPdfs)
+      .values({ reportId, status: 'pending' })
+      .onConflictDoNothing({ target: schema.reportPdfs.reportId })
+  }
+
+  async getReportPdf(reportId: string): Promise<{ status: ReportPdfStatus; bytes: Buffer | null } | null> {
+    const [row] = await this.db.select().from(schema.reportPdfs)
+      .where(eq(schema.reportPdfs.reportId, reportId)).limit(1)
+    if (!row) return null
+    return { status: row.status as ReportPdfStatus, bytes: row.bytes ?? null }
+  }
+
+  async writeReportPdf(reportId: string, bytes: Buffer): Promise<void> {
+    await this.db.update(schema.reportPdfs)
+      .set({ status: 'ready', bytes, errorMessage: null, updatedAt: new Date() })
+      .where(eq(schema.reportPdfs.reportId, reportId))
+  }
+
+  async setReportPdfStatus(reportId: string, status: Exclude<ReportPdfStatus, 'ready'>, errorMessage?: string): Promise<void> {
+    await this.db.update(schema.reportPdfs)
+      .set({ status, errorMessage: errorMessage ?? null, updatedAt: new Date() })
+      .where(eq(schema.reportPdfs.reportId, reportId))
   }
 
   async createStripePayment(input: {

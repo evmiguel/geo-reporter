@@ -56,6 +56,10 @@ export interface GradeStore {
   createReport(input: NewReport): Promise<Report>
   getReport(gradeId: string): Promise<Report | null>
   getReportById(id: string): Promise<ReportRecord | null>
+  initReportPdfRow(reportId: string): Promise<void>
+  getReportPdf(reportId: string): Promise<{ status: ReportPdfStatus; bytes: Buffer | null } | null>
+  writeReportPdf(reportId: string, bytes: Buffer): Promise<void>
+  setReportPdfStatus(reportId: string, status: Exclude<ReportPdfStatus, 'ready'>, errorMessage?: string): Promise<void>
 
   // Auth — magic-link flow (Plan 7)
   issueMagicToken(email: string, issuingCookie: string): Promise<{ rawToken: string; expiresAt: Date }>
