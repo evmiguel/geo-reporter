@@ -36,6 +36,7 @@ export interface GradeStore {
   // Probes
   createProbe(input: NewProbe): Promise<Probe>
   listProbes(gradeId: string): Promise<Probe[]>
+  hasTerminalProviderFailures(gradeId: string): Promise<boolean>
 
   // Scrapes
   createScrape(input: NewScrape): Promise<Scrape>
