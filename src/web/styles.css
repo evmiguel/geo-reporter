@@ -56,6 +56,20 @@ body {
 }
 :focus:not(:focus-visible) { outline: none; }
 
+/* Tactile button press — 1px translate-down on active, scoped to buttons
+   (not nav links or anchors). Transition is short so clicks feel crisp. */
+button { transition: transform 120ms ease-out; }
+button:not(:disabled):active { transform: translateY(1px); }
+
+/* Respect reduced-motion preferences — disable decorative animations while
+   keeping structural opacity/fade changes intact. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
+
 ::selection {
   background: var(--color-brand);
   color: var(--color-on-brand);

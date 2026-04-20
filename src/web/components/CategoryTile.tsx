@@ -32,7 +32,10 @@ export function CategoryTile(props: CategoryTileProps): JSX.Element {
       </div>
       {hasScore && (
         <div className="h-1 bg-[var(--color-line)] mt-2 overflow-hidden">
-          <div className={`h-full ${barColor}`} style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+          <div
+            className={`h-full ${barColor} transition-[width] duration-700 ease-out`}
+            style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+          />
         </div>
       )}
       {isDoneWithNull && (

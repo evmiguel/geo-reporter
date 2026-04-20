@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { postBillingBuyCredits } from '../lib/api.ts'
+import { Spinner } from './Spinner.tsx'
 
 export function BuyCreditsCTA(): JSX.Element {
   const [pending, setPending] = useState(false)
@@ -33,7 +34,7 @@ export function BuyCreditsCTA(): JSX.Element {
         aria-busy={pending}
         className="bg-[var(--color-good)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
       >
-        {pending ? 'Loading…' : 'Get credits'}
+        {pending ? (<><Spinner className="mr-2" /> Loading…</>) : 'Get credits'}
       </button>
       {error !== null && <div className="text-xs text-[var(--color-warn)] mt-2">{error}</div>}
     </div>

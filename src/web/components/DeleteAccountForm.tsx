@@ -1,6 +1,7 @@
 import React, { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { postAuthDeleteAccount } from '../lib/api.ts'
+import { Spinner } from './Spinner.tsx'
 
 interface Props { email: string }
 
@@ -45,7 +46,7 @@ export function DeleteAccountForm({ email }: Props): JSX.Element {
           aria-busy={pending}
           className="bg-[var(--color-warn)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
         >
-          {pending ? 'Deleting…' : 'Delete permanently'}
+          {pending ? (<><Spinner className="mr-2" /> Deleting…</>) : 'Delete permanently'}
         </button>
       </form>
       {error !== null && <div className="text-xs text-[var(--color-brand)] mt-2">{error}</div>}

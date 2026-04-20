@@ -1,6 +1,7 @@
 import React, { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { postAuthMagic } from '../lib/api.ts'
+import { Spinner } from '../components/Spinner.tsx'
 
 function formatRetry(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -101,7 +102,7 @@ export function EmailGatePage(): JSX.Element {
             aria-busy={pending}
             className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
           >
-            {pending ? 'Sending…' : 'send link'}
+            {pending ? (<><Spinner className="mr-2" /> Sending…</>) : 'send link'}
           </button>
         </form>
       ) : (

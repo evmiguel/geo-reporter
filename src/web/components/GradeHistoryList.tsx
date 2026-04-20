@@ -17,8 +17,9 @@ export function GradeHistoryList(): JSX.Element {
   if (grades === null) return <div className="text-xs text-[var(--color-fg-muted)]">Loading…</div>
   if (grades.length === 0) {
     return (
-      <div className="text-xs text-[var(--color-fg-muted)]">
-        No grades yet. Run one from the <Link to="/" className="text-[var(--color-brand)] underline">home page</Link>.
+      <div className="text-sm text-[var(--color-fg-dim)]">
+        Nothing here yet — your first grade is one URL away.{' '}
+        <Link to="/" className="text-[var(--color-brand)] underline">Grade a site →</Link>
       </div>
     )
   }

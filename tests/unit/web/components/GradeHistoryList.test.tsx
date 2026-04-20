@@ -23,9 +23,10 @@ describe('GradeHistoryList', () => {
     expect(viewLinks[1]).toHaveAttribute('href', '/g/g2')
   })
 
-  it('renders empty state when list is empty', async () => {
+  it('renders empty state with a grade-a-site CTA when list is empty', async () => {
     vi.spyOn(api, 'listMyGrades').mockResolvedValue([])
     render(<MemoryRouter><GradeHistoryList /></MemoryRouter>)
-    expect(await screen.findByText(/no grades yet/i)).toBeInTheDocument()
+    expect(await screen.findByText(/nothing here yet/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /grade a site/i })).toBeInTheDocument()
   })
 })

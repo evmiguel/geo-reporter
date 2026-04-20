@@ -1,6 +1,7 @@
 import React, { useEffect, useState, type FormEvent } from 'react'
 import { postBillingCheckout, postBillingRedeemCredit, postAuthMagic } from '../lib/api.ts'
 import { useAuth } from '../hooks/useAuth.ts'
+import { Spinner } from './Spinner.tsx'
 
 interface BuyReportButtonProps {
   gradeId: string
@@ -130,7 +131,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
               aria-busy={pending}
               className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
             >
-              {pending ? 'Sending…' : 'send link'}
+              {pending ? (<><Spinner className="mr-2" /> Sending…</>) : 'send link'}
             </button>
           </form>
         ) : (
@@ -172,7 +173,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
         aria-busy={pending}
         className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
       >
-        {pending ? 'Processing…' : label}
+        {pending ? (<><Spinner className="mr-2" /> Processing…</>) : label}
       </button>
       {error !== null && <div className="text-xs text-[var(--color-warn)] mt-2">{error}</div>}
     </div>
