@@ -18,17 +18,20 @@ export function LandingPage(): JSX.Element {
     params.get('credits') === 'canceled' ? 'canceled' :
     null,
   )
+  const [deletedToast, setDeletedToast] = useState<boolean>(params.get('deleted') === '1')
 
   useEffect(() => {
-    const hasAny = ['verified', 'auth_error', 'credits'].some((k) => params.get(k) !== null)
+    const hasAny = ['verified', 'auth_error', 'credits', 'deleted'].some((k) => params.get(k) !== null)
     if (hasAny) {
       const next = new URLSearchParams(params)
       next.delete('verified')
       next.delete('auth_error')
       next.delete('credits')
+      next.delete('deleted')
       setParams(next, { replace: true })
     }
     if (params.get('credits') === 'purchased') void refresh()
+    if (params.get('deleted') === '1') void refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -64,6 +67,13 @@ export function LandingPage(): JSX.Element {
 
       {creditsToast !== null && (
         <CreditsPurchasedToast kind={creditsToast} onDismiss={() => setCreditsToast(null)} />
+      )}
+
+      {deletedToast && (
+        <Toast
+          message="Account deleted."
+          onDismiss={() => setDeletedToast(false)}
+        />
       )}
     </div>
   )

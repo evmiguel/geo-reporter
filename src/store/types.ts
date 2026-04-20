@@ -47,6 +47,7 @@ export interface GradeStore {
   upsertUser(email: string): Promise<User>
   upsertCookie(cookie: string, userId?: string): Promise<Cookie>
   getCookie(cookie: string): Promise<Cookie | null>
+  deleteUser(userId: string, expectedEmail: string): Promise<void>
 
   // Recommendations (expanded in report plan)
   createRecommendations(rows: NewRecommendation[]): Promise<void>
@@ -77,6 +78,7 @@ export interface GradeStore {
     amountCents: number
     currency: string
     kind?: 'report' | 'credits'
+    userId?: string | null
   }): Promise<StripePayment>
   getStripePaymentBySessionId(sessionId: string): Promise<StripePayment | null>
   updateStripePaymentStatus(

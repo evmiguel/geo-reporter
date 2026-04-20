@@ -104,6 +104,32 @@ export async function postAuthLogout(): Promise<void> {
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
 }
 
+export type DeleteAccountResult =
+  | { ok: true }
+  | { ok: false; kind: 'email_mismatch' | 'not_authenticated' | 'unknown'; status?: number }
+
+export async function postAuthDeleteAccount(email: string): Promise<DeleteAccountResult> {
+  let res: Response
+  try {
+    res = await fetch('/auth/delete-account', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+  } catch {
+    return { ok: false, kind: 'unknown', status: 0 }
+  }
+
+  if (res.status === 204) return { ok: true }
+  if (res.status === 401) return { ok: false, kind: 'not_authenticated' }
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    if (body.error === 'email_mismatch') return { ok: false, kind: 'email_mismatch' }
+  }
+  return { ok: false, kind: 'unknown', status: res.status }
+}
+
 export async function getAuthMe(): Promise<{ verified: boolean; email?: string; credits?: number }> {
   const res = await fetch('/auth/me', { credentials: 'include' })
   if (!res.ok) return { verified: false }

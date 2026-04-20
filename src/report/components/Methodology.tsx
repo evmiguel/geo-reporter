@@ -70,6 +70,9 @@ export function Methodology({ models, reportId, gradeId, generatedAt }: Methodol
         grade {gradeId}<br />
         generated {generatedAt.toISOString()}
       </p>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        <a href="https://geo.erikamiguel.com/privacy" className="small muted">View privacy policy</a>
+      </p>
     </section>
   )
 }
