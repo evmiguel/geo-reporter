@@ -17,6 +17,7 @@ import type {
   NewRecommendation,
   Report,
   NewReport,
+  ReportRecord,
   StripePayment,
 } from './types.ts'
 
@@ -197,6 +198,22 @@ export class PostgresStore implements GradeStore {
   async getReport(gradeId: string): Promise<Report | null> {
     const [row] = await this.db.select().from(schema.reports).where(eq(schema.reports.gradeId, gradeId)).limit(1)
     return row ?? null
+  }
+
+  async getReportById(id: string): Promise<ReportRecord | null> {
+    const [report] = await this.db.select().from(schema.reports).where(eq(schema.reports.id, id)).limit(1)
+    if (!report) return null
+    const [grade] = await this.db.select().from(schema.grades).where(eq(schema.grades.id, report.gradeId)).limit(1)
+    if (!grade) return null
+    if (grade.tier !== 'paid' || grade.status !== 'done') return null
+    const [scrape] = await this.db.select().from(schema.scrapes).where(eq(schema.scrapes.gradeId, grade.id)).limit(1)
+    const probes = await this.db.select().from(schema.probes)
+      .where(eq(schema.probes.gradeId, grade.id))
+      .orderBy(schema.probes.createdAt)
+    const recommendations = await this.db.select().from(schema.recommendations)
+      .where(eq(schema.recommendations.gradeId, grade.id))
+      .orderBy(schema.recommendations.rank)
+    return { report, grade, scrape: scrape ?? null, probes, recommendations }
   }
 
   async createStripePayment(input: {
