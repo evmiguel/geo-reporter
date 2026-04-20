@@ -87,6 +87,7 @@ export const reports = pgTable('reports', {
 export const stripePayments = pgTable('stripe_payments', {
   id: uuid('id').primaryKey().defaultRandom(),
   gradeId: uuid('grade_id').references(() => grades.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   sessionId: text('session_id').notNull().unique(),
   kind: text('kind', { enum: ['report', 'credits'] }).notNull().default('report'),
   status: text('status', { enum: ['pending', 'paid', 'refunded', 'failed'] }).notNull().default('pending'),

@@ -188,6 +188,7 @@ export function makeFakeStore(): FakeGradeStore {
       const row: StripePayment = {
         id: crypto.randomUUID(),
         gradeId: input.gradeId,
+        userId: null,
         sessionId: input.sessionId,
         kind: input.kind ?? 'report',
         status: 'pending',

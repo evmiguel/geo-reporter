@@ -29,6 +29,13 @@
       "when": 1776633244487,
       "tag": "0003_tranquil_clint_barton",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776666228041,
+      "tag": "0004_charming_kate_bishop",
+      "breakpoints": true
     }
   ]
 }
