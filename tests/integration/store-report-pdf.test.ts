@@ -51,4 +51,26 @@ describe('PostgresStore report_pdfs methods', () => {
     expect(row?.status).toBe('failed')
     expect(row?.bytes).toBeNull()
   })
+
+  it('ready → failed → recover via writeReportPdf clears errorMessage', async () => {
+    const grade = await store.createGrade({
+      url: 'https://recover.test', domain: 'recover.test', tier: 'paid', cookie: null, userId: null, status: 'done',
+    })
+    const report = await store.createReport({ gradeId: grade.id, token: 'tok-recover' })
+
+    await store.initReportPdfRow(report.id)
+    await store.writeReportPdf(report.id, Buffer.from('first-bytes'))
+    let row = await store.getReportPdf(report.id)
+    expect(row?.status).toBe('ready')
+
+    await store.setReportPdfStatus(report.id, 'failed', 'transient error')
+    row = await store.getReportPdf(report.id)
+    expect(row?.status).toBe('failed')
+
+    // Retry: writeReportPdf flips back to ready and clears errorMessage
+    await store.writeReportPdf(report.id, Buffer.from('retry-bytes'))
+    row = await store.getReportPdf(report.id)
+    expect(row?.status).toBe('ready')
+    expect(row?.bytes?.toString()).toBe('retry-bytes')
+  })
 })
