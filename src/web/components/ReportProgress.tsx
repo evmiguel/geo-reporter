@@ -1,49 +1,67 @@
 import React from 'react'
-import type { PaidStatus } from '../lib/types.ts'
+import type { PaidStatus, ReportPhase } from '../lib/types.ts'
 import { Spinner } from './Spinner.tsx'
 
 interface Props {
   paidStatus: PaidStatus
+  reportPhase: ReportPhase
   reportProbeCount: number
 }
 
 interface Phase {
-  key: string
+  key: 'checking' | 'probing' | 'writing' | 'rendering'
   label: string
   detail?: string
   status: 'done' | 'active' | 'pending'
 }
 
-function derivePhases(paidStatus: PaidStatus, probeCount: number): Phase[] {
+function derivePhases(
+  paidStatus: PaidStatus,
+  reportPhase: ReportPhase,
+  probeCount: number,
+): Phase[] {
+  // Checking is only active during the Stripe round-trip. Once paidStatus
+  // flips to generating, checking is always done.
   const checking: Phase['status'] = paidStatus === 'checking_out' ? 'active' : 'done'
-  const probing: Phase['status'] =
-    paidStatus === 'checking_out' ? 'pending' :
-    paidStatus === 'generating' ? 'active' : 'done'
-  const writing: Phase['status'] = 'pending'
-  const rendering: Phase['status'] = 'pending'
+
+  // Probing / writing / rendering status is driven by the SSE sub-phase.
+  // If paidStatus === 'checking_out', they're all pending.
+  // If paidStatus === 'generating', whichever phase matches reportPhase is
+  // active; earlier phases are done; later phases are pending.
+  const ORDER: Phase['key'][] = ['probing', 'writing', 'rendering']
+  const activeIdx = reportPhase === null ? -1 : ORDER.indexOf(reportPhase)
+
+  function subStatus(key: Phase['key']): Phase['status'] {
+    if (paidStatus === 'checking_out') return 'pending'
+    if (activeIdx === -1) return key === 'probing' ? 'active' : 'pending'
+    const idx = ORDER.indexOf(key)
+    if (idx < activeIdx) return 'done'
+    if (idx === activeIdx) return 'active'
+    return 'pending'
+  }
 
   const probingPhase: Phase = {
     key: 'probing',
     label: 'Running blind probes',
-    status: probing,
+    status: subStatus('probing'),
   }
-  if (probing === 'active' && probeCount > 0) {
+  if (probingPhase.status === 'active' && probeCount > 0) {
     probingPhase.detail = `probe ${probeCount}`
   }
 
   return [
     { key: 'checking', label: 'Checking payment', status: checking },
     probingPhase,
-    { key: 'writing', label: 'Writing recommendations', status: writing },
-    { key: 'rendering', label: 'Rendering your report', status: rendering },
+    { key: 'writing', label: 'Writing recommendations', status: subStatus('writing') },
+    { key: 'rendering', label: 'Rendering your report', status: subStatus('rendering') },
   ]
 }
 
-export function ReportProgress({ paidStatus, reportProbeCount }: Props): JSX.Element | null {
+export function ReportProgress({ paidStatus, reportPhase, reportProbeCount }: Props): JSX.Element | null {
   if (paidStatus === 'none' || paidStatus === 'ready' || paidStatus === 'failed') {
     return null
   }
-  const phases = derivePhases(paidStatus, reportProbeCount)
+  const phases = derivePhases(paidStatus, reportPhase, reportProbeCount)
   return (
     <div className="mt-6 border border-[var(--color-brand)] p-4">
       <div className="text-xs tracking-wider uppercase text-[var(--color-fg-muted)] mb-3">

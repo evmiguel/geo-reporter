@@ -45,6 +45,13 @@ export type GradeAction =
 
 export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed'
 
+/**
+ * Sub-phase within paidStatus='generating'. Drives ReportProgress so users
+ * see the pipeline move past "Running blind probes" once the worker starts
+ * on recommendations / rendering. null when no paid report is in flight.
+ */
+export type ReportPhase = 'probing' | 'writing' | 'rendering' | null
+
 export type PdfStatus = 'pending' | 'ready' | 'failed'
 export interface ReportStatusResponse {
   html: 'ready'
@@ -75,6 +82,7 @@ export interface GradeState {
   error: string | null
   failedKind: 'provider_outage' | 'other' | null
   paidStatus: PaidStatus
+  reportPhase: ReportPhase
   reportId: string | null
   reportToken: string | null
   reportProbeCount: number

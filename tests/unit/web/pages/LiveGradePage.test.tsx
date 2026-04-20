@@ -53,6 +53,7 @@ describe('LiveGradePage', () => {
       },
       overall: null, letter: null, error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
+    reportPhase: null,
     }
     renderAt('abc-123')
     expect(screen.getByText(/DISCOVERABILITY · 30%/i)).toBeInTheDocument()
@@ -71,6 +72,7 @@ describe('LiveGradePage', () => {
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
+    reportPhase: null,
     }
     renderAt('done-grade')
     expect(screen.getByText('C+')).toBeInTheDocument()
@@ -89,6 +91,7 @@ describe('LiveGradePage — paid flow', () => {
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
+    reportPhase: null,
     }
     renderAt('g-1')
     expect(screen.getByRole('button', { name: /Get the full report/i })).toBeInTheDocument()
@@ -104,6 +107,7 @@ describe('LiveGradePage — paid flow', () => {
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
+    reportPhase: null,
     }
     renderAt('g-1', '?checkout=complete')
     expect(screen.getByText(/generating your full report/i)).toBeInTheDocument()
@@ -124,6 +128,7 @@ describe('LiveGradePage — paid flow', () => {
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
+    reportPhase: null,
     }
     renderAt('g-1', '?checkout=canceled')
     expect(screen.getByText(/Checkout canceled/i)).toBeInTheDocument()
@@ -139,6 +144,7 @@ describe('LiveGradePage — paid flow', () => {
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
       paidStatus: 'ready', reportId: 'r-1', reportToken: 'abc', reportProbeCount: 0,
+    reportPhase: null,
     }
     renderAt('g-1')
     const link = screen.getByRole('link', { name: /View report/i })

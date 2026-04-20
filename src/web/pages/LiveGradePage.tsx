@@ -139,7 +139,11 @@ export function LiveGradePage(): JSX.Element {
       )}
 
       {(effectivePaidStatus === 'checking_out' || effectivePaidStatus === 'generating') && (
-        <ReportProgress paidStatus={effectivePaidStatus} reportProbeCount={state.reportProbeCount} />
+        <ReportProgress
+          paidStatus={effectivePaidStatus}
+          reportPhase={state.reportPhase}
+          reportProbeCount={state.reportProbeCount}
+        />
       )}
       {(effectivePaidStatus === 'ready' || effectivePaidStatus === 'failed') && (
         <>

@@ -14,6 +14,7 @@ export function initialGradeState(): GradeState {
     error: null,
     failedKind: null,
     paidStatus: 'none',
+    reportPhase: null,
     reportId: null,
     reportToken: null,
     reportProbeCount: 0,
@@ -80,7 +81,7 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
     case 'failed':
       return { ...state, phase: 'failed', error: event.error, failedKind: event.kind }
     case 'report.started':
-      return { ...state, paidStatus: 'generating', reportProbeCount: 0 }
+      return { ...state, paidStatus: 'generating', reportPhase: 'probing', reportProbeCount: 0 }
     case 'report.probe.started': {
       const key = probeKey(event.category, event.provider, event.label)
       const existing = state.probes.get(key)
@@ -118,18 +119,28 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
       return { ...state, probes, reportProbeCount: state.reportProbeCount + 1 }
     }
     case 'report.recommendations.started':
+      return { ...state, reportPhase: 'writing' }
     case 'report.recommendations.completed':
-      return state
+      return { ...state, reportPhase: 'rendering' }
     case 'report.done':
-      return { ...state, paidStatus: 'ready', reportId: event.reportId, reportToken: event.token }
+      return {
+        ...state, paidStatus: 'ready', reportPhase: null,
+        reportId: event.reportId, reportToken: event.token,
+      }
     case 'report.failed':
-      return { ...state, paidStatus: 'failed', error: event.error }
+      return { ...state, paidStatus: 'failed', reportPhase: null, error: event.error }
     case 'hydrate_paid':
-      return { ...state, paidStatus: 'ready', reportId: event.reportId, reportToken: event.reportToken }
+      return {
+        ...state, paidStatus: 'ready', reportPhase: null,
+        reportId: event.reportId, reportToken: event.reportToken,
+      }
     case 'hydrate_generating':
       // Only hydrate into 'generating' if nothing live has arrived yet — if the
       // reducer already saw 'report.done' or 'report.failed' via SSE, keep that.
+      // We default the sub-phase to 'probing' since the server-side payload
+      // doesn't tell us where in the pipeline the worker currently is; SSE
+      // events will push us forward as they arrive.
       if (state.paidStatus === 'ready' || state.paidStatus === 'failed') return state
-      return { ...state, paidStatus: 'generating' }
+      return { ...state, paidStatus: 'generating', reportPhase: 'probing' }
   }
 }

@@ -18,6 +18,7 @@ vi.mock('../../../../src/web/hooks/useGradeEvents.ts', () => ({
       phase: 'running', probes: new Map(), categoryScores: {},
       overall: null, letter: null, error: null, paidStatus: 'none',
       reportId: null, reportToken: null, scraped: null, reportProbeCount: 0,
+    reportPhase: null,
     },
     dispatch: vi.fn(),
     connected: true,
