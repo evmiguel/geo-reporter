@@ -215,6 +215,16 @@ export function makeFakeStore(): FakeGradeStore {
         cookiesMap.set(clickingCookie, { cookie: clickingCookie, userId: resolvedUser.id, createdAt: new Date() })
       }
 
+      // Retroactively bind any unowned grades whose cookie is bound to this user.
+      const userCookies = new Set(
+        [...cookiesMap.values()].filter((c) => c.userId === resolvedUser.id).map((c) => c.cookie),
+      )
+      for (const [gid, g] of gradesMap) {
+        if (g.userId === null && g.cookie !== null && userCookies.has(g.cookie)) {
+          gradesMap.set(gid, { ...g, userId: resolvedUser.id })
+        }
+      }
+
       magicTokensMap.set(foundId, { ...found, consumedAt: new Date() })
 
       return { ok: true, email: resolvedUser.email, userId: resolvedUser.id }

@@ -198,6 +198,15 @@ export class PostgresStore implements GradeStore {
         .set({ userId: user.id })
         .where(eq(schema.cookies.cookie, clickingCookie))
 
+      // Retroactively bind unowned grades whose cookie is bound to this user.
+      // Covers same-device (grade before verify) and multi-device (laptop/phone) cases.
+      await tx.execute(sql`
+        UPDATE grades
+        SET user_id = ${user.id}
+        WHERE user_id IS NULL
+          AND cookie IN (SELECT cookie FROM cookies WHERE user_id = ${user.id})
+      `)
+
       await tx.update(schema.magicTokens)
         .set({ consumedAt: new Date() })
         .where(eq(schema.magicTokens.id, tokenRow.id))
