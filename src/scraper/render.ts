@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext } from 'playwright'
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { FetchError } from './fetch.ts'
 
 const DEFAULT_RENDER_TIMEOUT_MS = 15_000
@@ -46,12 +46,24 @@ class BrowserPool {
     if (next) next()
   }
 
-  async render(url: string, opts: RenderOptions = {}): Promise<RenderResult> {
-    const timeoutMs = opts.timeoutMs ?? DEFAULT_RENDER_TIMEOUT_MS
+  async withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
     await this.acquireSlot()
     try {
       const ctx = await this.ensureBrowser()
       const page = await ctx.newPage()
+      try {
+        return await fn(page)
+      } finally {
+        await page.close().catch(() => undefined)
+      }
+    } finally {
+      this.releaseSlot()
+    }
+  }
+
+  async render(url: string, opts: RenderOptions = {}): Promise<RenderResult> {
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_RENDER_TIMEOUT_MS
+    return this.withPage(async (page) => {
       try {
         const response = await page.goto(url, { waitUntil: 'networkidle', timeout: timeoutMs })
         if (!response) {
@@ -67,12 +79,8 @@ class BrowserPool {
         const msg = (err as Error).message
         if (/Timeout/i.test(msg)) throw new FetchError(`render timed out after ${timeoutMs}ms`, 'timeout')
         throw new FetchError(`render failed: ${msg}`, 'network')
-      } finally {
-        await page.close().catch(() => undefined)
       }
-    } finally {
-      this.releaseSlot()
-    }
+    })
   }
 
   async shutdown(): Promise<void> {
