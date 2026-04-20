@@ -34,15 +34,20 @@ function trustedPeer(peer: string, cidrs: string[]): boolean {
 
 export function clientIp(opts: ClientIpOptions): MiddlewareHandler<Env> {
   return async (c, next) => {
-    const realIp = c.req.header('x-real-ip') ?? ''
+    // Peer for the CIDR check MUST come from the kernel-socket remote address,
+    // never from a client-controllable header. A naive "peer = x-real-ip ??
+    // socket.remoteAddress" lets any client spoof `x-real-ip: 10.0.0.1` and
+    // bypass the trusted-proxy allow-list.
     const fromSocket = (c.env as NodeBindings | undefined)?.incoming?.socket?.remoteAddress ?? ''
-    const peer = realIp || fromSocket
+    // x-real-ip is only used as a *display* / default when XFF is absent. It's
+    // never consulted for trust decisions.
+    const realIp = c.req.header('x-real-ip') ?? ''
     const xff = c.req.header('x-forwarded-for')
     const honorXff =
       xff !== undefined
-      && (!opts.isProduction || trustedPeer(peer, opts.trustedProxies))
+      && (!opts.isProduction || trustedPeer(fromSocket, opts.trustedProxies))
     const fromXff = honorXff ? xff.split(',')[0]?.trim() : undefined
-    const ip = fromXff || peer || '0.0.0.0'
+    const ip = fromXff || realIp || fromSocket || '0.0.0.0'
     c.set('clientIp', ip)
     await next()
   }
