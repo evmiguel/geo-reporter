@@ -53,6 +53,7 @@ describe('generateReport', () => {
         perplexity: new MockProvider({ id: 'perplexity', responses: () => 'acme widget' }),
       },
       recommenderFn: fakeRecommender as never,
+      enqueuePdfFn: async () => {},
     }, { gradeId: grade.id, sessionId: 'cs_test' })
 
     const updated = await store.getGrade(grade.id)
@@ -91,6 +92,7 @@ describe('generateReport', () => {
         perplexity: new MockProvider({ id: 'perplexity', responses: () => 'p' }),
       },
       recommenderFn: fakeRecommender as never,
+      enqueuePdfFn: async () => {},
     }, { gradeId: grade.id, sessionId: 'cs_test' })).rejects.toThrow('simulated')
 
     const updated = await store.getGrade(grade.id)
@@ -113,6 +115,7 @@ describe('generateReport', () => {
         perplexity: new MockProvider({ id: 'perplexity', responses: () => 'p' }),
       },
       recommenderFn: limitedRecommender as never,
+      enqueuePdfFn: async () => {},
     }, { gradeId: grade.id, sessionId: 'cs_test' })
 
     const updated = await store.getGrade(grade.id)
