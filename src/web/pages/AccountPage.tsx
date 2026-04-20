@@ -6,13 +6,23 @@ import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { GradeHistoryList } from '../components/GradeHistoryList.tsx'
 
 export function AccountPage(): JSX.Element {
-  const { verified, email, credits, logout } = useAuth()
+  const { verified, email, credits, loading, logout } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!verified) navigate('/email?next=/account', { replace: true })
-  }, [verified, navigate])
+    // Wait for the first /auth/me to settle before deciding — otherwise we
+    // bounce freshly-loaded verified users to /email because useAuth starts
+    // at verified=false.
+    if (!loading && !verified) navigate('/email?next=/account', { replace: true })
+  }, [loading, verified, navigate])
 
+  if (loading) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-sm text-[var(--color-fg-muted)]">
+        Loading…
+      </div>
+    )
+  }
   if (!verified || !email) return <div />
 
   return (
