@@ -15,7 +15,6 @@ export interface BucketResult {
 
 export async function peekBucket(redis: Redis, cfg: BucketConfig, now: number): Promise<BucketResult> {
   const cutoff = now - cfg.windowMs
-  // Half-open window: (cutoff, now]. Expire STRICTLY less than cutoff.
   await redis.zremrangebyscore(cfg.key, '-inf', String(cutoff - 1))
   const used = await redis.zcard(cfg.key)
   if (used >= cfg.limit) {
@@ -27,7 +26,15 @@ export async function peekBucket(redis: Redis, cfg: BucketConfig, now: number): 
   return { allowed: true, limit: cfg.limit, used, retryAfter: 0 }
 }
 
-export async function addToBucket(redis: Redis, cfg: BucketConfig, now: number): Promise<void> {
-  await redis.zadd(cfg.key, now, `${now}-${crypto.randomUUID()}`)
+export async function addToBucket(
+  redis: Redis, cfg: BucketConfig, now: number, member: string,
+): Promise<void> {
+  await redis.zadd(cfg.key, now, member)
   await redis.expire(cfg.key, Math.ceil(cfg.windowMs / 1000))
+}
+
+export async function removeFromBucket(
+  redis: Redis, cfg: { key: string }, member: string,
+): Promise<void> {
+  await redis.zrem(cfg.key, member)
 }

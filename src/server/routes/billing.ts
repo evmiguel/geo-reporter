@@ -52,7 +52,7 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
           retryAfter: peek.retryAfter,
         }, 429)
       }
-      await addToBucket(deps.redis, bucketCfg, Date.now())
+      await addToBucket(deps.redis, bucketCfg, Date.now(), `checkout:${crypto.randomUUID()}`)
 
       const grade = await deps.store.getGrade(gradeId)
       if (!grade) return c.json({ error: 'not_found' }, 404)

@@ -22,9 +22,9 @@ export async function peekMagicIpBucket(redis: Redis, ip: string, now: number = 
 }
 
 export async function addMagicEmailBucket(redis: Redis, email: string, now: number = Date.now()): Promise<void> {
-  return addToBucket(redis, EMAIL_CFG(email), now)
+  return addToBucket(redis, EMAIL_CFG(email), now, `magic-email:${crypto.randomUUID()}`)
 }
 
 export async function addMagicIpBucket(redis: Redis, ip: string, now: number = Date.now()): Promise<void> {
-  return addToBucket(redis, IP_CFG(ip), now)
+  return addToBucket(redis, IP_CFG(ip), now, `magic-ip:${crypto.randomUUID()}`)
 }
