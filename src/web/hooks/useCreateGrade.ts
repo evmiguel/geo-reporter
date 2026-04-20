@@ -39,6 +39,15 @@ export function useCreateGrade(): UseCreateGradeResult {
         setError(`Daily cap reached (${result.limit}/24h). Try again in ${formatRetry(result.retryAfter)}.`)
         return
       }
+      if (result.paywall === 'ip_exhausted') {
+        // Per-IP anonymous ceiling. Likely incognito abuse or shared-IP
+        // overlap. Sign-in (identity) lifts this limit, so route to the
+        // email gate with a distinct retry hint.
+        setError(
+          `Too many grades from this network today. Sign in with email for more — or try again in ${formatRetry(result.retryAfter)}.`,
+        )
+        return
+      }
       navigate(`/email?retry=${result.retryAfter}`)
       return
     }

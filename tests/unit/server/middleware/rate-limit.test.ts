@@ -51,7 +51,7 @@ function makeStubRedis(): Redis {
 let __gradeCounter = 0
 async function simulateGrade(
   redis: Redis, store: GradeStore, ip: string, cookie: string, now?: number,
-): Promise<{ allowed: boolean; limit: number; used: number; retryAfter: number; paywall: 'email' | 'daily_cap' }> {
+): Promise<{ allowed: boolean; limit: number; used: number; retryAfter: number; paywall: 'email' | 'daily_cap' | 'ip_exhausted' }> {
   const peek = await peekRateLimit(redis, store, ip, cookie, now)
   if (!peek.allowed) return peek
   const gradeId = `g-${++__gradeCounter}`
@@ -197,6 +197,40 @@ describe('peekRateLimit + commitRateLimit', () => {
     const result = await simulateGrade(redis, store, '203.0.113.8', 'c-unknown', now)
     expect(result.limit).toBe(3)
     expect(result.allowed).toBe(true)
+  })
+
+  it('anonymous IP ceiling blocks after 5 grades from same IP even with different cookies (incognito case)', async () => {
+    const store = makeFakeStore()
+    for (let i = 1; i <= 6; i++) await store.upsertCookie(`c-incog-${i}`)
+    const redis = makeStubRedis()
+    const ip = '203.0.113.100'
+    // 5 grades across 5 different anonymous cookies (simulating fresh incognito windows)
+    for (let i = 0; i < 5; i++) {
+      const r = await simulateGrade(redis, store, ip, `c-incog-${i + 1}`, now + i)
+      expect(r.allowed).toBe(true)
+    }
+    // 6th from a fresh cookie on the same IP is blocked with paywall='ip_exhausted'
+    const blocked = await simulateGrade(redis, store, ip, 'c-incog-6', now + 6)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.paywall).toBe('ip_exhausted')
+    expect(blocked.limit).toBe(5)
+  })
+
+  it('verified user is EXEMPT from the anonymous IP ceiling', async () => {
+    const store = makeFakeStore()
+    // Pre-fill the IP ceiling to its limit with anonymous grades
+    for (let i = 1; i <= 5; i++) await store.upsertCookie(`c-anon-ceil-${i}`)
+    const redis = makeStubRedis()
+    const ip = '203.0.113.101'
+    for (let i = 0; i < 5; i++) {
+      await simulateGrade(redis, store, ip, `c-anon-ceil-${i + 1}`, now + i)
+    }
+    // A verified user from the same IP is still allowed (the ceiling is anon-only)
+    const user = await store.upsertUser('verified-ip@x.com')
+    const cookie = 'c-verified-on-busy-ip'
+    await store.upsertCookie(cookie, user.id)
+    const r = await simulateGrade(redis, store, ip, cookie, now + 100)
+    expect(r.allowed).toBe(true)
   })
 
   it('refundRateLimit removes the grade-specific bucket entry', async () => {

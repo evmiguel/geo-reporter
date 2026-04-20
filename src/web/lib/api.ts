@@ -25,7 +25,7 @@ export interface CreateGradeOk { ok: true; gradeId: string }
 export interface CreateGradeRateLimited {
   ok: false
   kind: 'rate_limited'
-  paywall: 'email' | 'daily_cap'
+  paywall: 'email' | 'daily_cap' | 'ip_exhausted'
   limit: number
   used: number
   retryAfter: number
