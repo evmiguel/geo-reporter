@@ -1,5 +1,6 @@
 import React from 'react'
 import type { AccuracyProbe, AccuracyRow } from '../types.ts'
+import { Markdown } from './Markdown.tsx'
 
 interface AccuracyAppendixProps { probes: AccuracyProbe[] }
 
@@ -38,7 +39,7 @@ export function AccuracyAppendix({ probes }: AccuracyAppendixProps): JSX.Element
                   return (
                     <tr key={j}>
                       <td><strong>{r.providerLabel}</strong></td>
-                      <td>{r.answer}</td>
+                      <td><Markdown className="markdown markdown-compact">{r.answer}</Markdown></td>
                       <td style={{ textAlign: 'right' }}><span className={`${sym.cls} mono small`}>{sym.char}</span></td>
                     </tr>
                   )

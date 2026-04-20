@@ -106,6 +106,42 @@ p { font-size: 14px; color: #333; }
 .method dd { font-size: 13px; color: #444; line-height: 1.5; }
 .method ul { margin-left: 20px; font-size: 13px; color: #333; line-height: 1.6; }
 
+/* Rendered markdown (LLM-authored prose). Inherits color/font from the
+   wrapping element (.probe-answer-body, .rec-prose, etc.) so each context
+   sets its own typography; this block only normalizes spacing + element
+   defaults that browsers vary on. */
+.markdown > *:first-child { margin-top: 0; }
+.markdown > *:last-child { margin-bottom: 0; }
+.markdown p { margin: 0 0 8px; }
+.markdown p:last-child { margin-bottom: 0; }
+.markdown ul, .markdown ol { margin: 0 0 8px 20px; padding: 0; }
+.markdown li { margin-bottom: 2px; }
+.markdown li > p { margin: 0; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+  font-size: 1em; font-weight: 600; margin: 12px 0 4px; color: inherit; border: 0; padding: 0;
+}
+.markdown code {
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.9em; background: #f0ece2; padding: 1px 4px; border-radius: 2px;
+}
+.markdown pre {
+  background: #faf7ee; padding: 10px 12px; margin: 8px 0;
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.85em; overflow-x: auto;
+}
+.markdown pre code { background: transparent; padding: 0; }
+.markdown blockquote {
+  margin: 8px 0; padding-left: 10px; border-left: 2px solid #e6e2d9; color: #555;
+}
+.markdown a { color: #ff7a1a; }
+.markdown strong { font-weight: 600; }
+.markdown hr { border: 0; border-top: 1px solid #e6e2d9; margin: 12px 0; }
+/* Compact variant for table cells — drop block margins entirely */
+.markdown-compact p, .markdown-compact ul, .markdown-compact ol { margin: 0; }
+/* Inline-flow variant for the "How:" snippet inside .rec-how */
+.rec-how-body { display: inline; }
+.rec-how-body p { display: inline; margin: 0; }
+
 /* Print / PDF */
 @media print {
   body { background: #fff; padding: 0; }

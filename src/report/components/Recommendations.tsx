@@ -1,5 +1,6 @@
 import React from 'react'
 import type { RecommendationCard } from '../types.ts'
+import { Markdown } from './Markdown.tsx'
 
 interface RecommendationsProps { cards: RecommendationCard[] }
 
@@ -15,8 +16,10 @@ export function Recommendations({ cards }: RecommendationsProps): JSX.Element {
             <div>
               <div className="rec-header">#{i + 1} · {c.category}</div>
               <h3 className="rec-title">{c.title}</h3>
-              <p className="rec-prose">{c.rationale}</p>
-              <div className="rec-how"><strong>How:</strong> {c.how}</div>
+              <Markdown className="rec-prose markdown">{c.rationale}</Markdown>
+              <div className="rec-how">
+                <strong>How:</strong> <Markdown className="markdown rec-how-body">{c.how}</Markdown>
+              </div>
             </div>
             <div className="rec-rail">
               <div className="rec-priority mono">{c.priority}</div>

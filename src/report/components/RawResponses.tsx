@@ -1,5 +1,6 @@
 import React from 'react'
 import type { ProbeGroup } from '../types.ts'
+import { Markdown } from './Markdown.tsx'
 
 interface RawResponsesProps { groups: ProbeGroup[] }
 
@@ -23,7 +24,7 @@ export function RawResponses({ groups }: RawResponsesProps): JSX.Element {
                     <div><strong>{a.providerLabel}</strong> <span className="muted small mono">{a.modelId}</span></div>
                     <div className="small mono muted">{a.score === null ? '—' : `score ${a.score}`}</div>
                   </div>
-                  <div className="probe-answer-body">{a.response}</div>
+                  <Markdown className="probe-answer-body markdown">{a.response}</Markdown>
                 </div>
               ))}
             </div>
