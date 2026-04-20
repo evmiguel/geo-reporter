@@ -14,7 +14,7 @@ function build() {
   const store = makeFakeStore()
   const billing = new FakeStripe()
   const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  app.use('*', clientIp(), cookieMiddleware(store, false, HMAC_KEY))
+  app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/billing', billingRouter({
     store, billing,
     priceId: 'price_test_abc',
@@ -175,7 +175,7 @@ describe('POST /billing/checkout', () => {
       },
     } as unknown as import('bullmq').Queue
     const app: AppType = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-    app.use('*', clientIp(), cookieMiddleware(store, false, HMAC_KEY))
+    app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
     app.route('/billing', billingRouter({
       store, billing,
       priceId: 'price_test_abc',

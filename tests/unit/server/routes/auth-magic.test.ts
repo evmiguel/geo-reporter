@@ -23,7 +23,7 @@ function buildAuthApp() {
   const mailer = new FakeMailer()
   const redis = new RedisMock() as unknown as IoRedis
   const app = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  app.use('*', clientIp(), cookieMiddleware(store, false, HMAC_KEY))
+  app.use('*', clientIp({ trustedProxies: [], isProduction: false }), cookieMiddleware(store, false, HMAC_KEY))
   app.route('/auth', authRouter({
     store,
     redis,

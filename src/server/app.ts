@@ -15,6 +15,12 @@ import { reportRouter } from './routes/report.ts'
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
 
+  const trustedProxies = (deps.env.TRUSTED_PROXIES ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  const clientIpOpts = { trustedProxies, isProduction: deps.env.NODE_ENV === 'production' }
+
   app.use('*', requestLog())
 
   app.get('/healthz', async (c) => {
@@ -30,7 +36,7 @@ export function buildApp(deps: ServerDeps): Hono {
   }
 
   const gradeScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  gradeScope.use('*', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+  gradeScope.use('*', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
   gradeScope.post('/', rateLimitMiddleware(deps.redis, deps.store))
   gradeScope.route('/', gradesRouter(deps))
   gradeScope.route('/', gradesEventsRouter(deps))
@@ -38,7 +44,7 @@ export function buildApp(deps: ServerDeps): Hono {
   app.route('/grades', gradeScope)
 
   const authScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
-  authScope.use('*', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+  authScope.use('*', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
   authScope.route('/', authRouter({
     store: deps.store,
     redis: deps.redis,
@@ -55,9 +61,9 @@ export function buildApp(deps: ServerDeps): Hono {
     const creditsPriceId = deps.env.STRIPE_CREDITS_PRICE_ID ?? ''
     const billingScope = new Hono<{ Variables: { cookie: string; clientIp: string } }>()
     // Cookie middleware only on /checkout and /buy-credits; webhook explicitly skips it (Stripe doesn't send cookies).
-    billingScope.use('/checkout', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
-    billingScope.use('/buy-credits', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
-    billingScope.use('/redeem-credit', clientIp(), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+    billingScope.use('/checkout', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+    billingScope.use('/buy-credits', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+    billingScope.use('/redeem-credit', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
     billingScope.route('/', billingRouter({
       store: deps.store, billing, priceId, creditsPriceId, publicBaseUrl: deps.env.PUBLIC_BASE_URL,
       webhookSecret, reportQueue: deps.reportQueue,
