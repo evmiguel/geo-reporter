@@ -115,4 +115,41 @@ describe('magic-link integration — full flow', () => {
     }))
     expect(retried.status).toBe(429)
   }, 60_000)
+
+  it('preserve-intent: magic-link verify honors `next` query param', async () => {
+    const app = buildHarnessApp()
+    const bootstrap = await app.fetch(new Request('http://test/auth/me'))
+    const cookie = extractCookie(bootstrap)
+
+    // Request magic link with `next` pointing back at a grade page
+    const magicRes = await app.fetch(new Request('http://test/auth/magic', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ email: 'user2@example.com', next: '/g/abc123' }),
+    }))
+    expect(magicRes.status).toBe(204)
+    const magicUrl = new URL(mailer.sent[0]!.url)
+    expect(magicUrl.searchParams.get('next')).toBe('/g/abc123')
+
+    const token = magicUrl.searchParams.get('t')!
+    const verifyRes = await app.fetch(new Request(`http://test/auth/verify?t=${token}&next=/g/abc123`, {
+      headers: { cookie: `ggcookie=${cookie}` },
+    }))
+    expect(verifyRes.status).toBe(302)
+    expect(verifyRes.headers.get('location')).toBe('/g/abc123?verified=1')
+  }, 60_000)
+
+  it('rejects malformed `next` (open redirect protection)', async () => {
+    const app = buildHarnessApp()
+    const bootstrap = await app.fetch(new Request('http://test/auth/me'))
+    const cookie = extractCookie(bootstrap)
+
+    // Schema validation rejects protocol-relative URLs at /auth/magic
+    const magicRes = await app.fetch(new Request('http://test/auth/magic', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ email: 'user3@example.com', next: '//evil.com' }),
+    }))
+    expect(magicRes.status).toBe(400)
+  }, 60_000)
 })

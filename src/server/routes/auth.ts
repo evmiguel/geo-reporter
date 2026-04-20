@@ -19,7 +19,14 @@ export interface AuthRouterDeps {
 
 type Env = { Variables: { cookie: string; clientIp: string } }
 
-const magicSchema = z.object({ email: z.string().trim().toLowerCase().email() })
+// `next` is an optional post-verify redirect target. Must be a same-origin
+// relative path (starts with `/` followed by non-`/` to block `//evil.com`).
+// If absent or invalid, verify falls back to `/?verified=1`.
+const NEXT_PATH_RE = /^\/[^/]/
+const magicSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  next: z.string().regex(NEXT_PATH_RE).max(512).optional(),
+})
 
 export function authRouter(deps: AuthRouterDeps): Hono<Env> {
   const app = new Hono<Env>()
@@ -30,7 +37,7 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
       if (!result.success) return c.json({ error: 'invalid_email' }, 400)
     }),
     async (c) => {
-      const { email } = c.req.valid('json')
+      const { email, next } = c.req.valid('json')
       const ip = c.var.clientIp
 
       const emailPeek = await peekMagicEmailBucket(deps.redis, email)
@@ -54,7 +61,8 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
       }
 
       const { rawToken, expiresAt } = await deps.store.issueMagicToken(email, c.var.cookie)
-      const url = `${deps.publicBaseUrl}/auth/verify?t=${rawToken}`
+      const nextParam = next !== undefined ? `&next=${encodeURIComponent(next)}` : ''
+      const url = `${deps.publicBaseUrl}/auth/verify?t=${rawToken}${nextParam}`
       await deps.mailer.sendMagicLink({ email, url, expiresAt })
 
       await addMagicEmailBucket(deps.redis, email)
@@ -70,6 +78,14 @@ export function authRouter(deps: AuthRouterDeps): Hono<Env> {
     const tokenHash = createHash('sha256').update(t).digest('hex')
     const result = await deps.store.consumeMagicToken(tokenHash, c.var.cookie)
     if (!result.ok) return c.redirect('/?auth_error=expired_or_invalid', 302)
+    // Honor `next` for preserve-intent (e.g. magic-link click resumes a paid
+    // checkout flow on the original grade page). Validated as a same-origin
+    // relative path; falls back to /?verified=1 on absence or mismatch.
+    const next = c.req.query('next')
+    if (next !== undefined && NEXT_PATH_RE.test(next) && next.length <= 512) {
+      const sep = next.includes('?') ? '&' : '?'
+      return c.redirect(`${next}${sep}verified=1`, 302)
+    }
     return c.redirect('/?verified=1', 302)
   })
 

@@ -9,7 +9,7 @@ import { CreditsPurchasedToast } from '../components/CreditsPurchasedToast.tsx'
 
 export function LandingPage(): JSX.Element {
   const { create, pending, error } = useCreateGrade()
-  const { verified, refresh } = useAuth()
+  const { verified, credits, refresh } = useAuth()
   const [params, setParams] = useSearchParams()
   const [verifiedToast, setVerifiedToast] = useState<boolean>(params.get('verified') === '1')
   const [authError] = useState<string | null>(params.get('auth_error'))
@@ -53,7 +53,7 @@ export function LandingPage(): JSX.Element {
         {...(error !== null ? { errorMessage: error } : {})}
       />
 
-      {verified && <BuyCreditsCTA />}
+      {verified && credits === 0 && <BuyCreditsCTA />}
 
       {verifiedToast && (
         <Toast

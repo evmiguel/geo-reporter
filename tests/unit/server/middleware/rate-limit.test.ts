@@ -47,7 +47,7 @@ describe('checkRateLimit', () => {
     await store.upsertCookie('c-1')
     const redis = makeStubRedis()
     const result = await checkRateLimit(redis, store, '203.0.113.1', 'c-1', now)
-    expect(result).toEqual({ allowed: true, limit: 3, used: 1, retryAfter: 0 })
+    expect(result).toEqual({ allowed: true, limit: 3, used: 1, retryAfter: 0, paywall: 'email' })
   })
 
   it('blocks the 4th anonymous request within 24h with retryAfter = age-until-oldest-expires', async () => {
@@ -147,6 +147,36 @@ describe('checkRateLimit', () => {
     // @ts-expect-error — accessing stub debug
     const ttls = (redis as { __debug: { ttls: Map<string, number> } }).__debug.ttls
     expect(ttls.get('bucket:ip:203.0.113.7+cookie:c-7')).toBe(86400)
+  })
+
+  it("blocked anon hit returns paywall='email'", async () => {
+    const store = makeFakeStore()
+    await store.upsertCookie('c-paywall-anon')
+    const redis = makeStubRedis()
+    for (let i = 0; i < 3; i++) {
+      await checkRateLimit(redis, store, '203.0.113.20', 'c-paywall-anon', now + i)
+    }
+    const blocked = await checkRateLimit(redis, store, '203.0.113.20', 'c-paywall-anon', now + 4)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.paywall).toBe('email')
+  })
+
+  it("blocked credit-holder hit returns paywall='daily_cap'", async () => {
+    const store = makeFakeStore()
+    const user = await store.upsertUser('cap@x.com')
+    const cookie = 'c-paywall-credits'
+    await store.upsertCookie(cookie, user.id)
+    await store.createStripePayment({
+      gradeId: null, sessionId: 'cs_cap', amountCents: 2900, currency: 'usd', kind: 'credits',
+    })
+    await store.grantCreditsAndMarkPaid('cs_cap', user.id, 10, 2900, 'usd')
+    const redis = makeStubRedis()
+    for (let i = 0; i < 10; i++) {
+      await checkRateLimit(redis, store, '203.0.113.21', cookie, now + i)
+    }
+    const blocked = await checkRateLimit(redis, store, '203.0.113.21', cookie, now + 11)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.paywall).toBe('daily_cap')
   })
 
   it('treats an unknown cookie (no DB row) as anonymous limit=3', async () => {

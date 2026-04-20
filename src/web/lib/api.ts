@@ -19,7 +19,7 @@ export interface CreateGradeOk { ok: true; gradeId: string }
 export interface CreateGradeRateLimited {
   ok: false
   kind: 'rate_limited'
-  paywall: 'email' | 'pay'
+  paywall: 'email' | 'daily_cap'
   limit: number
   used: number
   retryAfter: number
@@ -47,7 +47,7 @@ export async function postGrade(url: string): Promise<CreateGradeResponse> {
     return { ok: true, gradeId: body.gradeId }
   }
   if (res.status === 429) {
-    const body = (await res.json()) as { paywall: 'email' | 'pay'; limit: number; used: number; retryAfter: number }
+    const body = (await res.json()) as { paywall: 'email' | 'daily_cap'; limit: number; used: number; retryAfter: number }
     return { ok: false, kind: 'rate_limited', ...body }
   }
   if (res.status === 400) {
@@ -73,14 +73,16 @@ export type MagicResult =
   | { ok: true }
   | { ok: false; error: 'invalid_email' | 'rate_limit_email' | 'rate_limit_ip'; retryAfter?: number }
 
-export async function postAuthMagic(email: string): Promise<MagicResult> {
+export async function postAuthMagic(email: string, next?: string): Promise<MagicResult> {
   let res: Response
   try {
+    const body: { email: string; next?: string } = { email }
+    if (next !== undefined) body.next = next
     res = await fetch('/auth/magic', {
       method: 'POST',
       credentials: 'include',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(body),
     })
   } catch {
     return { ok: false, error: 'rate_limit_ip' }
@@ -112,6 +114,7 @@ export type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; kind: 'already_paid'; reportId: string }
   | { ok: false; kind: 'grade_not_done' }
+  | { ok: false; kind: 'must_verify_email' }
   | { ok: false; kind: 'unavailable' }
   | { ok: false; kind: 'unknown'; status: number }
 
@@ -138,6 +141,7 @@ export async function postBillingCheckout(gradeId: string): Promise<CheckoutResu
       return { ok: false, kind: 'already_paid', reportId: body.reportId }
     }
     if (body.error === 'grade_not_done') return { ok: false, kind: 'grade_not_done' }
+    if (body.error === 'must_verify_email') return { ok: false, kind: 'must_verify_email' }
     return { ok: false, kind: 'unknown', status: res.status }
   }
   if (res.status === 503) return { ok: false, kind: 'unavailable' }
