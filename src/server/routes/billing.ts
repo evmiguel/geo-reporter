@@ -37,6 +37,13 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       if (grade.cookie !== c.var.cookie) return c.json({ error: 'not_found' }, 404)
       if (grade.status !== 'done') return c.json({ error: 'grade_not_done' }, 409)
 
+      // Require email verification before $19 checkout so the report stays
+      // accessible if the user clears cookies or switches devices. Stripe alone
+      // ties the purchase to the cookie+grade only — without a user binding,
+      // the report is effectively orphaned.
+      const cookieRow = await deps.store.getCookieWithUserAndCredits(c.var.cookie)
+      if (!cookieRow.userId) return c.json({ error: 'must_verify_email' }, 409)
+
       const payments = await deps.store.listStripePaymentsByGrade(gradeId)
       const paid = payments.find((p) => p.status === 'paid')
       if (paid) return c.json({ error: 'already_paid', reportId: grade.id }, 409)

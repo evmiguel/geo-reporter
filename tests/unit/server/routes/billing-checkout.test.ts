@@ -37,11 +37,20 @@ async function issueCookie(app: AppType): Promise<string> {
   return raw
 }
 
+// Bind the issued cookie to a verified user so /checkout's must_verify_email
+// guard passes. Tests of the verified-user happy paths share this helper.
+async function verifyCookie(store: ReturnType<typeof makeFakeStore>, cookie: string, email = 'verified@example.com'): Promise<string> {
+  const uuid = cookie.split('.')[0]!
+  const user = await store.upsertUser(email)
+  await store.upsertCookie(uuid, user.id)
+  return uuid
+}
+
 describe('POST /billing/checkout', () => {
   it('happy path: creates session + inserts stripe_payments row', async () => {
     const { app, store, billing } = build()
     const cookie = await issueCookie(app)
-    const uuid = cookie.split('.')[0]!
+    const uuid = await verifyCookie(store, cookie)
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
     const res = await app.fetch(new Request('http://test/billing/checkout', {
       method: 'POST',
@@ -99,7 +108,7 @@ describe('POST /billing/checkout', () => {
   it('409 already_paid when stripe_payments has a paid row', async () => {
     const { app, store } = build()
     const cookie = await issueCookie(app)
-    const uuid = cookie.split('.')[0]!
+    const uuid = await verifyCookie(store, cookie, 'paid@example.com')
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
     await store.createStripePayment({ gradeId: grade.id, sessionId: 'cs_prior', amountCents: 1900, currency: 'usd' })
     await store.updateStripePaymentStatus('cs_prior', { status: 'paid' })
@@ -117,7 +126,7 @@ describe('POST /billing/checkout', () => {
   it('resumes pending session when Stripe says it is still open', async () => {
     const { app, store, billing } = build()
     const cookie = await issueCookie(app)
-    const uuid = cookie.split('.')[0]!
+    const uuid = await verifyCookie(store, cookie, 'resume@example.com')
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
     const prior = await billing.createCheckoutSession({
       kind: 'report', gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
@@ -137,7 +146,7 @@ describe('POST /billing/checkout', () => {
   it('creates new session when prior pending session has expired at Stripe', async () => {
     const { app, store, billing } = build()
     const cookie = await issueCookie(app)
-    const uuid = cookie.split('.')[0]!
+    const uuid = await verifyCookie(store, cookie, 'expired@example.com')
     const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
     const prior = await billing.createCheckoutSession({
       kind: 'report', gradeId: grade.id, successUrl: 's', cancelUrl: 'c', priceId: 'price_test_abc',
@@ -153,6 +162,22 @@ describe('POST /billing/checkout', () => {
     expect(billing.createdSessions).toHaveLength(2)
     const priorRow = await store.getStripePaymentBySessionId(prior.id)
     expect(priorRow!.status).toBe('failed')
+  })
+
+  it('409 must_verify_email when cookie is not bound to a user', async () => {
+    const { app, store } = build()
+    const cookie = await issueCookie(app)
+    const uuid = cookie.split('.')[0]!
+    // Cookie row exists (created by middleware) but no userId — anonymous.
+    const grade = await store.createGrade({ url: 'https://x', domain: 'x', tier: 'free', cookie: uuid, status: 'done' })
+    const res = await app.fetch(new Request('http://test/billing/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
+      body: JSON.stringify({ gradeId: grade.id }),
+    }))
+    expect(res.status).toBe(409)
+    const body = await res.json() as { error: string }
+    expect(body.error).toBe('must_verify_email')
   })
 
   it('400 on missing / malformed body', async () => {

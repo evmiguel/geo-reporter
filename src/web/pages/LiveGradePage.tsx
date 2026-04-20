@@ -20,9 +20,10 @@ export function LiveGradePage(): JSX.Element {
   const [checkoutComplete] = useState<boolean>(params.get('checkout') === 'complete')
 
   useEffect(() => {
-    if (params.get('checkout') !== null) {
+    if (params.get('checkout') !== null || params.get('verified') !== null) {
       const next = new URLSearchParams(params)
       next.delete('checkout')
+      next.delete('verified')
       setParams(next, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
