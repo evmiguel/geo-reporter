@@ -24,7 +24,7 @@ export const CATEGORY_DESCRIPTIONS: readonly CategoryDescription[] = [
     id: 'accuracy',
     label: 'Accuracy',
     weight: 20,
-    short: 'When LLMs answer specific questions about you, are the facts right? We scrape your site, have an LLM write a verifiable question, then ask each target LLM to answer blind — a verifier LLM compares against the scrape.',
+    short: 'When LLMs answer specific questions about you, are the facts right? We analyze your site\'s content, have an LLM write a verifiable question, then ask each target LLM to answer blind — a verifier LLM compares each answer against your site\'s real content.',
   },
   {
     id: 'coverage',

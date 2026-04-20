@@ -52,7 +52,7 @@ export const privacyHtml = `
 
 <p>We use the following third-party service providers. Each receives only the data necessary to perform its function.</p>
 <ul>
-  <li><strong>Anthropic</strong> (Claude) — receives excerpts of the scraped content of URLs you submit, plus prompts, to generate grades. <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a></li>
+  <li><strong>Anthropic</strong> (Claude) — receives excerpts of the analyzed content of URLs you submit, plus prompts, to generate grades. <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a></li>
   <li><strong>OpenAI</strong> (ChatGPT) — same purpose as Anthropic. <a href="https://openai.com/policies/privacy-policy">openai.com/policies/privacy-policy</a></li>
   <li><strong>Google</strong> (Gemini) — same purpose (paid tier only). <a href="https://policies.google.com/privacy">policies.google.com/privacy</a></li>
   <li><strong>Perplexity</strong> — same purpose (paid tier only). <a href="https://www.perplexity.ai/hub/legal/privacy-policy">perplexity.ai/hub/legal/privacy-policy</a></li>
@@ -66,7 +66,7 @@ export const privacyHtml = `
 
 <h2>4. How long we keep your data</h2>
 <ul>
-  <li><strong>Grade reports and scraped content</strong> — retained indefinitely while your account is active, so you can return to historical reports. Delete your account to remove them (see §6).</li>
+  <li><strong>Grade reports and analyzed site content</strong> — retained indefinitely while your account is active, so you can return to historical reports. Delete your account to remove them (see §6).</li>
   <li><strong>Account email and credit balance</strong> — retained until you delete your account.</li>
   <li><strong>Payment records</strong> — retained for at least 7 years to meet tax and accounting obligations, even after account deletion. Your identity is detached (user ID and grade ID are nulled out) when you delete your account.</li>
   <li><strong>Server logs and rate-limit buckets</strong> — purged on a rolling 24-hour to 30-day window.</li>

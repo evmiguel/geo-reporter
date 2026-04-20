@@ -27,9 +27,9 @@ export function Methodology({ models, reportId, gradeId, generatedAt }: Methodol
 
       <h3>How accuracy works</h3>
       <ul>
-        <li>A generator LLM reads a scrape of your site and writes a specific, verifiable question.</li>
-        <li>Each target LLM answers the question blind — no access to the scrape.</li>
-        <li>A verifier LLM compares each answer against the scrape and rules correct / partial / wrong.</li>
+        <li>A generator LLM reads your site's content and writes a specific, verifiable question.</li>
+        <li>Each target LLM answers the question blind — no access to your site's content.</li>
+        <li>A verifier LLM compares each answer against your site and rules correct / partial / wrong.</li>
       </ul>
 
       <h3>Which LLMs graded this report</h3>

@@ -9,7 +9,7 @@ export interface StatusBarProps {
 const STEPS: { key: Phase; label: string }[] = [
   { key: 'queued', label: 'queued' },
   { key: 'running', label: 'running' },
-  { key: 'scraped', label: 'scraped' },
+  { key: 'scraped', label: 'analyzed' },
   { key: 'done', label: 'done' },
 ]
 
