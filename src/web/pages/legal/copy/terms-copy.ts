@@ -1,7 +1,103 @@
+// GEO Reporter v3 Terms of Service — NY governing law. Review with a lawyer
+// before full launch. Two spots flagged for human review:
+// (1) refund policy in §6 — default is "all sales final, case-by-case refunds
+//     at our discretion"; change if you want a stricter or more generous stance.
+// (2) dispute resolution in §12 — default is NY state/federal courts; swap for
+//     arbitration if you prefer.
 export const termsLastUpdated = '2026-04-20'
 
 export const termsHtml = `
-<div data-custom-class="body_text">
-  <p><strong>Placeholder terms of use.</strong> Termly-generated copy lands here at deploy time.</p>
+<style>
+  .legal p { margin-bottom: 1rem; line-height: 1.6; }
+  .legal h2 { font-size: 1.25rem; margin-top: 2.5rem; margin-bottom: 0.75rem; }
+  .legal h3 { font-size: 1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; }
+  .legal ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+  .legal ul li { margin-bottom: 0.25rem; }
+  .legal a { color: var(--color-brand); text-decoration: underline; }
+  .legal strong { font-weight: 600; }
+</style>
+<div class="legal">
+<p>These Terms of Use ("Terms") govern your use of GEO Reporter at <a href="https://geo.erikamiguel.com">geo.erikamiguel.com</a> (the "Service"), operated by a sole operator based in New York, USA ("we", "us", "our"). By using the Service, you agree to these Terms. If you don't agree, don't use the Service.</p>
+
+<h2>1. What the Service does</h2>
+<p>GEO Reporter grades how well large language models ("LLMs") — like Claude and ChatGPT — recognize, describe, and cite a given website. You submit a URL; we fetch its public content, prompt multiple LLMs with standardized questions, score their answers across six categories (discoverability, recognition, accuracy, coverage, citation, SEO), and return a report with recommendations.</p>
+
+<h2>2. Eligibility</h2>
+<p>You must be at least 18 years old and legally able to enter into a binding contract. By using the Service you represent that you meet these requirements.</p>
+
+<h2>3. Accounts</h2>
+<p>Anonymous use is permitted up to 3 grades per 24 hours. To purchase a paid report or credits, you must verify an email address via magic-link. You are responsible for maintaining access to that email. If you lose access, contact us.</p>
+
+<p>You can delete your account at any time from the <a href="/account">Account</a> page. Account deletion permanently removes your grades and recommendations; payment records are anonymized but retained for tax purposes as described in the <a href="/privacy">Privacy Policy</a>.</p>
+
+<h2>4. Acceptable use</h2>
+<p>You agree not to:</p>
+<ul>
+  <li>Submit URLs pointing to content you don't have the right to analyze (including private, password-protected, or non-public content).</li>
+  <li>Submit URLs that target private networks, internal services, or cloud metadata endpoints.</li>
+  <li>Circumvent or attempt to circumvent rate limits, payment requirements, or authentication.</li>
+  <li>Reverse-engineer, scrape, or resell the Service or its outputs in bulk.</li>
+  <li>Use the Service to harass, defame, or infringe the rights of others.</li>
+  <li>Use the Service in violation of any applicable law.</li>
+</ul>
+
+<p>We may rate-limit, suspend, or terminate accounts that violate these rules.</p>
+
+<h2>5. Your content and our service</h2>
+<p><strong>Your submissions.</strong> You retain ownership of any content you submit (URLs, any text you send us). By submitting a URL you represent that you have the right to have its public content analyzed.</p>
+
+<p><strong>Generated reports.</strong> Grades, scores, LLM responses, and recommendations are produced in part by third-party AI models. You may use the generated reports for your own internal, commercial, or marketing purposes. You may not resell the Service's output as a standalone product or represent it as something other than AI-generated analysis.</p>
+
+<p><strong>The Service itself</strong> — including the website, software, prompts, scoring methodology, and brand — is our intellectual property. These Terms do not transfer any ownership of the Service to you.</p>
+
+<h2>6. Payments and credits</h2>
+<ul>
+  <li><strong>One-off paid report</strong> — $19 (USD) unlocks a full report for a single grade (4 LLM providers, 5–8 concrete recommendations, HTML + PDF). All sales are final.</li>
+  <li><strong>Credit pack</strong> — $29 (USD) for 10 credits. Each credit redeems for one full paid report. Credits never expire.</li>
+  <li>Prices are in US dollars and may change; new prices apply to future purchases only.</li>
+  <li>You are responsible for any taxes owed in your jurisdiction.</li>
+  <li><strong>Refunds.</strong> Purchases are generally non-refundable. If the Service materially fails to deliver — for example, a technical error that we can't fix within a reasonable time — contact us and we'll consider refunds case-by-case.</li>
+  <li>Payment processing is handled by Stripe; their <a href="https://stripe.com/legal">terms</a> apply to the transaction itself.</li>
+</ul>
+
+<h2>7. Accuracy and disclaimers</h2>
+<p>Grades and recommendations are generated by large language models. LLMs make mistakes, hallucinate, and disagree with each other. The Service is a diagnostic tool to inform your content strategy, not a guarantee of search or LLM visibility, SEO consulting, legal advice, or medical/financial advice.</p>
+
+<p><strong>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED</strong>, including but not limited to warranties of merchantability, fitness for a particular purpose, non-infringement, accuracy, or uninterrupted availability.</p>
+
+<h2>8. Limitation of liability</h2>
+<p><strong>TO THE MAXIMUM EXTENT PERMITTED BY LAW, OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING OUT OF OR RELATED TO THESE TERMS OR THE SERVICE WILL NOT EXCEED THE GREATER OF (A) THE AMOUNT YOU PAID US IN THE 12 MONTHS PRECEDING THE CLAIM OR (B) $100 USD.</strong></p>
+
+<p><strong>WE WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, CONSEQUENTIAL, SPECIAL, OR PUNITIVE DAMAGES</strong>, including lost profits, lost data, or business interruption, even if advised of the possibility.</p>
+
+<p>Some jurisdictions don't allow these limitations; in those jurisdictions, our liability is limited to the minimum allowed by law.</p>
+
+<h2>9. Indemnification</h2>
+<p>You agree to defend, indemnify, and hold us harmless from any claims, damages, or costs (including reasonable legal fees) arising from (a) your use of the Service, (b) your violation of these Terms, or (c) your submission of content you don't have the right to submit.</p>
+
+<h2>10. Availability and changes</h2>
+<p>We may add, remove, or change features at any time. We may take the Service offline for maintenance, upgrades, or because we decide to stop offering it. We'll try to give notice of material changes but are not required to. No uptime is guaranteed.</p>
+
+<h2>11. Termination</h2>
+<p>You may stop using the Service and delete your account at any time. We may suspend or terminate your access, with or without notice, if you violate these Terms or if we reasonably believe it's necessary to protect the Service or other users. Sections 5, 7, 8, 9, and 12 survive termination.</p>
+
+<h2>12. Governing law and disputes</h2>
+<p>These Terms are governed by the laws of the State of New York, USA, without regard to its conflict-of-laws rules. Any dispute arising out of or relating to these Terms or the Service will be brought exclusively in the state or federal courts located in New York County, New York, and you consent to the personal jurisdiction of those courts.</p>
+
+<p>Before filing, you agree to first contact us at <a href="mailto:erika@erikamiguel.com">erika@erikamiguel.com</a> and try to resolve the dispute informally for at least 30 days.</p>
+
+<h2>13. Changes to these Terms</h2>
+<p>We may update these Terms from time to time. The "Last updated" date at the top of this page reflects the current version. Material changes will be announced on the homepage or by email to account holders. Continued use of the Service after changes take effect constitutes acceptance.</p>
+
+<h2>14. Miscellaneous</h2>
+<ul>
+  <li>If any provision is held unenforceable, the remaining provisions stay in effect.</li>
+  <li>Our failure to enforce a provision doesn't waive our right to enforce it later.</li>
+  <li>You may not assign these Terms without our written consent; we may assign them as part of a merger, acquisition, or asset sale.</li>
+  <li>These Terms, together with the <a href="/privacy">Privacy Policy</a> and <a href="/cookies">Cookie Policy</a>, are the entire agreement between you and us regarding the Service.</li>
+</ul>
+
+<h2>15. Contact</h2>
+<p>Questions about these Terms: <a href="mailto:erika@erikamiguel.com">erika@erikamiguel.com</a>.</p>
 </div>
 `

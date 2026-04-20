@@ -12,7 +12,8 @@ describe('Legal pages', () => {
       <MemoryRouter><Routes><Route path="/" element={<PrivacyPage />} /></Routes></MemoryRouter>,
     )
     expect(screen.getByRole('heading', { level: 1, name: /privacy policy/i })).toBeInTheDocument()
-    expect(screen.getByText(/last updated/i)).toBeInTheDocument()
+    // Header "Last updated {date}" — date string disambiguates from body copy that may also mention the phrase.
+    expect(screen.getByText(/last updated 2026-04-20/i)).toBeInTheDocument()
   })
 
   it('TermsPage renders its copy under an h1 "Terms of Use"', () => {
