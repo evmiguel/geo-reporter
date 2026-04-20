@@ -11,3 +11,14 @@ export function toLetterGrade(score: number): string {
   }
   return 'F'
 }
+
+export type Letter = 'A' | 'B' | 'C' | 'D' | 'F'
+
+export function scoreToLetter(score: number | null): Letter | null {
+  if (score === null) return null
+  if (score >= 90) return 'A'
+  if (score >= 80) return 'B'
+  if (score >= 70) return 'C'
+  if (score >= 60) return 'D'
+  return 'F'
+}
