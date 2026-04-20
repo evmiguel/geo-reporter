@@ -43,4 +43,25 @@ describe('EmailGatePage', () => {
     await user.click(screen.getByRole('button', { name: /send link/i }))
     expect(await screen.findByText(/wait 42s/i)).toBeInTheDocument()
   })
+
+  it('renders sign-in framing when no ?retry param', () => {
+    render(<MemoryRouter initialEntries={['/email']}><EmailGatePage /></MemoryRouter>)
+    expect(screen.getByRole('heading', { level: 1, name: /sign in with your email/i })).toBeInTheDocument()
+    expect(screen.getByText(/one-click sign-in link/i)).toBeInTheDocument()
+  })
+
+  it('renders hit-the-cap framing when ?retry is present', () => {
+    render(<MemoryRouter initialEntries={['/email?retry=3600']}><EmailGatePage /></MemoryRouter>)
+    expect(screen.getByRole('heading', { level: 1, name: /hit your free limit/i })).toBeInTheDocument()
+    expect(screen.getByText(/come back in/i)).toBeInTheDocument()
+  })
+
+  it('threads ?next= through to postAuthMagic', async () => {
+    const spy = vi.spyOn(api, 'postAuthMagic').mockResolvedValue({ ok: true })
+    const user = userEvent.setup()
+    render(<MemoryRouter initialEntries={['/email?next=%2Fg%2Fabc']}><EmailGatePage /></MemoryRouter>)
+    await user.type(screen.getByPlaceholderText(/you@example.com/i), 'me@example.com')
+    await user.click(screen.getByRole('button', { name: /send link/i }))
+    expect(spy).toHaveBeenCalledWith('me@example.com', '/g/abc')
+  })
 })

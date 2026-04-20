@@ -14,6 +14,8 @@ function formatRetry(seconds: number): string {
 export function EmailGatePage(): JSX.Element {
   const [params] = useSearchParams()
   const retrySeconds = Number(params.get('retry') ?? '0')
+  const next = params.get('next') ?? undefined
+  const isRateCapped = retrySeconds > 0
   const [email, setEmail] = useState('')
   const [pending, setPending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -31,7 +33,7 @@ export function EmailGatePage(): JSX.Element {
   async function submit(): Promise<void> {
     if (email.trim().length === 0) return
     setPending(true); setError(null)
-    const result = await postAuthMagic(email.trim())
+    const result = await postAuthMagic(email.trim(), next)
     setPending(false)
     if (result.ok) {
       setSent(true)
@@ -55,14 +57,28 @@ export function EmailGatePage(): JSX.Element {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-16">
-      <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">paywall</div>
-      <h1 className="text-2xl mt-2 mb-2 text-[var(--color-fg)]">You've hit your free limit</h1>
+      <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">
+        {isRateCapped ? 'paywall' : 'sign in'}
+      </div>
+      <h1 className="text-2xl mt-2 mb-2 text-[var(--color-fg)]">
+        {isRateCapped ? "You've hit your free limit" : 'Sign in with your email'}
+      </h1>
       <p className="text-[var(--color-fg-dim)] mb-4">
-        3 grades per 24 hours, then you're tapped out. Verify your email to buy{' '}
-        <span className="text-[var(--color-good)]">10 reports for $29</span> — each credit grades a
-        site and unlocks a full 4-provider paid report.
+        {isRateCapped ? (
+          <>
+            3 grades per 24 hours, then you're tapped out. Verify your email to buy{' '}
+            <span className="text-[var(--color-good)]">10 reports for $29</span> — each credit grades a
+            site and unlocks a full 4-provider paid report.
+          </>
+        ) : (
+          <>
+            We'll email you a one-click sign-in link — no password. Verified accounts can buy credits
+            (<span className="text-[var(--color-good)]">10 reports for $29</span>) and access paid
+            reports from any device.
+          </>
+        )}
       </p>
-      {retrySeconds > 0 && (
+      {isRateCapped && (
         <div className="text-xs text-[var(--color-fg-muted)] mb-4">
           Or come back in <span className="text-[var(--color-fg-dim)]">{formatRetry(retrySeconds)}</span>.
         </div>

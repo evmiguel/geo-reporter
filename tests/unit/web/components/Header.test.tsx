@@ -61,4 +61,30 @@ describe('Header', () => {
     render(<MemoryRouter><Header /></MemoryRouter>)
     expect(screen.queryByTestId('credit-badge')).toBeNull()
   })
+
+  it('shows sign-in link when not verified, preserving ?next with current path', () => {
+    mockAuth.current = { verified: false, email: null, credits: 0, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter initialEntries={['/g/abc']}><Header /></MemoryRouter>)
+    const link = screen.getByRole('link', { name: /sign in/i })
+    expect(link).toHaveAttribute('href', '/email?next=%2Fg%2Fabc')
+  })
+
+  it('sign-in link on /email does not add a next param (avoid recursion)', () => {
+    mockAuth.current = { verified: false, email: null, credits: 0, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter initialEntries={['/email']}><Header /></MemoryRouter>)
+    const link = screen.getByRole('link', { name: /sign in/i })
+    expect(link).toHaveAttribute('href', '/email')
+  })
+
+  it('shows account link when verified', () => {
+    mockAuth.current = { verified: true, email: 'u@e.com', credits: 0, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter><Header /></MemoryRouter>)
+    expect(screen.getByRole('link', { name: /account/i })).toHaveAttribute('href', '/account')
+  })
+
+  it('hides account link when not verified', () => {
+    mockAuth.current = { verified: false, email: null, credits: 0, refresh: async () => {}, logout: vi.fn() }
+    render(<MemoryRouter><Header /></MemoryRouter>)
+    expect(screen.queryByRole('link', { name: /^account$/i })).toBeNull()
+  })
 })
