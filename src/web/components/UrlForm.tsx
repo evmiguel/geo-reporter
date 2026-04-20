@@ -1,6 +1,6 @@
 import React, { useCallback, useState, type FormEvent } from 'react'
 import { Spinner } from './Spinner.tsx'
-import { Turnstile } from './Turnstile.tsx'
+import { Turnstile, TURNSTILE_ENABLED } from './Turnstile.tsx'
 
 export interface UrlFormProps {
   onSubmit: (url: string, turnstileToken?: string) => void
@@ -13,13 +13,17 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
   const [turnstileToken, setTurnstileToken] = useState<string>('')
   const onToken = useCallback((t: string) => setTurnstileToken(t), [])
 
+  // When Turnstile is enabled, block submit until the widget produces a token.
+  // Without this gate, the user can hit "grade" before the ~1-3s background
+  // verification resolves, and the server rejects with captcha_failed.
+  const waitingForCaptcha = TURNSTILE_ENABLED && turnstileToken.length === 0
+  const disabled = props.pending || waitingForCaptcha
+
   function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault()
     const trimmed = value.trim()
     if (trimmed.length === 0) return
-    // Empty token is meaningful: either the dev bypass (no site key) or the
-    // widget hasn't resolved yet. The API layer passes undefined instead of ''
-    // so the server can distinguish "not sent" from "sent empty".
+    if (waitingForCaptcha) return
     const token = turnstileToken.length > 0 ? turnstileToken : undefined
     props.onSubmit(trimmed, token)
   }
@@ -38,7 +42,7 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
         />
         <button
           type="submit"
-          disabled={props.pending}
+          disabled={disabled}
           aria-busy={props.pending}
           className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
         >
@@ -46,6 +50,11 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
         </button>
       </div>
       <Turnstile onToken={onToken} />
+      {waitingForCaptcha && (
+        <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2">
+          <Spinner size={10} /> Verifying you're human…
+        </div>
+      )}
       {props.errorMessage !== undefined && (
         <div className="text-[var(--color-warn)] text-xs">{props.errorMessage}</div>
       )}

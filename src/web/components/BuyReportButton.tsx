@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { postBillingCheckout, postBillingRedeemCredit, postAuthMagic } from '../lib/api.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Spinner } from './Spinner.tsx'
-import { Turnstile } from './Turnstile.tsx'
+import { Turnstile, TURNSTILE_ENABLED } from './Turnstile.tsx'
 
 interface BuyReportButtonProps {
   gradeId: string
@@ -21,6 +21,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
   const [now, setNow] = useState<number>(Date.now())
   const [turnstileToken, setTurnstileToken] = useState<string>('')
   const onToken = useCallback((t: string) => setTurnstileToken(t), [])
+  const waitingForCaptcha = TURNSTILE_ENABLED && turnstileToken.length === 0
 
   const hasCredits = credits > 0
 
@@ -84,6 +85,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
 
   async function submitEmail(): Promise<void> {
     if (email.trim().length === 0) return
+    if (waitingForCaptcha) return
     setPending(true); setError(null)
     // After they click the magic link in email, send them back to this grade
     // page so they can resume checkout in one more click (verified will be true).
@@ -138,7 +140,7 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
               />
               <button
                 type="submit"
-                disabled={pending}
+                disabled={pending || waitingForCaptcha}
                 aria-busy={pending}
                 className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
               >
@@ -146,6 +148,11 @@ export function BuyReportButton({ gradeId, onAlreadyPaid }: BuyReportButtonProps
               </button>
             </div>
             <Turnstile onToken={onToken} />
+            {waitingForCaptcha && (
+              <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2">
+                <Spinner size={10} /> Verifying you're human…
+              </div>
+            )}
           </form>
         ) : (
           <div className="space-y-3">

@@ -19,6 +19,13 @@ import React, { useEffect, useRef } from 'react'
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 const SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined) ?? ''
 
+/**
+ * True when a site key is configured. Consumers (forms) use this to decide
+ * whether a missing token should block submit — if Turnstile isn't enabled
+ * (dev without keys), no need to wait for a token.
+ */
+export const TURNSTILE_ENABLED = SITE_KEY.length > 0
+
 declare global {
   interface Window {
     turnstile?: {

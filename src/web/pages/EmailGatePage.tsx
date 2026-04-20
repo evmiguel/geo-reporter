@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { postAuthMagic } from '../lib/api.ts'
 import { Spinner } from '../components/Spinner.tsx'
-import { Turnstile } from '../components/Turnstile.tsx'
+import { Turnstile, TURNSTILE_ENABLED } from '../components/Turnstile.tsx'
 
 function formatRetry(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -34,8 +34,11 @@ export function EmailGatePage(): JSX.Element {
 
   const cooldownSecs = Math.max(0, Math.ceil((cooldownUntil - now) / 1000))
 
+  const waitingForCaptcha = TURNSTILE_ENABLED && turnstileToken.length === 0
+
   async function submit(): Promise<void> {
     if (email.trim().length === 0) return
+    if (waitingForCaptcha) return
     setPending(true); setError(null)
     const token = turnstileToken.length > 0 ? turnstileToken : undefined
     const result = await postAuthMagic(email.trim(), next, token)
@@ -104,7 +107,7 @@ export function EmailGatePage(): JSX.Element {
             />
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || waitingForCaptcha}
               aria-busy={pending}
               className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
             >
@@ -112,6 +115,11 @@ export function EmailGatePage(): JSX.Element {
             </button>
           </div>
           <Turnstile onToken={onToken} />
+          {waitingForCaptcha && (
+            <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2">
+              <Spinner size={10} /> Verifying you're human…
+            </div>
+          )}
         </form>
       ) : (
         <div className="space-y-3">
