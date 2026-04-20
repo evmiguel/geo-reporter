@@ -4,6 +4,9 @@ import { LandingPage } from './pages/LandingPage.tsx'
 import { LiveGradePage } from './pages/LiveGradePage.tsx'
 import { EmailGatePage } from './pages/EmailGatePage.tsx'
 import { NotFoundPage } from './pages/NotFoundPage.tsx'
+import { PrivacyPage } from './pages/legal/PrivacyPage.tsx'
+import { TermsPage } from './pages/legal/TermsPage.tsx'
+import { CookiesPage } from './pages/legal/CookiesPage.tsx'
 
 export function App(): JSX.Element {
   return (
@@ -14,6 +17,9 @@ export function App(): JSX.Element {
           <Route path="/" element={<LandingPage />} />
           <Route path="/g/:id" element={<LiveGradePage />} />
           <Route path="/email" element={<EmailGatePage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/cookies" element={<CookiesPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
