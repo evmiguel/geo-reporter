@@ -16,6 +16,9 @@ const Schema = z.object({
   STRIPE_PRICE_ID: z.string().startsWith('price_').optional(),
   STRIPE_CREDITS_PRICE_ID: z.string().startsWith('price_').optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  MAIL_FROM: z.string().email().optional(),
+  TRUSTED_PROXIES: z.string().optional(),
 }).superRefine((val, ctx) => {
   if (val.NODE_ENV === 'production') {
     const required = [
