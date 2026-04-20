@@ -2,7 +2,7 @@
 
 A public, paywalled web app that grades websites on how well LLMs know them. Scrapes the site, runs LLM probes across six categories (Discoverability, Recognition, Accuracy, Coverage, Citation, SEO), and produces an HTML + PDF report with recommendations.
 
-**Status:** pipeline + HTTP + React UI + magic-link auth + Stripe + credits-pack shipped. The scoring pipeline runs, the Hono HTTP API is live, the React terminal-aesthetic frontend consumes it via SSE, and a 3-tier rate limit is in place (anonymous 3/24h, email-verified 3/24h, credit-holder 10/24h). Report rendering and deploy are still ahead — see [Roadmap](#roadmap).
+**Status:** pipeline + HTTP + React UI + magic-link auth + Stripe + credits-pack + report rendering shipped. The scoring pipeline runs, the Hono HTTP API is live, the React terminal-aesthetic frontend consumes it via SSE, a 3-tier rate limit is in place (anonymous 3/24h, email-verified 3/24h, credit-holder 10/24h), and paid reports render as a server-side HTML page plus a Playwright-generated PDF. Deploy is still ahead — see [Roadmap](#roadmap).
 
 **You can grade a real website end-to-end today** in three ways:
 
@@ -30,14 +30,17 @@ For the full architecture and the 17 locked-in design decisions, see [`docs/supe
 | **`GET /grades/:id/events`** | Works. SSE stream — hydrates past state from DB on connect, then forwards Redis pub/sub events. |
 | **React terminal UI** (`pnpm dev:web` on :5173) | Works. Landing, LiveGrade (SSE-driven), EmailGate, 404. |
 | `pnpm enqueue-grade <url>` dev CLI | Works. Skips rate limit + cookie — for quick smoke tests. |
-| `pnpm test` | 490 unit tests passing. |
-| `pnpm test:integration` | 79 integration tests — testcontainers Postgres + Redis + MockProvider. |
+| `pnpm test` | 561 unit tests passing. |
+| `pnpm test:integration` | 105 integration tests — testcontainers Postgres + Redis + MockProvider + real Chromium for PDF rendering. |
 | `pnpm build` | Bundles `dist/server.js`, `dist/worker.js`, and `dist/web/` with tsup + vite. |
-| **magic-link auth** (`POST /auth/magic`, `GET /auth/verify`, `POST /auth/logout`) | Works. Dev uses `ConsoleMailer` (magic link logged to stdout); verified email = identity + credit-balance portability. |
-| **`POST /billing/checkout` + `POST /billing/webhook`** | Works. Stripe checkout session creation + signed webhook → enqueues generate-report. |
+| **magic-link auth** (`POST /auth/magic`, `GET /auth/verify`, `POST /auth/logout`) | Works. Dev uses `ConsoleMailer` (magic link logged to stdout); verified email = identity + credit-balance portability. `/auth/magic` accepts an optional `next` param so the verify redirect can preserve the user's original page. |
+| **`POST /billing/checkout` + `POST /billing/webhook`** | Works. Requires verified email. Defense-in-depth: if the user has credits, server redeems one instead of charging. Stripe checkout session creation + signed webhook → enqueues generate-report. |
 | `POST /billing/buy-credits` + `POST /billing/redeem-credit` | Works. $29 Stripe Checkout for 10 credits; credits spend on `generate-report` without a round-trip to Stripe. |
-| **`generate-report` worker** | Works. Delta probes (Gemini + Perplexity) + recompute + recommendation LLM + reports row + tier='paid'. |
-| Report HTML/PDF rendering | **Not implemented yet** (Plan 9). |
+| **`generate-report` worker** | Works. Delta probes (Gemini + Perplexity) + recompute + recommendation LLM + reports row + tier='paid' + chains a `render-pdf` job. |
+| **`GET /report/:id?t=<token>`** | Works. Server-rendered HTML report — 7 sections (cover, scorecard, raw LLM responses, accuracy appendix, SEO findings, recommendations, methodology). LLM-authored prose rendered through markdown. Constant-time token compare; 404 (not 403) on any auth failure. |
+| **`GET /report/:id.pdf?t=<token>`** | Works. Returns the PDF bytes when the `render-pdf` worker has populated `report_pdfs`; 202 `{status: pending}` while building, 503 on failure. Bytes stored in Postgres BYTEA. |
+| **`GET /report/:id/status?t=<token>`** | Works. JSON `{html: 'ready', pdf: 'pending' \| 'ready' \| 'failed'}` — the frontend polls this while the PDF is rendering. |
+| **`render-pdf` worker** | Works. Reuses the scraper's Playwright browser pool via a shared `withPage` primitive; `page.setContent(html)` + `page.pdf({format: 'Letter'})` → bytes into `report_pdfs`. |
 
 ## Prerequisites
 
@@ -113,7 +116,9 @@ The Vite dev server proxies `/grades/*` and `/healthz` to Hono, so the browser s
 ### What you'll see
 
 - **Landing `/`** — URL input; submit navigates to `/g/:id`.
-- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. The free scorecard is below a `Get the full report — $19` CTA that kicks off Stripe Checkout. After payment, the page watches SSE for `report.*` events and flips to a "report ready" state with a link to `/report/:id?t=<token>` (Plan 9 renders the page).
+- **LiveGrade `/g/:id`** — 6 category tiles fill in live via SSE; chronological probe log below. On `done`, a big letter grade replaces the status bar. The free scorecard is below a `Get the full report — $19` CTA that requires a verified email (inline magic-link form if not), kicks off Stripe Checkout, and on success watches SSE for `report.*` events. When the report is ready, a "View report" link points to the rendered HTML and a "Download PDF" link appears once the PDF worker finishes (the frontend polls `/report/:id/status` to know when).
+- **Report `/report/:id?t=<token>`** — paid-only, server-rendered HTML. Cream/sans-serif aesthetic, 7 sections, markdown-rendered LLM prose. Open in any tab; CSP locks the page to inlined CSS only — no external resources.
+- **Report PDF `/report/:id.pdf?t=<token>`** — same content piped through Playwright's `page.pdf({format:'Letter'})`. Built eagerly the moment `generate-report` finishes, so it's usually ready by the time a paying user clicks Download.
 - **EmailGate `/email`** — shown on 429 (rate-limit hit). The form hits `/auth/magic`; verifying your email binds grades to an account for credit-balance portability (verified email is identity, not a quota bonus). To lift the cap, buy a credits pack ($29 for 10) — while `credits > 0` the quota is 10 per rolling 24h.
 
 > **Heads up — there is no real email in dev.** `Mailer` uses `ConsoleMailer`, which **prints the magic-link URL to the terminal running `pnpm dev:server`** (look for a `======` banner). Copy that URL into your browser to verify. A real email provider lands in Plan 10 (needs domain + DKIM/SPF setup).
@@ -304,16 +309,23 @@ src/
     prices.ts            #   $19 GEO Report price ID catalog
   queue/
     events.ts            #   pub/sub helpers: publishGradeEvent + subscribeToGrade
-    queues.ts            #   BullMQ queue factories
+    queues.ts            #   BullMQ queue factories: grade, report, pdf
     redis.ts             #   ioredis factory
     workers/run-grade/           #   the main grade pipeline worker (free tier)
     workers/generate-report/     #   paid-tier: delta probes + rescore + recommender + reports row
+  report/                # SSR report module (server-only — never bundled into web)
+    render.tsx           #   renderReport(input) → full HTML document with inlined CSS
+    report.css           #   standalone CSS (hybrid aesthetic), read at module init
+    build-input.ts       #   pure transform: ReportRecord (joined rows) → ReportInput (view model)
+    types.ts + token.ts + model-names.ts
+    components/          #   Cover, Toc, Scorecard, RawResponses, AccuracyAppendix, SeoFindings, Recommendations, Methodology, Markdown
+    pdf/                 #   render-pdf worker: reuses scraper's BrowserPool via withPage()
   server/
     app.ts               #   buildApp(ServerDeps) — composes middleware + routes + serveStatic
     server.ts            #   entrypoint: builds deps from env, starts @hono/node-server
     deps.ts              #   ServerDeps injection interface
-    middleware/          #   clientIp, cookie, rate-limit
-    routes/              #   grades (POST + GET), grades-events (SSE)
+    middleware/          #   clientIp, cookie, rate-limit, auth-rate-limit
+    routes/              #   grades, grades-events (SSE), auth, billing, report
   web/
     main.tsx + App.tsx   #   React root + Router + layout
     styles.css           #   Tailwind v4 @import + @theme block with v1's color tokens
@@ -326,8 +338,9 @@ src/
 scripts/
   enqueue-grade.ts       # dev CLI
 tests/
-  unit/                  # 490 tests, pnpm test
-  integration/           # 79 tests, pnpm test:integration (testcontainers)
+  unit/                  # 561 tests, pnpm test
+  integration/           # 105 tests, pnpm test:integration (testcontainers + Chromium)
+  fixtures/              # shared test fixtures (e.g. tests/fixtures/report.ts)
 docs/
   production-checklist.md   # deferred items to resolve before launch
   superpowers/
@@ -349,7 +362,7 @@ docs/
 | 7 | Auth (magic link, session cookie, quota lift) | **Done (2026-04-19)** |
 | 8 | Paywall: Stripe checkout, webhook, recommendation LLM | **Done (2026-04-19)** |
 | 8.5 | Credits Pack ($29/10 reports) | **Done (2026-04-19)** |
-| 9 | Report rendering: React SSR + Playwright PDF + signed URLs | Pending |
+| 9 | Report rendering: React SSR + Playwright PDF + signed URLs | **Done (2026-04-19)** |
 | 10 | Deploy: Railway services + add-ons | Pending |
 
 ## Relationship to v1
