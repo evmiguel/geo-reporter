@@ -76,6 +76,7 @@ export interface GradeState {
   paidStatus: PaidStatus
   reportId: string | null
   reportToken: string | null
+  reportProbeCount: number
 }
 
 export const CATEGORY_ORDER: CategoryId[] = [

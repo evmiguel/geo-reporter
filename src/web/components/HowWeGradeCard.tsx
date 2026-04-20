@@ -4,7 +4,7 @@ import { CATEGORY_DESCRIPTIONS, ACCURACY_TIE_IN, ACCURACY_WHY_UNSCORED } from '.
 export function HowWeGradeCard(): JSX.Element {
   return (
     <section className="border border-[var(--color-line)] bg-[var(--color-bg-elevated)] p-4 mb-8">
-      <h2 className="text-sm tracking-wider text-[var(--color-fg-muted)] uppercase mb-3">
+      <h2 className="text-lg text-[var(--color-fg)] mb-3 pb-2 border-b border-[var(--color-line)]">
         How we grade
       </h2>
 

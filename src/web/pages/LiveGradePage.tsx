@@ -9,7 +9,9 @@ import { GradeLetter } from '../components/GradeLetter.tsx'
 import { BuyReportButton } from '../components/BuyReportButton.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { HowWeGradeCard } from '../components/HowWeGradeCard.tsx'
+import { PaidReportPreview } from '../components/PaidReportPreview.tsx'
 import { PaidReportStatus } from '../components/PaidReportStatus.tsx'
+import { ReportProgress } from '../components/ReportProgress.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
 import { getGrade } from '../lib/api.ts'
 import { CATEGORY_ORDER, CATEGORY_WEIGHTS, type PaidStatus } from '../lib/types.ts'
@@ -86,7 +88,7 @@ export function LiveGradePage(): JSX.Element {
         <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">live grade</div>
         {gradeMeta && (
           <>
-            <h1 className="text-2xl text-[var(--color-fg)] mt-1">{gradeMeta.domain}</h1>
+            <h1 className="text-3xl text-[var(--color-fg)] mt-1 font-mono">{gradeMeta.domain}</h1>
             <div className="text-sm text-[var(--color-fg-dim)] mt-1 break-all">{gradeMeta.url}</div>
           </>
         )}
@@ -116,6 +118,14 @@ export function LiveGradePage(): JSX.Element {
 
       <HowWeGradeCard />
 
+      {isFreeTierDone && gradeMeta !== null && state.letter !== null && state.overall !== null && (
+        <PaidReportPreview
+          domain={gradeMeta.domain}
+          letter={state.letter}
+          overall={state.overall}
+        />
+      )}
+
       {isFreeTierDone && (
         <BuyReportButton
           gradeId={id}
@@ -123,10 +133,13 @@ export function LiveGradePage(): JSX.Element {
         />
       )}
 
-      {effectivePaidStatus !== 'none' && (
+      {(effectivePaidStatus === 'checking_out' || effectivePaidStatus === 'generating') && (
+        <ReportProgress paidStatus={effectivePaidStatus} reportProbeCount={state.reportProbeCount} />
+      )}
+      {(effectivePaidStatus === 'ready' || effectivePaidStatus === 'failed') && (
         <>
           <PaidReportStatus
-            status={effectivePaidStatus as Exclude<PaidStatus, 'none'>}
+            status={effectivePaidStatus}
             reportId={state.reportId}
             reportToken={state.reportToken}
             error={state.error}
@@ -135,8 +148,8 @@ export function LiveGradePage(): JSX.Element {
         </>
       )}
 
-      <div className="border-t border-[var(--color-line)] pt-4 mt-6">
-        <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase mb-2">probes</div>
+      <div className="border-t border-[var(--color-line)] pt-6 mt-8">
+        <h2 className="text-lg text-[var(--color-fg)] mb-3 pb-2 border-b border-[var(--color-line)]">Probes</h2>
         <div className="flex flex-col">
           {sortedProbes.map((probe) => (
             <ProbeLogRow key={probe.key} probe={probe} />

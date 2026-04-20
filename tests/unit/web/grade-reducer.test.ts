@@ -188,3 +188,25 @@ describe('grade-reducer failed event with kind', () => {
     expect(state.failedKind).toBeNull()
   })
 })
+
+describe('grade-reducer — reportProbeCount', () => {
+  it('resets reportProbeCount on report.started', () => {
+    const base = { ...initialGradeState(), reportProbeCount: 5 }
+    const next = reduceGradeEvents(base, { type: 'report.started' }, 0)
+    expect(next.reportProbeCount).toBe(0)
+  })
+
+  it('increments reportProbeCount on report.probe.completed', () => {
+    const base = { ...initialGradeState(), reportProbeCount: 2 }
+    const next = reduceGradeEvents(
+      base,
+      { type: 'report.probe.completed', category: 'recognition', provider: 'gemini', label: 'prompt_1', score: 70, durationMs: 100, error: null },
+      0,
+    )
+    expect(next.reportProbeCount).toBe(3)
+  })
+
+  it('initialGradeState has reportProbeCount=0', () => {
+    expect(initialGradeState().reportProbeCount).toBe(0)
+  })
+})

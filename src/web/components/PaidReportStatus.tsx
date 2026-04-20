@@ -1,9 +1,8 @@
 import React from 'react'
-import type { PaidStatus } from '../lib/types.ts'
 import { usePaidReportStatus } from '../hooks/usePaidReportStatus.ts'
 
 interface PaidReportStatusProps {
-  status: Exclude<PaidStatus, 'none'>
+  status: 'ready' | 'failed'
   reportId: string | null
   reportToken: string | null
   error: string | null
@@ -15,16 +14,6 @@ export function PaidReportStatus({ status, reportId, reportToken, error }: PaidR
     status === 'ready' ? reportToken : null,
   )
 
-  if (status === 'checking_out' || status === 'generating') {
-    return (
-      <div className="mt-6 border border-[var(--color-brand)] p-4">
-        <div className="text-sm text-[var(--color-fg)] mb-1">
-          Payment received — your paid report is being generated.
-        </div>
-        <div className="text-xs text-[var(--color-fg-muted)]">This usually takes 30-60 seconds.</div>
-      </div>
-    )
-  }
   if (status === 'ready' && reportId && reportToken) {
     return (
       <div className="mt-6 border border-[var(--color-good)] p-4">

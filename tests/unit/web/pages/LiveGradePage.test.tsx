@@ -52,7 +52,7 @@ describe('LiveGradePage', () => {
         coverage: null, citation: null, seo: null,
       },
       overall: null, letter: null, error: null, failedKind: null,
-      paidStatus: 'none', reportId: null, reportToken: null,
+      paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
     }
     renderAt('abc-123')
     expect(screen.getByText(/DISCOVERABILITY · 30%/i)).toBeInTheDocument()
@@ -70,7 +70,7 @@ describe('LiveGradePage', () => {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
-      paidStatus: 'none', reportId: null, reportToken: null,
+      paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
     }
     renderAt('done-grade')
     expect(screen.getByText('C+')).toBeInTheDocument()
@@ -88,13 +88,13 @@ describe('LiveGradePage — paid flow', () => {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
-      paidStatus: 'none', reportId: null, reportToken: null,
+      paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
     }
     renderAt('g-1')
     expect(screen.getByRole('button', { name: /Get the full report/i })).toBeInTheDocument()
   })
 
-  it('shows PaidReportStatus "generating" banner when ?checkout=complete is in URL', () => {
+  it('shows ReportProgress banner when ?checkout=complete is in URL', () => {
     stubState.current = {
       phase: 'done',
       scraped: { rendered: false, textLength: 3000 },
@@ -103,10 +103,10 @@ describe('LiveGradePage — paid flow', () => {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
-      paidStatus: 'none', reportId: null, reportToken: null,
+      paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
     }
     renderAt('g-1', '?checkout=complete')
-    expect(screen.getByText(/being generated/i)).toBeInTheDocument()
+    expect(screen.getByText(/generating your full report/i)).toBeInTheDocument()
     // BuyReportButton should NOT show while checking_out
     expect(screen.queryByRole('button', { name: /Get the full report/i })).not.toBeInTheDocument()
     // URL param stripped (no longer visible on the location — we assert via behavior:
@@ -123,7 +123,7 @@ describe('LiveGradePage — paid flow', () => {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
-      paidStatus: 'none', reportId: null, reportToken: null,
+      paidStatus: 'none', reportId: null, reportToken: null, reportProbeCount: 0,
     }
     renderAt('g-1', '?checkout=canceled')
     expect(screen.getByText(/Checkout canceled/i)).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('LiveGradePage — paid flow', () => {
         discoverability: 80, recognition: 75, accuracy: 60, coverage: 70, citation: 100, seo: 90,
       },
       overall: 78, letter: 'C+', error: null, failedKind: null,
-      paidStatus: 'ready', reportId: 'r-1', reportToken: 'abc',
+      paidStatus: 'ready', reportId: 'r-1', reportToken: 'abc', reportProbeCount: 0,
     }
     renderAt('g-1')
     const link = screen.getByRole('link', { name: /View report/i })

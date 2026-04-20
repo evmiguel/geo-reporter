@@ -10,12 +10,6 @@ vi.mock('../../../../src/web/hooks/usePaidReportStatus.ts', () => ({
 afterEach(() => cleanup())
 
 describe('PaidReportStatus', () => {
-  it('generating state shows banner + time hint', () => {
-    render(<PaidReportStatus status="generating" reportId={null} reportToken={null} error={null} />)
-    expect(screen.getByText(/being generated/i)).toBeInTheDocument()
-    expect(screen.getByText(/30-60 seconds/i)).toBeInTheDocument()
-  })
-
   it('ready state shows link with token', () => {
     render(<PaidReportStatus status="ready" reportId="r-1" reportToken="abc" error={null} />)
     const link = screen.getByRole('link', { name: /view report/i })
