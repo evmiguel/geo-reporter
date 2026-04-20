@@ -129,4 +129,13 @@ describe('LandingPage — credits URL params', () => {
     )
     expect(await screen.findByText(/checkout canceled/i)).toBeInTheDocument()
   })
+
+  it('renders deletion toast when ?deleted=1 is present', async () => {
+    render(
+      <MemoryRouter initialEntries={['/?deleted=1']}>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/account deleted/i)).toBeInTheDocument()
+  })
 })
