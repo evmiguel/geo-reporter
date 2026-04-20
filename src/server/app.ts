@@ -5,6 +5,7 @@ import type { ServerDeps } from './deps.ts'
 import { clientIp } from './middleware/client-ip.ts'
 import { cookieMiddleware } from './middleware/cookie.ts'
 import { rateLimitMiddleware } from './middleware/rate-limit.ts'
+import { requestLog } from './middleware/request-log.ts'
 import { gradesRouter } from './routes/grades.ts'
 import { gradesEventsRouter } from './routes/grades-events.ts'
 import { authRouter } from './routes/auth.ts'
@@ -13,6 +14,8 @@ import { reportRouter } from './routes/report.ts'
 
 export function buildApp(deps: ServerDeps): Hono {
   const app = new Hono()
+
+  app.use('*', requestLog())
 
   app.get('/healthz', async (c) => {
     const [dbResult, redisResult] = await Promise.allSettled([deps.pingDb(), deps.pingRedis()])
