@@ -34,4 +34,17 @@ describe('CategoryTile', () => {
     const { container } = render(<CategoryTile category="seo" weight={10} score={70} phase="done" />)
     expect(container.querySelector('[data-score]')?.className).toContain('color-warn')
   })
+
+  it('renders letter grade for numeric score', () => {
+    render(<CategoryTile category="discoverability" weight={30} score={85} phase="done" />)
+    expect(screen.getByText('B')).toBeInTheDocument()
+    expect(screen.getByText('85')).toBeInTheDocument()
+  })
+
+  it('omits letter when score is null (unscored)', () => {
+    render(<CategoryTile category="accuracy" weight={20} score={null} phase="done" />)
+    expect(screen.queryByText(/^[A-F]$/)).toBeNull()
+    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('unscored')).toBeInTheDocument()
+  })
 })
