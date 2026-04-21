@@ -61,6 +61,57 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     return c.json({ gradeId: grade.id }, 202)
   })
 
+  // Credit overflow: when the free 2/day is exhausted, a verified user with
+  // credits can spend one to run an additional grade. The grade runs as free
+  // tier first (2-provider scoring, same fast pipeline); the worker then
+  // auto-enqueues generate-report because a paid stripe_payments row exists,
+  // upgrading it to the full 4-provider report + recommendations + PDF.
+  //
+  // Bypasses the rate limit (doesn't commit to any bucket). If the user has
+  // no credits, returns 409 no_credits; if not verified, returns 409
+  // must_verify_email.
+  app.post('/redeem', zValidator('json', CreateGradeBody), async (c) => {
+    const { url, turnstileToken } = c.req.valid('json')
+    if (c.var.userId === null) {
+      return c.json({ error: 'must_verify_email' }, 409)
+    }
+    const captcha = await verifyTurnstile({
+      secretKey: deps.env.TURNSTILE_SECRET_KEY ?? undefined,
+      token: turnstileToken,
+      remoteIp: c.var.clientIp,
+    })
+    if (!captcha.ok) {
+      return c.json({ error: 'captcha_failed', codes: captcha.errorCodes }, 403)
+    }
+
+    const redeem = await deps.store.redeemCredit(c.var.userId)
+    if (!redeem.ok) return c.json({ error: 'no_credits' }, 409)
+
+    const parsed = new URL(url)
+    const domain = parsed.hostname.toLowerCase().replace(/^www\./, '')
+    const grade = await deps.store.createGrade({
+      url, domain, tier: 'free', cookie: c.var.cookie, userId: c.var.userId, status: 'queued',
+    })
+
+    // Audit row: same shape as /billing/redeem-credit writes after an
+    // already-done grade. run-grade's worker auto-enqueues generate-report
+    // when it sees a paid stripe_payments row on completion, so this flip
+    // is what triggers the paid-report pipeline (4-provider + recs + PDF).
+    const auditSessionId = `credit:${grade.id}`
+    await deps.store.createStripePayment({
+      gradeId: grade.id, sessionId: auditSessionId,
+      amountCents: 0, currency: 'usd', kind: 'credits',
+      userId: c.var.userId,
+    })
+    await deps.store.updateStripePaymentStatus(auditSessionId, { status: 'paid' })
+
+    await enqueueGrade(
+      { gradeId: grade.id, tier: 'free', ip: c.var.clientIp, cookie: c.var.cookie },
+      deps.redis,
+    )
+    return c.json({ gradeId: grade.id }, 202)
+  })
+
   app.get('/', async (c) => {
     if (c.var.userId === null) {
       return c.json({ error: 'must_verify_email' }, 401)
