@@ -26,7 +26,7 @@ export const termsHtml = `
 <p>You must be at least 18 years old and legally able to enter into a binding contract. By using the Service you represent that you meet these requirements.</p>
 
 <h2>3. Accounts</h2>
-<p>Anonymous use is permitted up to 3 grades per 24 hours. To purchase a paid report or credits, you must verify an email address via magic-link. You are responsible for maintaining access to that email. If you lose access, contact us.</p>
+<p>Anonymous use is permitted up to 2 grades per 24 hours. To purchase a paid report or credits, you must verify an email address via magic-link. You are responsible for maintaining access to that email. If you lose access, contact us.</p>
 
 <p>You can delete your account at any time from the <a href="/account">Account</a> page. Account deletion permanently removes your grades and recommendations; payment records are anonymized but retained for tax purposes as described in the <a href="/privacy">Privacy Policy</a>.</p>
 

@@ -11,7 +11,7 @@ v1 lives at `~/repos/geo-grader/` (local-only, not a dependency). v3 seeded its 
 
 ## Architecture (one paragraph)
 
-Two Node processes from one repo: `web` (Hono HTTP + SSE, reads/writes Postgres + Redis) and `worker` (BullMQ, runs Playwright + LLM probes + judge). Postgres via Drizzle ORM; Redis for BullMQ queues + pub/sub. Deploy target: Railway-class long-running host. Free tier: 3 grades per (IP+cookie) per rolling 24h; email gate for +10; $19 Stripe one-off unlocks the full report.
+Two Node processes from one repo: `web` (Hono HTTP + SSE, reads/writes Postgres + Redis) and `worker` (BullMQ, runs Playwright + LLM probes + judge). Postgres via Drizzle ORM; Redis for BullMQ queues + pub/sub. Deploy target: Railway-class long-running host. Free tier: 2 grades per (IP+cookie) per rolling 24h; email gate for credits (+10 grades/day while credit balance > 0); $19 Stripe one-off unlocks the full report.
 
 ## Six scoring categories
 

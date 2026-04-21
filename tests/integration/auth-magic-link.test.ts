@@ -71,8 +71,8 @@ describe('magic-link integration — full flow', () => {
     const bootstrap = await app.fetch(new Request('http://test/auth/me'))
     const cookie = extractCookie(bootstrap)
 
-    // 3 anonymous grades pass
-    for (let i = 0; i < 3; i++) {
+    // 2 anonymous grades pass
+    for (let i = 0; i < 2; i++) {
       const r = await app.fetch(new Request('http://test/grades', {
         method: 'POST',
         headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
@@ -81,13 +81,13 @@ describe('magic-link integration — full flow', () => {
       expect(r.status).toBe(202)
     }
 
-    // 4th should be 429 (anon limit 3)
-    const fourth = await app.fetch(new Request('http://test/grades', {
+    // 3rd should be 429 (anon limit 2)
+    const third = await app.fetch(new Request('http://test/grades', {
       method: 'POST',
       headers: { 'content-type': 'application/json', cookie: `ggcookie=${cookie}` },
       body: JSON.stringify({ url: 'https://example.com/p4' }),
     }))
-    expect(fourth.status).toBe(429)
+    expect(third.status).toBe(429)
 
     // Request magic link
     const magicRes = await app.fetch(new Request('http://test/auth/magic', {

@@ -43,19 +43,19 @@ describe('rate-limit (integration)', () => {
     await store.upsertCookie(cookie)
 
     const ip = '203.0.113.100'
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       const r = await simulateGrade(redis, store, ip, cookie)
       expect(r.allowed).toBe(true)
     }
     const blocked = await simulateGrade(redis, store, ip, cookie)
     expect(blocked.allowed).toBe(false)
-    expect(blocked.limit).toBe(3)
+    expect(blocked.limit).toBe(2)
     expect(blocked.retryAfter).toBeGreaterThan(0)
 
     await redis.quit()
   })
 
-  it('verified cookies (userId set, no credits) get limit=3', async () => {
+  it('verified cookies (userId set, no credits) get limit=2', async () => {
     const redis = createRedis(redisUrl)
     const store = new PostgresStore(testDb.db)
     const user = await store.upsertUser(`rl-${Date.now()}@example.com`)
@@ -63,14 +63,14 @@ describe('rate-limit (integration)', () => {
     await store.upsertCookie(cookie, user.id)
 
     const ip = '203.0.113.101'
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       const r = await simulateGrade(redis, store, ip, cookie)
       expect(r.allowed).toBe(true)
-      expect(r.limit).toBe(3)
+      expect(r.limit).toBe(2)
     }
     const blocked = await simulateGrade(redis, store, ip, cookie)
     expect(blocked.allowed).toBe(false)
-    expect(blocked.limit).toBe(3)
+    expect(blocked.limit).toBe(2)
 
     await redis.quit()
   })
@@ -105,7 +105,7 @@ describe('rate-limit (integration)', () => {
     const cookie = `shared-${Date.now()}`
     await store.upsertCookie(cookie)
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       await simulateGrade(redis, store, '203.0.113.200', cookie)
     }
     const blocked = await simulateGrade(redis, store, '203.0.113.200', cookie)
