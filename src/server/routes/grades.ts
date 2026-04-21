@@ -51,7 +51,7 @@ export function gradesRouter(deps: ServerDeps): Hono<Env> {
     const parsed = new URL(url)
     const domain = parsed.hostname.toLowerCase().replace(/^www\./, '')
     const grade = await deps.store.createGrade({
-      url, domain, tier: 'free', cookie: c.var.cookie, userId: null, status: 'queued',
+      url, domain, tier: 'free', cookie: c.var.cookie, userId: c.var.userId, status: 'queued',
     })
     await commitRateLimit(deps.redis, deps.store, c.var.clientIp, c.var.cookie, grade.id)
     await enqueueGrade(
