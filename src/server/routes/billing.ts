@@ -138,6 +138,23 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
   )
 
   app.post('/buy-credits', async (c) => {
+    // Per-cookie rate limit: 10/h. Mirrors /checkout — without this a cookie
+    // could spam pending credits rows into stripe_payments.
+    const bucketCfg = {
+      key: `bucket:buy-credits:${c.var.cookie}`,
+      limit: 10,
+      windowMs: 3_600_000,
+    }
+    const peek = await peekBucket(deps.redis, bucketCfg, Date.now())
+    if (!peek.allowed) {
+      return c.json({
+        error: 'rate_limited' as const,
+        paywall: 'buy_credits_throttled' as const,
+        retryAfter: peek.retryAfter,
+      }, 429)
+    }
+    await addToBucket(deps.redis, bucketCfg, Date.now(), `buy-credits:${crypto.randomUUID()}`)
+
     if (!deps.creditsPriceId) {
       return c.json({ error: 'stripe_credits_not_configured' }, 503)
     }
@@ -169,6 +186,23 @@ export function billingRouter(deps: BillingRouterDeps): Hono<Env> {
       if (!result.success) return c.json({ error: 'invalid_body' }, 400)
     }),
     async (c) => {
+      // Per-cookie rate limit: 10/h. Sits in front of ownership/credit checks
+      // so a cookie spamming redeem-credit can't pound the DB with lookups.
+      const bucketCfg = {
+        key: `bucket:redeem-credit:${c.var.cookie}`,
+        limit: 10,
+        windowMs: 3_600_000,
+      }
+      const peek = await peekBucket(deps.redis, bucketCfg, Date.now())
+      if (!peek.allowed) {
+        return c.json({
+          error: 'rate_limited' as const,
+          paywall: 'redeem_credit_throttled' as const,
+          retryAfter: peek.retryAfter,
+        }, 429)
+      }
+      await addToBucket(deps.redis, bucketCfg, Date.now(), `redeem-credit:${crypto.randomUUID()}`)
+
       const { gradeId } = c.req.valid('json')
       const grade = await deps.store.getGrade(gradeId)
       if (!grade) return c.json({ error: 'not_found' }, 404)
