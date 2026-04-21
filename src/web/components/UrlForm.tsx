@@ -11,6 +11,7 @@ export interface UrlFormProps {
 export function UrlForm(props: UrlFormProps): JSX.Element {
   const [value, setValue] = useState('')
   const [turnstileToken, setTurnstileToken] = useState<string>('')
+  const [resetKey, setResetKey] = useState(0)
   const onToken = useCallback((t: string) => setTurnstileToken(t), [])
 
   // When Turnstile is enabled, block submit until the widget produces a token.
@@ -26,6 +27,12 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
     if (waitingForCaptcha) return
     const token = turnstileToken.length > 0 ? turnstileToken : undefined
     props.onSubmit(trimmed, token)
+    // Turnstile tokens are single-use. If this submit succeeds, the parent
+    // navigates away and we unmount anyway. If it fails and the user stays
+    // on the landing page (scrape_failed, etc.), the old token is burnt —
+    // bumping resetKey re-renders the widget, which produces a fresh one.
+    setTurnstileToken('')
+    setResetKey((k) => k + 1)
   }
 
   return (
@@ -53,7 +60,7 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
           {props.pending ? (<><Spinner className="mr-2" /> grading…</>) : 'grade'}
         </button>
       </div>
-      <Turnstile onToken={onToken} />
+      <Turnstile onToken={onToken} resetKey={resetKey} />
       {waitingForCaptcha && (
         <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2">
           <Spinner size={10} /> Verifying you're human…
