@@ -10,6 +10,10 @@ import { buildProviders } from '../llm/providers/index.ts'
 import { PostgresStore } from '../store/postgres.ts'
 import { scrape, shutdownBrowserPool } from '../scraper/index.ts'
 import { getBrowserPool } from '../scraper/render.ts'
+import { StripeBillingClient } from '../billing/stripe-client.ts'
+import { ConsoleMailer } from '../mail/console-mailer.ts'
+import { ResendMailer } from '../mail/resend-mailer.ts'
+import type { Mailer } from '../mail/types.ts'
 
 interface ShutdownDeps {
   workers: Array<{ close: (drain: boolean) => Promise<void> }>
@@ -45,11 +49,30 @@ function main(): void {
     OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
   })
 
+  const mailer: Mailer =
+    env.RESEND_API_KEY !== undefined && env.MAIL_FROM !== undefined
+      ? new ResendMailer({ apiKey: env.RESEND_API_KEY, from: env.MAIL_FROM })
+      : new ConsoleMailer()
+  if (env.NODE_ENV !== 'production' && !(mailer instanceof ResendMailer)) {
+    console.log(JSON.stringify({
+      msg: 'worker-mailer: using ConsoleMailer (set RESEND_API_KEY + MAIL_FROM for real email)',
+    }))
+  }
+
+  const billing = env.STRIPE_SECRET_KEY
+    ? new StripeBillingClient({ secretKey: env.STRIPE_SECRET_KEY })
+    : null
+  if (!billing) {
+    console.warn(JSON.stringify({
+      msg: 'worker-billing: STRIPE_SECRET_KEY not set — auto-refund for failed paid reports will be skipped',
+    }))
+  }
+
   const workers = [
     registerHealthWorker(connection),
     registerRunGradeWorker({ store, redis: connection, providers, scrapeFn: scrape }, connection),
     registerGenerateReportWorker(
-      { store, redis: connection, providers },
+      { store, redis: connection, providers, billing, mailer },
       connection,
     ),
     registerRenderPdfWorker({ store, browserPool: getBrowserPool() }, connection),

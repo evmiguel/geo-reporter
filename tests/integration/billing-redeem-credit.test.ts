@@ -132,7 +132,7 @@ describe('POST /billing/redeem-credit (integration) — full lifecycle', () => {
     await store.createProbe({ gradeId: grade.id, category: 'recognition', provider: 'gpt', prompt: 'p', response: 'acme', score: 70, metadata: {} })
 
     const worker = registerGenerateReportWorker({
-      store, redis, providers: makeProviders(),
+      store, redis, providers: makeProviders(), billing: new FakeStripe(), mailer: new FakeMailer(),
     }, redis)
     const queueEvents = new QueueEvents(reportQueueName, { connection: redis })
     await queueEvents.waitUntilReady()

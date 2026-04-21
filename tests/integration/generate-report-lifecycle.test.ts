@@ -8,6 +8,7 @@ import { PostgresStore } from '../../src/store/postgres.ts'
 import { reportQueueName, type ReportJob } from '../../src/queue/queues.ts'
 import { registerGenerateReportWorker } from '../../src/queue/workers/generate-report/index.ts'
 import { MockProvider } from '../../src/llm/providers/mock.ts'
+import { FakeMailer } from '../unit/_helpers/fake-mailer.ts'
 import { startTestDb, type TestDb } from './setup.ts'
 
 let redisContainer: StartedTestContainer
@@ -105,7 +106,7 @@ describe('generate-report lifecycle (integration)', () => {
 
     // Register the worker
     const worker = registerGenerateReportWorker(
-      { store, redis, providers: makeProviders() },
+      { store, redis, providers: makeProviders(), billing: null, mailer: new FakeMailer() },
       redis,
     )
 

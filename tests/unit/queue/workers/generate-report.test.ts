@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeFakeStore } from '../../_helpers/fake-store.ts'
+import { FakeMailer } from '../../_helpers/fake-mailer.ts'
 import { MockProvider } from '../../../../src/llm/providers/mock.ts'
 import { generateReport } from '../../../../src/queue/workers/generate-report/generate-report.ts'
 
@@ -52,6 +53,8 @@ describe('generateReport', () => {
         gemini: new MockProvider({ id: 'gemini', responses: () => 'acme widget' }),
         perplexity: new MockProvider({ id: 'perplexity', responses: () => 'acme widget' }),
       },
+      billing: null,
+      mailer: new FakeMailer(),
       recommenderFn: fakeRecommender as never,
       enqueuePdfFn: async () => {},
     }, { gradeId: grade.id, sessionId: 'cs_test' })
@@ -91,6 +94,8 @@ describe('generateReport', () => {
         gemini: new MockProvider({ id: 'gemini', responses: () => 'g' }),
         perplexity: new MockProvider({ id: 'perplexity', responses: () => 'p' }),
       },
+      billing: null,
+      mailer: new FakeMailer(),
       recommenderFn: fakeRecommender as never,
       enqueuePdfFn: async () => {},
     }, { gradeId: grade.id, sessionId: 'cs_test' })).rejects.toThrow('simulated')
@@ -114,6 +119,8 @@ describe('generateReport', () => {
         gemini: new MockProvider({ id: 'gemini', responses: () => 'g' }),
         perplexity: new MockProvider({ id: 'perplexity', responses: () => 'p' }),
       },
+      billing: null,
+      mailer: new FakeMailer(),
       recommenderFn: limitedRecommender as never,
       enqueuePdfFn: async () => {},
     }, { gradeId: grade.id, sessionId: 'cs_test' })
