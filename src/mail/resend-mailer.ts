@@ -21,7 +21,7 @@ export interface ResendMailerOptions {
   apiKey: string
   from: string
   client?: ResendLikeClient
-  /** Inbox for contact-form messages. Defaults to hello@geo.erikamiguel.com. */
+  /** Inbox for contact-form messages. Defaults to erika@erikamiguel.com. */
   contactInbox?: string
 }
 
@@ -74,7 +74,7 @@ export class ResendMailer implements Mailer {
   constructor(opts: ResendMailerOptions) {
     this.client = opts.client ?? (new Resend(opts.apiKey) as unknown as ResendLikeClient)
     this.from = opts.from
-    this.contactInbox = opts.contactInbox ?? 'hello@geo.erikamiguel.com'
+    this.contactInbox = opts.contactInbox ?? 'erika@erikamiguel.com'
   }
 
   async sendMagicLink(input: MagicLinkMessage): Promise<void> {
