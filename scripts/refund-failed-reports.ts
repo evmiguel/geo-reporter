@@ -4,9 +4,13 @@
  * stripe_payments row is still 'paid' (no auto-refund yet — they predate
  * Plan 15's worker hook) and run autoRefundFailedReport on each.
  *
- * Usage:
- *   pnpm tsx scripts/refund-failed-reports.ts            # apply
- *   pnpm tsx scripts/refund-failed-reports.ts --dry-run  # preview only
+ * Usage (dev):
+ *   pnpm tsx --env-file=.env scripts/refund-failed-reports.ts --dry-run
+ *   pnpm tsx --env-file=.env scripts/refund-failed-reports.ts
+ *
+ * Usage (prod; pass env vars inline):
+ *   DATABASE_URL=... REDIS_URL=... STRIPE_SECRET_KEY=sk_live_... \
+ *     pnpm tsx scripts/refund-failed-reports.ts
  *
  * Idempotent: re-running is safe. Already-refunded grades skip — the helper
  * returns 'skipped_not_paid' when stripe_payments.status is no longer 'paid'.
