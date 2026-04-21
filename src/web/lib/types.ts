@@ -18,7 +18,7 @@ export type GradeEvent =
     }
   | { type: 'category.completed'; category: CategoryId; score: number | null }
   | { type: 'done'; overall: number; letter: string; scores: Record<CategoryId, number | null> }
-  | { type: 'failed'; kind: 'provider_outage' | 'other'; error: string }
+  | { type: 'failed'; kind: 'provider_outage' | 'scrape_failed' | 'other'; error: string }
   // Plan 8 — paid-report pipeline
   | { type: 'report.started' }
   | { type: 'report.probe.started'; category: CategoryId; provider: ProviderId; label: string }
@@ -81,7 +81,7 @@ export interface GradeState {
   overall: number | null
   letter: string | null
   error: string | null
-  failedKind: 'provider_outage' | 'other' | null
+  failedKind: 'provider_outage' | 'scrape_failed' | 'other' | null
   paidStatus: PaidStatus
   paidRefundKind: 'credit' | 'stripe' | null
   reportPhase: ReportPhase

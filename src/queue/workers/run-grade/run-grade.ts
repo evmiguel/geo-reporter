@@ -33,9 +33,24 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
     const grade = await deps.store.getGrade(gradeId)
     if (!grade) throw new GradeFailure(`grade ${gradeId} not found`)
 
-    const scrape = await deps.scrapeFn(grade.url)
-    if (scrape.text.length < 100) {
-      throw new GradeFailure('scrape produced < 100 chars of text')
+    // Scrape is isolated in its own try/catch: when it fails (site blocks bots,
+    // DNS miss, render timeout, login wall producing <100 chars) we refund the
+    // rate-limit slot and return gracefully. Throwing here would be re-retried
+    // by BullMQ — pointless when the target site is rejecting us deterministically.
+    let scrape: Awaited<ReturnType<typeof deps.scrapeFn>>
+    try {
+      scrape = await deps.scrapeFn(grade.url)
+      if (scrape.text.length < 100) {
+        throw new GradeFailure('scrape produced < 100 chars of text')
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      await refundRateLimit(deps.redis, ip, cookie, gradeId)
+      await deps.store.updateGrade(gradeId, { status: 'failed' })
+      await publishGradeEvent(deps.redis, gradeId, {
+        type: 'failed', kind: 'scrape_failed', error: message,
+      })
+      return
     }
 
     await deps.store.createScrape({

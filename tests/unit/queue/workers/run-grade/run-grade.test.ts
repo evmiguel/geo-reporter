@@ -143,7 +143,7 @@ describe('runGrade', () => {
     expect(done?.type).toBe('done')
   })
 
-  it('hard-fails when scrape text is < 100 chars', async () => {
+  it('gracefully fails with scrape_failed kind when scrape text is < 100 chars (no throw, BullMQ does not retry)', async () => {
     const store = makeFakeStore()
     const redis = makeStubRedis()
     await store.upsertCookie('c2')
@@ -161,14 +161,50 @@ describe('runGrade', () => {
       scrapeFn: async () => shortScrape,
     }
 
-    await expect(runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)).rejects.toThrow(/< 100 chars/)
+    // Should NOT throw — refunding + returning keeps BullMQ from retrying
+    // a scrape that will fail deterministically on every attempt.
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'test-cookie' }), deps)
 
     const updated = await store.getGrade(grade.id)
     expect(updated?.status).toBe('failed')
 
     const events = parseEvents(redis, grade.id)
     const failed = events.find((e) => e.type === 'failed')
-    expect(failed).toBeDefined()
+    expect(failed).toMatchObject({ type: 'failed', kind: 'scrape_failed' })
+  })
+
+  it('refunds the rate-limit bucket on scrape failure (scrape threw)', async () => {
+    const store = makeFakeStore()
+    const redis = makeStubRedis()
+    await store.upsertCookie('c-refund')
+    const grade = await seedGrade(store, 'g-refund', 'https://reddit.com')
+
+    const deps = {
+      store, redis: redis as unknown as Redis,
+      providers: {
+        claude: new MockProvider({ id: 'claude', responses: () => '' }),
+        gpt: new MockProvider({ id: 'gpt', responses: () => '' }),
+        gemini: new MockProvider({ id: 'gemini', responses: () => '' }),
+        perplexity: new MockProvider({ id: 'perplexity', responses: () => '' }),
+      },
+      scrapeFn: async () => { throw new Error('HTTP 403: blocked by site') },
+    }
+
+    // Pre-populate the rate-limit bucket with this grade (as if /grades had
+    // just committed a slot).
+    const bucketKey = `bucket:ip:test-ip+cookie:c-refund`
+    await redis.zadd(bucketKey, Date.now(), `grade:${grade.id}`)
+
+    await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'c-refund' }), deps)
+
+    // Bucket entry should be gone — the slot is refunded.
+    const remaining = await redis.zcard(bucketKey)
+    expect(remaining).toBe(0)
+
+    const events = parseEvents(redis, grade.id)
+    expect(events.find((e) => e.type === 'failed')).toMatchObject({
+      type: 'failed', kind: 'scrape_failed',
+    })
   })
 
   it('calls clearGradeArtifacts at the start of every attempt', async () => {
