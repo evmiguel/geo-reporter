@@ -6,6 +6,7 @@ import { UrlForm } from '../components/UrlForm.tsx'
 import { Toast } from '../components/Toast.tsx'
 import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { CreditsPurchasedToast } from '../components/CreditsPurchasedToast.tsx'
+import { ContactForm } from '../components/ContactForm.tsx'
 
 export function LandingPage(): JSX.Element {
   const { create, pending, error } = useCreateGrade()
@@ -75,6 +76,8 @@ export function LandingPage(): JSX.Element {
           onDismiss={() => setDeletedToast(false)}
         />
       )}
+
+      <ContactForm />
     </div>
   )
 }

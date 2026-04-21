@@ -258,6 +258,43 @@ export async function getReportStatus(reportId: string, token: string): Promise<
   return (await res.json()) as ReportStatusResponse
 }
 
+export type ContactCategory = 'refund' | 'bug' | 'feature' | 'other'
+
+export type ContactResult =
+  | { ok: true }
+  | { ok: false; kind: 'rate_limited'; retryAfter: number }
+  | { ok: false; kind: 'captcha_failed' | 'invalid_body' | 'send_failed' | 'unknown'; status?: number }
+
+export async function postContactMessage(
+  email: string,
+  category: ContactCategory,
+  body: string,
+  turnstileToken?: string,
+): Promise<ContactResult> {
+  let res: Response
+  try {
+    const payload: Record<string, unknown> = { email, category, body }
+    if (turnstileToken !== undefined) payload.turnstileToken = turnstileToken
+    res = await fetch('/contact', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    return { ok: false, kind: 'unknown', status: 0 }
+  }
+  if (res.status === 204) return { ok: true }
+  if (res.status === 429) {
+    const r = (await res.json().catch(() => ({}))) as { retryAfter?: number }
+    return { ok: false, kind: 'rate_limited', retryAfter: r.retryAfter ?? 3600 }
+  }
+  if (res.status === 403) return { ok: false, kind: 'captcha_failed' }
+  if (res.status === 400) return { ok: false, kind: 'invalid_body' }
+  if (res.status === 502) return { ok: false, kind: 'send_failed' }
+  return { ok: false, kind: 'unknown', status: res.status }
+}
+
 export async function postBillingRedeemCredit(gradeId: string): Promise<RedeemResult> {
   let res: Response
   try {
