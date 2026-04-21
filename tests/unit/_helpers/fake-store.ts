@@ -321,7 +321,11 @@ export function makeFakeStore(): FakeGradeStore {
     },
     async updateStripePaymentStatus(
       sessionId: string,
-      patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+      patch: {
+        status: 'paid' | 'refunded' | 'refund_pending' | 'failed'
+        amountCents?: number
+        currency?: string
+      },
     ): Promise<void> {
       const existing = stripePaymentsMap.get(sessionId)
       if (!existing) return

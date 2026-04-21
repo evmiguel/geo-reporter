@@ -331,7 +331,11 @@ export class PostgresStore implements GradeStore {
 
   async updateStripePaymentStatus(
     sessionId: string,
-    patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+    patch: {
+      status: 'paid' | 'refunded' | 'refund_pending' | 'failed'
+      amountCents?: number
+      currency?: string
+    },
   ): Promise<void> {
     await this.db.update(schema.stripePayments)
       .set({
