@@ -112,7 +112,7 @@ describe('peekRateLimit + commitRateLimit', () => {
     expect(blocked.limit).toBe(2)
   })
 
-  it('credit-holding cookie gets limit 10', async () => {
+  it('credit-holding cookie still gets the 2/day free cap (credits only bypass via /grades/redeem)', async () => {
     const store = makeFakeStore()
     const user = await store.upsertUser('u@x.com')
     const cookie = 'verified-with-credits'
@@ -124,14 +124,15 @@ describe('peekRateLimit + commitRateLimit', () => {
     const redis = makeStubRedis()
 
     const ip = '203.0.113.5'
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 2; i++) {
       const r = await simulateGrade(redis, store, ip, cookie, now + i * 1000)
       expect(r.allowed).toBe(true)
-      expect(r.limit).toBe(10)
+      expect(r.limit).toBe(2)
     }
-    const blocked = await simulateGrade(redis, store, ip, cookie, now + 10_000)
+    const blocked = await simulateGrade(redis, store, ip, cookie, now + 3_000)
     expect(blocked.allowed).toBe(false)
-    expect(blocked.limit).toBe(10)
+    expect(blocked.limit).toBe(2)
+    expect(blocked.paywall).toBe('daily_cap')
   })
 
   it('treats the same cookie from different IPs as independent buckets', async () => {
@@ -171,7 +172,7 @@ describe('peekRateLimit + commitRateLimit', () => {
     expect(blocked.paywall).toBe('email')
   })
 
-  it("blocked credit-holder hit returns paywall='daily_cap'", async () => {
+  it("blocked credit-holder hit returns paywall='daily_cap' — frontend then offers the credit overflow", async () => {
     const store = makeFakeStore()
     const user = await store.upsertUser('cap@x.com')
     const cookie = 'c-paywall-credits'
@@ -181,10 +182,10 @@ describe('peekRateLimit + commitRateLimit', () => {
     })
     await store.grantCreditsAndMarkPaid('cs_cap', user.id, 10, 2900, 'usd')
     const redis = makeStubRedis()
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 2; i++) {
       await simulateGrade(redis, store, '203.0.113.21', cookie, now + i)
     }
-    const blocked = await simulateGrade(redis, store, '203.0.113.21', cookie, now + 11)
+    const blocked = await simulateGrade(redis, store, '203.0.113.21', cookie, now + 3)
     expect(blocked.allowed).toBe(false)
     expect(blocked.paywall).toBe('daily_cap')
   })

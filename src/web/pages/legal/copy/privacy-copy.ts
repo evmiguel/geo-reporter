@@ -39,7 +39,7 @@ export const privacyHtml = `
 <ul>
   <li>To run the grading pipeline and deliver the report you requested.</li>
   <li>To authenticate you via magic-link email and keep you signed in.</li>
-  <li>To enforce rate limits (e.g., 3 free grades per 24 hours for anonymous users, 10 for credit holders).</li>
+  <li>To enforce rate limits (2 free grades per 24 hours; additional grades via purchased credits).</li>
   <li>To process payments and keep records required for tax and accounting.</li>
   <li>To detect and prevent abuse, fraud, and technical attacks (including server-side request forgery protections on URLs you submit).</li>
   <li>To respond to you when you contact support.</li>

@@ -32,7 +32,7 @@ export const cookiesHtml = `
   <tbody>
     <tr>
       <td><code>ggcookie</code></td>
-      <td>Holds a random, cryptographically-signed session identifier. Used to (a) bind the grades you run to your session, (b) enforce rate limits (3 free grades per 24 hours, 10 for credit holders), and (c) keep you signed in after email verification.</td>
+      <td>Holds a random, cryptographically-signed session identifier. Used to (a) bind the grades you run to your session, (b) enforce rate limits (2 free grades per 24 hours; credits buy extras), and (c) keep you signed in after email verification.</td>
       <td>Strictly necessary (first-party, HMAC-signed, HttpOnly, SameSite=Lax, Secure in production)</td>
       <td>Persistent — cleared when you sign out or delete your account; otherwise retained for rate-limit and session purposes.</td>
     </tr>

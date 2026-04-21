@@ -4,8 +4,12 @@ import type { GradeStore } from '../../store/types.ts'
 import { peekBucket, addToBucket, removeFromBucket, type BucketResult } from './bucket.ts'
 
 const WINDOW_MS = 86_400_000
-const ANON_LIMIT = 2
-const CREDITS_LIMIT = 10
+// Universal free-tier cap. Applied to every caller regardless of credit
+// balance. Credit-holders can BYPASS it by spending a credit via
+// /grades/redeem — see the "Grade (1 credit)" UX. Making credits an
+// overflow mechanic (rather than a raised free-cap) keeps the product
+// model simple: "2 free a day; credits buy extras."
+const DAILY_LIMIT = 2
 /**
  * Per-IP daily ceiling for anonymous callers — prevents incognito abuse
  * where the cookie resets per private window. Verified users (userId !== null)
@@ -42,11 +46,13 @@ async function bucketCfg(store: GradeStore, cookie: string): Promise<{
   userId: string | null
 }> {
   const row = await store.getCookieWithUserAndCredits(cookie)
-  const hasCredits = row.credits > 0
   const isAnonymous = row.userId === null
+  // Paywall still distinguishes anon ('email', prompts sign-in) from
+  // verified ('daily_cap' — frontend checks credits to decide whether to
+  // offer the "Grade (1 credit)" overflow). Limit is uniform.
   return {
-    limit: hasCredits ? CREDITS_LIMIT : ANON_LIMIT,
-    paywall: hasCredits ? 'daily_cap' : 'email',
+    limit: DAILY_LIMIT,
+    paywall: isAnonymous ? 'email' : 'daily_cap',
     isAnonymous,
     userId: row.userId,
   }
