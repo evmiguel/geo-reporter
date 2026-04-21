@@ -22,8 +22,22 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { db, closeDb } from '../src/db/client.ts'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
 import type { ProviderId } from '../src/llm/providers/types.ts'
+
+// Bypass src/config/env.ts on purpose — it demands REDIS_URL even for
+// read-only scripts. We only need DATABASE_URL here.
+const DATABASE_URL = process.env.DATABASE_URL
+if (!DATABASE_URL) {
+  console.error('DATABASE_URL is required. Pass it inline:')
+  console.error('  DATABASE_URL=<url> pnpm tsx scripts/token-cost.ts <gradeId>')
+  process.exit(1)
+}
+
+const pg = postgres(DATABASE_URL, { prepare: false, max: 2 })
+const db = drizzle(pg)
+async function closeDb(): Promise<void> { await pg.end({ timeout: 5 }) }
 
 // Prices in USD per 1M tokens. As of 2026-04-21.
 // Verify at the provider's pricing page before trusting these for
