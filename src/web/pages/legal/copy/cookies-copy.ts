@@ -44,7 +44,7 @@ export const cookiesHtml = `
 <h2>3. Third-party cookies we do <em>not</em> set</h2>
 <p>We do not use:</p>
 <ul>
-  <li>Analytics cookies (e.g. Google Analytics, Mixpanel).</li>
+  <li>Cookie-based analytics (e.g. Google Analytics, Mixpanel). We use <a href="https://plausible.io/privacy-focused-web-analytics">Plausible Analytics</a>, which is cookieless and stores no personal data — see the Privacy Policy for details.</li>
   <li>Advertising or retargeting cookies.</li>
   <li>Social media tracking pixels.</li>
   <li>Any fingerprinting or cross-site tracking.</li>

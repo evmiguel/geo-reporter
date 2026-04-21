@@ -60,6 +60,7 @@ export const privacyHtml = `
   <li><strong>Stripe</strong> — payment processing. Card data goes directly to Stripe; we receive only the transaction record. <a href="https://stripe.com/privacy">stripe.com/privacy</a></li>
   <li><strong>Resend</strong> — delivers transactional email (magic-links, receipts). <a href="https://resend.com/legal/privacy-policy">resend.com/legal/privacy-policy</a></li>
   <li><strong>Railway</strong> — application and database hosting. <a href="https://railway.com/legal/privacy">railway.com/legal/privacy</a></li>
+  <li><strong>Plausible Analytics</strong> — aggregate, cookieless, privacy-friendly traffic analytics (page counts, referrers, country, device). No personal data, no cross-site tracking, no cookies. <a href="https://plausible.io/privacy-focused-web-analytics">plausible.io/privacy-focused-web-analytics</a></li>
 </ul>
 
 <p>We may also disclose information if required by law, subpoena, or court order, or to protect the rights, property, or safety of us or others.</p>
