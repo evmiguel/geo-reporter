@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { useCreateGrade } from '../hooks/useCreateGrade.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { UrlForm } from '../components/UrlForm.tsx'
@@ -8,10 +8,14 @@ import { BuyCreditsCTA } from '../components/BuyCreditsCTA.tsx'
 import { CreditsPurchasedToast } from '../components/CreditsPurchasedToast.tsx'
 import { ContactForm } from '../components/ContactForm.tsx'
 
+interface PostSubmitFailureState { message: string }
+
 export function LandingPage(): JSX.Element {
-  const { create, pending, error } = useCreateGrade()
+  const { create, pending, error: hookError } = useCreateGrade()
   const { verified, credits, refresh } = useAuth()
   const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [verifiedToast, setVerifiedToast] = useState<boolean>(params.get('verified') === '1')
   const [authError] = useState<string | null>(params.get('auth_error'))
   const [creditsToast, setCreditsToast] = useState<'purchased' | 'canceled' | null>(
@@ -20,6 +24,13 @@ export function LandingPage(): JSX.Element {
     null,
   )
   const [deletedToast, setDeletedToast] = useState<boolean>(params.get('deleted') === '1')
+  // Slow-failure redirect from LiveGradePage: shows the same inline-error
+  // UX as a fast (peek-caught) failure, just reached via a different path.
+  // Clear out of history.state on mount so a reload doesn't re-fire it.
+  const [redirectError, setRedirectError] = useState<string | null>(() => {
+    const state = location.state as { postSubmitFailure?: PostSubmitFailureState } | null
+    return state?.postSubmitFailure?.message ?? null
+  })
 
   useEffect(() => {
     const hasAny = ['verified', 'auth_error', 'credits', 'deleted'].some((k) => params.get(k) !== null)
@@ -33,8 +44,23 @@ export function LandingPage(): JSX.Element {
     }
     if (params.get('credits') === 'purchased') void refresh()
     if (params.get('deleted') === '1') void refresh()
+    // Clear the post-submit-failure location state so reload doesn't resurrect
+    // the error. We kept the message in component state above, so it still
+    // renders this pass.
+    const s = location.state as { postSubmitFailure?: PostSubmitFailureState } | null
+    if (s?.postSubmitFailure) {
+      navigate(location.pathname, { replace: true, state: {} })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Hook clears its own error at the start of every submit; mirror that
+  // for the redirect error so a fresh submit wipes the banner.
+  const error = hookError ?? redirectError
+  function handleSubmit(url: string, token?: string): void {
+    setRedirectError(null)
+    void create(url, token)
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
@@ -52,7 +78,7 @@ export function LandingPage(): JSX.Element {
       )}
 
       <UrlForm
-        onSubmit={(url, token) => { void create(url, token) }}
+        onSubmit={handleSubmit}
         pending={pending}
         {...(error !== null ? { errorMessage: error } : {})}
       />
