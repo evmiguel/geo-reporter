@@ -132,7 +132,7 @@ describe('rate-limit (integration)', () => {
     const blocked = await peekRateLimit(redis, store, ip, cookie)
     expect(blocked.allowed).toBe(false)
 
-    await refundRateLimit(redis, ip, cookie, 'g-two')
+    await refundRateLimit(redis, store, ip, cookie, 'g-two')
     const after = await peekRateLimit(redis, store, ip, cookie)
     expect(after.allowed).toBe(true)
     expect(after.used).toBe(2)
