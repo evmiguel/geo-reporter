@@ -10,8 +10,8 @@ export type FailKind = 'scrape_failed' | 'provider_outage' | 'other'
 export function messageForFailKind(failKind: FailKind): string {
   if (failKind === 'scrape_failed') {
     return "We couldn't read that page. Some sites block automated tools — " +
-      "marketing pages, blogs, and personal sites work best. This didn't " +
-      'count against your daily limit.'
+      'marketing pages, blogs, and personal sites work best. Reddit, X, ' +
+      "Facebook, and login-gated apps usually don't work."
   }
   if (failKind === 'provider_outage') {
     return "Claude or ChatGPT wasn't reachable. Give it a minute and try " +

@@ -173,7 +173,7 @@ describe('runGrade', () => {
     expect(failed).toMatchObject({ type: 'failed', kind: 'scrape_failed' })
   })
 
-  it('refunds the rate-limit bucket on scrape failure (scrape threw)', async () => {
+  it('does NOT refund the rate-limit bucket on scrape failure — user picks their URLs', async () => {
     const store = makeFakeStore()
     const redis = makeStubRedis()
     await store.upsertCookie('c-refund')
@@ -190,16 +190,16 @@ describe('runGrade', () => {
       scrapeFn: async () => { throw new Error('HTTP 403: blocked by site') },
     }
 
-    // Pre-populate the rate-limit bucket with this grade (as if /grades had
-    // just committed a slot).
     const bucketKey = `bucket:ip:test-ip+cookie:c-refund`
     await redis.zadd(bucketKey, Date.now(), `grade:${grade.id}`)
 
     await runGrade(makeJob({ gradeId: grade.id, tier: 'free', ip: 'test-ip', cookie: 'c-refund' }), deps)
 
-    // Bucket entry should be gone — the slot is refunded.
+    // Bucket entry should STILL be there — scrape failures don't refund.
+    // Prevents the DoS vector where a script retries hostile URLs
+    // indefinitely and saturates the Playwright worker pool.
     const remaining = await redis.zcard(bucketKey)
-    expect(remaining).toBe(0)
+    expect(remaining).toBe(1)
 
     const events = parseEvents(redis, grade.id)
     expect(events.find((e) => e.type === 'failed')).toMatchObject({

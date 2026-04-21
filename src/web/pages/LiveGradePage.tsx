@@ -90,7 +90,9 @@ export function LiveGradePage(): JSX.Element {
   if (state.phase === 'failed') {
     const isOutage = state.failedKind === 'provider_outage'
     const isScrapeFail = state.failedKind === 'scrape_failed'
-    const refunded = isOutage || isScrapeFail
+    // Only provider outages refund the slot now — scrape failures are
+    // on the user's URL choice (hostile sites still eat a slot).
+    const refunded = isOutage
     const label =
       isOutage ? 'LLM provider outage' :
       isScrapeFail ? "couldn't fetch that site" :
