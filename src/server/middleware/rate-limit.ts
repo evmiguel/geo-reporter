@@ -4,7 +4,7 @@ import type { GradeStore } from '../../store/types.ts'
 import { peekBucket, addToBucket, removeFromBucket, type BucketResult } from './bucket.ts'
 
 const WINDOW_MS = 86_400_000
-const ANON_LIMIT = 3
+const ANON_LIMIT = 2
 const CREDITS_LIMIT = 10
 /**
  * Per-IP daily ceiling for anonymous callers — prevents incognito abuse

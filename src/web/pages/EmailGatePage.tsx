@@ -75,7 +75,7 @@ export function EmailGatePage(): JSX.Element {
       <p className="text-[var(--color-fg-dim)] mb-4">
         {isRateCapped ? (
           <>
-            3 grades per 24 hours, then you're tapped out. Verify your email to buy{' '}
+            2 grades per 24 hours, then you're tapped out. Verify your email to buy{' '}
             <span className="text-[var(--color-good)]">10 reports for $29</span> — each credit grades a
             site and unlocks a full 4-provider paid report.
           </>

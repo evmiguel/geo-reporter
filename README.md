@@ -192,11 +192,11 @@ curl -s -b /tmp/gg-cookies.txt http://localhost:7777/grades/$GRADE_ID | jq
 
 **Rate-limit tiers:**
 
-- **Anonymous** (cookie only): 3 grades per 24h.
-- **Email-verified:** 3 grades per 24h (email is identity + credit balance portability; no bonus).
+- **Anonymous** (cookie only): 2 grades per 24h.
+- **Email-verified:** 2 grades per 24h (email is identity + credit balance portability; no bonus).
 - **Credit-holder:** 10 grades per 24h while `users.credits > 0`. Credits are $29 for 10, each redeems for a full paid report.
 
-Hit the cap and the 4th request returns:
+Hit the cap and the 3rd request returns:
 ```json
 {
   "paywall": "email",

@@ -67,51 +67,49 @@ describe('peekRateLimit + commitRateLimit', () => {
     await store.upsertCookie('c-1')
     const redis = makeStubRedis()
     const result = await simulateGrade(redis, store, '203.0.113.1', 'c-1', now)
-    expect(result).toEqual({ allowed: true, limit: 3, used: 1, retryAfter: 0, paywall: 'email' })
+    expect(result).toEqual({ allowed: true, limit: 2, used: 1, retryAfter: 0, paywall: 'email' })
   })
 
-  it('blocks the 4th anonymous request within 24h with retryAfter = age-until-oldest-expires', async () => {
+  it('blocks the 3rd anonymous request within 24h with retryAfter = age-until-oldest-expires', async () => {
     const store = makeFakeStore()
     await store.upsertCookie('c-2')
     const redis = makeStubRedis()
     await simulateGrade(redis, store, '203.0.113.2', 'c-2', now)
     await simulateGrade(redis, store, '203.0.113.2', 'c-2', now + 1000)
-    await simulateGrade(redis, store, '203.0.113.2', 'c-2', now + 2000)
-    const fourth = await simulateGrade(redis, store, '203.0.113.2', 'c-2', now + 3000)
-    expect(fourth.allowed).toBe(false)
-    expect(fourth.limit).toBe(3)
-    expect(fourth.used).toBe(3)
-    expect(fourth.retryAfter).toBe(86397)
+    const third = await simulateGrade(redis, store, '203.0.113.2', 'c-2', now + 2000)
+    expect(third.allowed).toBe(false)
+    expect(third.limit).toBe(2)
+    expect(third.used).toBe(2)
+    expect(third.retryAfter).toBe(86398)
   })
 
-  it('allows the 4th request after the oldest entry falls out of the 24h window', async () => {
+  it('allows the 3rd request after the oldest entry falls out of the 24h window', async () => {
     const store = makeFakeStore()
     await store.upsertCookie('c-3')
     const redis = makeStubRedis()
     await simulateGrade(redis, store, '203.0.113.3', 'c-3', now)
     await simulateGrade(redis, store, '203.0.113.3', 'c-3', now + 1000)
-    await simulateGrade(redis, store, '203.0.113.3', 'c-3', now + 2000)
     const later = now + 86_401_000
     const result = await simulateGrade(redis, store, '203.0.113.3', 'c-3', later)
     expect(result.allowed).toBe(true)
-    expect(result.used).toBe(3)
+    expect(result.used).toBe(2)
   })
 
-  it('verified cookie (no credits) gets limit 3 (same as anonymous)', async () => {
+  it('verified cookie (no credits) gets limit 2 (same as anonymous)', async () => {
     const store = makeFakeStore()
     const user = await store.upsertUser('verified@example.com')
     const cookie = 'c-4'
     await store.upsertCookie(cookie, user.id)
     const redis = makeStubRedis()
     const ip = '203.0.113.4'
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       const r = await simulateGrade(redis, store, ip, cookie, now + i * 1000)
       expect(r.allowed).toBe(true)
-      expect(r.limit).toBe(3)
+      expect(r.limit).toBe(2)
     }
     const blocked = await simulateGrade(redis, store, ip, cookie, now + 3000)
     expect(blocked.allowed).toBe(false)
-    expect(blocked.limit).toBe(3)
+    expect(blocked.limit).toBe(2)
   })
 
   it('credit-holding cookie gets limit 10', async () => {
@@ -140,7 +138,7 @@ describe('peekRateLimit + commitRateLimit', () => {
     const store = makeFakeStore()
     await store.upsertCookie('c-6')
     const redis = makeStubRedis()
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       const r = await simulateGrade(redis, store, '203.0.113.6', 'c-6', now + i)
       expect(r.allowed).toBe(true)
     }
@@ -165,7 +163,7 @@ describe('peekRateLimit + commitRateLimit', () => {
     const store = makeFakeStore()
     await store.upsertCookie('c-paywall-anon')
     const redis = makeStubRedis()
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       await simulateGrade(redis, store, '203.0.113.20', 'c-paywall-anon', now + i)
     }
     const blocked = await simulateGrade(redis, store, '203.0.113.20', 'c-paywall-anon', now + 4)
@@ -191,11 +189,11 @@ describe('peekRateLimit + commitRateLimit', () => {
     expect(blocked.paywall).toBe('daily_cap')
   })
 
-  it('treats an unknown cookie (no DB row) as anonymous limit=3', async () => {
+  it('treats an unknown cookie (no DB row) as anonymous limit=2', async () => {
     const store = makeFakeStore()
     const redis = makeStubRedis()
     const result = await simulateGrade(redis, store, '203.0.113.8', 'c-unknown', now)
-    expect(result.limit).toBe(3)
+    expect(result.limit).toBe(2)
     expect(result.allowed).toBe(true)
   })
 
@@ -240,16 +238,15 @@ describe('peekRateLimit + commitRateLimit', () => {
     const ip = '203.0.113.30'
     await commitRateLimit(redis, store, ip, 'c-refund', 'grade-a', now)
     await commitRateLimit(redis, store, ip, 'c-refund', 'grade-b', now + 1)
-    await commitRateLimit(redis, store, ip, 'c-refund', 'grade-c', now + 2)
 
-    // Fourth request should be blocked.
+    // Third request should be blocked (limit=2).
     const blocked = await peekRateLimit(redis, store, ip, 'c-refund', now + 3)
     expect(blocked.allowed).toBe(false)
 
-    // Refund grade-b; now used drops to 2 and a new request is allowed.
+    // Refund grade-b; now used drops to 1 and a new request is allowed.
     await refundRateLimit(redis, ip, 'c-refund', 'grade-b')
     const after = await peekRateLimit(redis, store, ip, 'c-refund', now + 4)
     expect(after.allowed).toBe(true)
-    expect(after.used).toBe(2)
+    expect(after.used).toBe(1)
   })
 })
