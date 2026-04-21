@@ -9,13 +9,27 @@ import type { ServerDeps } from '../deps.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Accepts bare domains (`example.com`) and auto-prefixes `https://` before
+// validating. Users don't have to type the scheme.
 const CreateGradeBody = z.object({
-  url: z.string().url().refine(
-    (u) => {
-      try { const p = new URL(u); return p.protocol === 'http:' || p.protocol === 'https:' } catch { return false }
-    },
-    { message: 'url must be http:// or https://' },
-  ),
+  url: z.string().trim().min(1).transform((raw, ctx) => {
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    try {
+      const parsed = new URL(normalized)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        ctx.addIssue({ code: 'custom', message: 'url must be http:// or https://' })
+        return z.NEVER
+      }
+      if (parsed.hostname.length === 0 || !parsed.hostname.includes('.')) {
+        ctx.addIssue({ code: 'custom', message: 'url must include a valid domain' })
+        return z.NEVER
+      }
+      return normalized
+    } catch {
+      ctx.addIssue({ code: 'custom', message: 'invalid URL' })
+      return z.NEVER
+    }
+  }),
   turnstileToken: z.string().optional(),
 })
 
