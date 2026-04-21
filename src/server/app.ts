@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { serveStatic } from '@hono/node-server/serve-static'
 import type { ServerDeps } from './deps.ts'
 import { clientIp } from './middleware/client-ip.ts'
@@ -19,6 +20,44 @@ export function buildApp(deps: ServerDeps): Hono {
   const clientIpOpts = { isProduction: deps.env.NODE_ENV === 'production' }
 
   app.use('*', requestLog())
+
+  // F-4: security headers. Only applied in production — Vite's dev server
+  // needs relaxed CSP for HMR; tests fetch from `http://test` and don't
+  // care about HSTS/X-Frame-Options. Per-route overrides (notably the
+  // stricter CSP on /report/:id) set later in the pipeline still win
+  // because they're set at response-construction time.
+  //
+  // Known: `script-src` carries 'unsafe-inline' because Plausible's init
+  // stub is an inline <script> in index.html (buffers calls until the
+  // async tracker loads). Follow-up logged in the production checklist
+  // to move that stub into a bundled module so we can drop 'unsafe-inline'.
+  if (deps.env.NODE_ENV === 'production') {
+    app.use('*', secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://challenges.cloudflare.com', 'https://plausible.io'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'", 'https://challenges.cloudflare.com', 'https://plausible.io'],
+        frameSrc: ['https://challenges.cloudflare.com'],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        objectSrc: ["'none'"],
+      },
+      strictTransportSecurity: 'max-age=63072000; includeSubDomains; preload',
+      xContentTypeOptions: 'nosniff',
+      xFrameOptions: 'DENY',
+      referrerPolicy: 'strict-origin-when-cross-origin',
+      crossOriginOpenerPolicy: 'same-origin',
+      permissionsPolicy: {
+        camera: [],
+        microphone: [],
+        geolocation: [],
+      },
+    }))
+  }
 
   app.get('/healthz', async (c) => {
     const [dbResult, redisResult] = await Promise.allSettled([deps.pingDb(), deps.pingRedis()])
