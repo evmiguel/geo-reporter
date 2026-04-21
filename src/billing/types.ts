@@ -32,8 +32,15 @@ export interface WebhookEvent {
   }
 }
 
+export interface RefundResult {
+  ok: boolean
+  amountRefunded?: number
+  errorMessage?: string
+}
+
 export interface BillingClient {
   createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSession>
   retrieveCheckoutSession(sessionId: string): Promise<CheckoutSession>
   verifyWebhookSignature(rawBody: string, signature: string, secret: string): WebhookEvent
+  refund(sessionId: string): Promise<RefundResult>
 }
