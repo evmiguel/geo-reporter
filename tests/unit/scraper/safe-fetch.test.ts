@@ -71,28 +71,44 @@ describe('safeFetch — per-hop validation', () => {
 
 type DnsCb = (err: NodeJS.ErrnoException | null, addrs: { address: string; family: number }[]) => void
 type LookupArgs = [string, unknown, DnsCb]
-type LookupCb = (err: Error | null, addr: string, family: number) => void
+type LookupCb = (err: Error | null, addrOrList: unknown, family?: number) => void
 
 function invokeLookup(
   fakeDns: (...args: LookupArgs) => void,
   hostname: string,
-): Promise<{ err: Error | null; addr: string; family: number }> {
+  opts: { all?: boolean } = {},
+): Promise<{ err: Error | null; addrOrList: unknown; family: number | undefined }> {
   const lookup = makeSafeLookup(fakeDns as unknown as typeof import('node:dns').lookup)
   return new Promise((resolve) => {
-    const cb: LookupCb = (err, addr, family) => { resolve({ err, addr, family }) }
-    lookup(hostname, {}, cb)
+    const cb: LookupCb = (err, addrOrList, family) => { resolve({ err, addrOrList, family }) }
+    lookup(hostname, opts, cb)
   })
 }
 
 describe('makeSafeLookup — DNS rebinding defense', () => {
-  it('returns the first public address', async () => {
+  it('single-address mode: returns the first public address + family', async () => {
     const fakeDns = (...args: LookupArgs) => {
       args[2](null, [{ address: '1.2.3.4', family: 4 }])
     }
-    const { err, addr, family } = await invokeLookup(fakeDns, 'legit.example')
+    const { err, addrOrList, family } = await invokeLookup(fakeDns, 'legit.example')
     expect(err).toBeNull()
-    expect(addr).toBe('1.2.3.4')
+    expect(addrOrList).toBe('1.2.3.4')
     expect(family).toBe(4)
+  })
+
+  it('all:true mode (undici shape): returns the full array', async () => {
+    const fakeDns = (...args: LookupArgs) => {
+      args[2](null, [
+        { address: '1.2.3.4', family: 4 },
+        { address: '2606::1', family: 6 },
+      ])
+    }
+    const { err, addrOrList } = await invokeLookup(fakeDns, 'legit.example', { all: true })
+    expect(err).toBeNull()
+    expect(addrOrList).toEqual([
+      { address: '1.2.3.4', family: 4 },
+      { address: '2606::1', family: 6 },
+    ])
   })
 
   it('rejects any resolved address that is private', async () => {
@@ -108,6 +124,12 @@ describe('makeSafeLookup — DNS rebinding defense', () => {
       args[2](null, [{ address: '1.2.3.4', family: 4 }, { address: '127.0.0.1', family: 4 }])
     }
     const { err } = await invokeLookup(fakeDns, 'mixed.example')
+    expect(err).toBeInstanceOf(SSRFBlockedError)
+  })
+
+  it('rejects when DNS returns an empty address list', async () => {
+    const fakeDns = (...args: LookupArgs) => { args[2](null, []) }
+    const { err } = await invokeLookup(fakeDns, 'empty.example')
     expect(err).toBeInstanceOf(SSRFBlockedError)
   })
 

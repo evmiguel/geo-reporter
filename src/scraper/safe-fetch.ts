@@ -1,8 +1,18 @@
 import { Agent, fetch as undiciFetch } from 'undici'
-import { lookup as dnsLookup, type LookupOptions } from 'node:dns'
+import { lookup as dnsLookup, type LookupOptions, type LookupAddress } from 'node:dns'
 import { resolveSafeHost, isPrivateAddress, SSRFBlockedError } from './ssrf.ts'
 
-type SafeLookupCb = (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+// Callback shape matches node's net.LookupFunction: the 2nd arg is either a
+// single address string (when the caller asked for one address) OR a
+// LookupAddress[] (when the caller passed all:true). Undici's connect layer
+// calls us with all:true and destructures the array — if we returned a
+// single-address shape instead, it would crash with
+// `Invalid IP address: undefined`, which is exactly what AmEx was hitting.
+type SafeLookupCb = (
+  err: NodeJS.ErrnoException | null,
+  addressOrList: string | LookupAddress[],
+  family?: number,
+) => void
 type SafeLookup = (hostname: string, options: LookupOptions, cb: SafeLookupCb) => void
 
 /**
@@ -18,17 +28,30 @@ export function makeSafeLookup(
 ): SafeLookup {
   return (hostname, options, cb) => {
     const opts = typeof options === 'object' && options !== null ? options : {}
-    dns(hostname, { all: true, ...opts }, (err, addrs) => {
+    // Always resolve ALL addresses so we can reject any-private (defense
+    // against mixed record sets). Whether we hand the array or a single
+    // address back to the caller depends on what THEY asked for.
+    const wantArray = opts.all === true
+    dns(hostname, { ...opts, all: true }, (err, addrs) => {
       if (err) { cb(err, '', 0); return }
-      const list = Array.isArray(addrs) ? addrs : [{ address: addrs as unknown as string, family: 4 }]
-      for (const a of list) {
-        if (isPrivateAddress(a.address)) {
-          cb(new SSRFBlockedError(hostname, a.address), '', 0)
-          return
-        }
+      const list = (Array.isArray(addrs) ? addrs : []) as LookupAddress[]
+      if (list.length === 0) {
+        cb(new SSRFBlockedError(hostname, 'no-address'), '', 0)
+        return
       }
-      const pick = list[0]!
-      cb(null, pick.address, pick.family)
+      // Reject if ANY resolved address is private — mixed record sets are
+      // a known rebinding shape.
+      const privateHit = list.find((a) => isPrivateAddress(a.address))
+      if (privateHit) {
+        cb(new SSRFBlockedError(hostname, privateHit.address), '', 0)
+        return
+      }
+      if (wantArray) {
+        cb(null, list)
+      } else {
+        const pick = list[0]!
+        cb(null, pick.address, pick.family)
+      }
     })
   }
 }
