@@ -48,4 +48,20 @@ describe('rescoreFromProbes', () => {
     ])
     expect(result.overall).toBe(100)
   })
+
+  it('averages SEO probes across distinct signals (real-world shape: metadata.signal, no label)', () => {
+    // Regression: prior keyFor collapsed every SEO probe to 'seo:null:seo'
+    // because metadata.label was absent and p.category was used as the
+    // label fallback. After the fix, metadata.signal (the real per-row
+    // discriminator) is used so each signal is its own dedup bucket.
+    const result = rescoreFromProbes([
+      probe({ category: 'seo', provider: null, score: 100, metadata: { signal: 'robots_txt', pass: true } }),
+      probe({ category: 'seo', provider: null, score: 100, metadata: { signal: 'sitemap',    pass: true } }),
+      probe({ category: 'seo', provider: null, score: 0,   metadata: { signal: 'llms_txt',   pass: false } }),
+      probe({ category: 'seo', provider: null, score: 100, metadata: { signal: 'title',      pass: true } }),
+      probe({ category: 'seo', provider: null, score: 0,   metadata: { signal: 'description', pass: false } }),
+    ])
+    // 100 + 100 + 0 + 100 + 0 = 300 / 5 = 60 (rounded)
+    expect(result.scores.seo).toBe(60)
+  })
 })

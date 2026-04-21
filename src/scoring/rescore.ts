@@ -11,9 +11,18 @@ export interface RescoreResult {
 
 export function rescoreFromProbes(probes: Probe[]): RescoreResult {
   // Dedup: newest createdAt wins per (category, provider, label).
+  //
+  // SEO probes don't set metadata.label (they use metadata.signal for the
+  // signal name). Without the signal fallback, every SEO probe keyed on
+  // `seo:null:seo` and only the latest one survived — collapsing the
+  // whole category to one probe's score and reducing SEO on every paid
+  // report to whichever signal happened to run last.
   const keyFor = (p: Probe): string => {
-    const meta = p.metadata as { label?: string }
-    const label = typeof meta.label === 'string' ? meta.label : p.category
+    const meta = p.metadata as { label?: string; signal?: string }
+    const label =
+      typeof meta.label === 'string' ? meta.label :
+      typeof meta.signal === 'string' ? meta.signal :
+      p.category
     return `${p.category}:${p.provider ?? 'null'}:${label}`
   }
   const latest = new Map<string, Probe>()
