@@ -379,6 +379,16 @@ export class PostgresStore implements GradeStore {
     return { ok: true, remaining: row.credits }
   }
 
+  async incrementCredits(userId: string, delta: number): Promise<number> {
+    const [row] = await this.db
+      .update(schema.users)
+      .set({ credits: sql`${schema.users.credits} + ${delta}` })
+      .where(eq(schema.users.id, userId))
+      .returning({ credits: schema.users.credits })
+    if (!row) throw new Error(`incrementCredits: user ${userId} not found`)
+    return row.credits
+  }
+
   async getCookieWithUserAndCredits(cookie: string): Promise<{
     cookie: string; userId: string | null; email: string | null; credits: number
   }> {

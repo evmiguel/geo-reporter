@@ -99,6 +99,7 @@ export interface GradeStore {
     currency: string,
   ): Promise<void>
   redeemCredit(userId: string): Promise<{ ok: true; remaining: number } | { ok: false }>
+  incrementCredits(userId: string, delta: number): Promise<number>
   getCookieWithUserAndCredits(cookie: string): Promise<{
     cookie: string
     userId: string | null
