@@ -30,8 +30,8 @@ describe('cookie-sign', () => {
     expect(verifyCookie(signed, 'different-key-exactly-32-chars-bb')).toBe(null)
   })
 
-  it('parseCookie returns plain-uuid shape for unsigned input', () => {
-    expect(parseCookie(UUID)).toEqual({ kind: 'plain', uuid: UUID })
+  it('parseCookie treats a bare UUID as malformed (no plain-UUID grace path)', () => {
+    expect(parseCookie(UUID)).toEqual({ kind: 'malformed' })
   })
 
   it('parseCookie returns signed shape for signed input', () => {

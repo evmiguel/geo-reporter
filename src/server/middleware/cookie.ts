@@ -9,8 +9,6 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
 
 type Env = { Variables: { cookie: string; userId: string | null } }
 
-let graceWarned = false
-
 async function issueFresh(
   c: Context<Env>,
   store: GradeStore,
@@ -30,22 +28,6 @@ async function issueFresh(
   return { uuid, userId: row.userId }
 }
 
-function reIssueSigned(
-  c: Context<Env>,
-  uuid: string,
-  hmacKey: string,
-  isProduction: boolean,
-): void {
-  const signed = signCookie(uuid, hmacKey)
-  setCookie(c, COOKIE_NAME, signed, {
-    httpOnly: true,
-    sameSite: 'Lax',
-    secure: isProduction,
-    path: '/',
-    maxAge: ONE_YEAR_SECONDS,
-  })
-}
-
 export function cookieMiddleware(
   store: GradeStore,
   isProduction: boolean,
@@ -62,19 +44,7 @@ export function cookieMiddleware(
       userId = fresh.userId
     } else {
       const parsed = parseCookie(raw)
-      if (parsed.kind === 'plain') {
-        if (!graceWarned) {
-          console.log(JSON.stringify({
-            msg: 'cookie_grace_path: accepted plain uuid, re-signed',
-            tag: 'plain_uuid_cookie_migrated',
-          }))
-          graceWarned = true
-        }
-        const row = await store.upsertCookie(parsed.uuid)
-        reIssueSigned(c, parsed.uuid, hmacKey, isProduction)
-        uuid = parsed.uuid
-        userId = row.userId
-      } else if (parsed.kind === 'signed') {
+      if (parsed.kind === 'signed') {
         const verified = verifyCookie(raw, hmacKey)
         if (verified) {
           // Idempotently ensure the cookies row exists. Normally a no-op (the

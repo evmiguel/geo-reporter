@@ -4,7 +4,6 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 const HMAC_CHARS = 22
 
 export type ParsedCookie =
-  | { kind: 'plain'; uuid: string }
   | { kind: 'signed'; uuid: string; hmac: string }
   | { kind: 'malformed' }
 
@@ -30,7 +29,10 @@ export function verifyCookie(raw: string, key: string): string | null {
 
 export function parseCookie(raw: string): ParsedCookie {
   if (!raw) return { kind: 'malformed' }
-  if (UUID_V4_REGEX.test(raw)) return { kind: 'plain', uuid: raw }
+  // No plain-UUID grace path — a bare UUID with no HMAC is treated as malformed
+  // and triggers fresh cookie issuance. Any client still holding a pre-HMAC
+  // cookie from pre-Plan-7 gets a new signed one on their next request; no
+  // user-visible breakage.
   const parts = raw.split('.')
   if (parts.length !== 2) return { kind: 'malformed' }
   const [uuid, hmac] = parts
