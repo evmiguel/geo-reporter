@@ -10,6 +10,7 @@ import { gradesRouter } from './routes/grades.ts'
 import { gradesEventsRouter } from './routes/grades-events.ts'
 import { authRouter } from './routes/auth.ts'
 import { billingRouter } from './routes/billing.ts'
+import { contactRouter } from './routes/contact.ts'
 import { reportRouter } from './routes/report.ts'
 
 export function buildApp(deps: ServerDeps): Hono {
@@ -75,6 +76,16 @@ export function buildApp(deps: ServerDeps): Hono {
       console.warn('Stripe not configured — /billing endpoints return 503. Set STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET/STRIPE_PRICE_ID.')
     }
   }
+
+  const contactScope = new Hono<{ Variables: { cookie: string; clientIp: string; userId: string | null } }>()
+  contactScope.use('*', clientIp(clientIpOpts), cookieMiddleware(deps.store, deps.env.NODE_ENV === 'production', deps.env.COOKIE_HMAC_KEY))
+  contactScope.route('/', contactRouter({
+    store: deps.store,
+    redis: deps.redis,
+    mailer: deps.mailer,
+    turnstileSecretKey: deps.env.TURNSTILE_SECRET_KEY ?? null,
+  }))
+  app.route('/contact', contactScope)
 
   app.route('/report', reportRouter({ store: deps.store }))
 
