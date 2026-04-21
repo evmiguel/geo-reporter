@@ -1,5 +1,7 @@
 import { Resend } from 'resend'
-import type { Mailer, MagicLinkMessage, RefundNoticeMessage, ContactMessage } from './types.ts'
+import type {
+  Mailer, MagicLinkMessage, RefundNoticeMessage, ContactMessage, CrashAlert,
+} from './types.ts'
 
 interface ResendLikeClient {
   emails: {
@@ -23,6 +25,8 @@ export interface ResendMailerOptions {
   client?: ResendLikeClient
   /** Inbox for contact-form messages. Defaults to erika@erikamiguel.com. */
   contactInbox?: string
+  /** Inbox for server crash alerts. Defaults to erika@erikamiguel.com. */
+  alertInbox?: string
 }
 
 export class MailerError extends Error {
@@ -70,11 +74,13 @@ export class ResendMailer implements Mailer {
   private readonly client: ResendLikeClient
   private readonly from: string
   private readonly contactInbox: string
+  private readonly alertInbox: string
 
   constructor(opts: ResendMailerOptions) {
     this.client = opts.client ?? (new Resend(opts.apiKey) as unknown as ResendLikeClient)
     this.from = opts.from
     this.contactInbox = opts.contactInbox ?? 'erika@erikamiguel.com'
+    this.alertInbox = opts.alertInbox ?? 'erika@erikamiguel.com'
   }
 
   async sendMagicLink(input: MagicLinkMessage): Promise<void> {
@@ -117,6 +123,31 @@ export class ResendMailer implements Mailer {
       from: this.from,
       to: this.contactInbox,
       replyTo: msg.fromEmail,
+      subject,
+      text,
+      html,
+    })
+    if (error) throw new MailerError(`resend: ${error.message}`)
+  }
+
+  async sendCrashAlert(alert: CrashAlert): Promise<void> {
+    const firstLine = alert.message.split('\n')[0] ?? alert.message
+    const subject = `[GEO Reporter] ${alert.service} crash: ${firstLine.slice(0, 80)}`
+    const text =
+      `Service: ${alert.service}\n` +
+      `Kind: ${alert.kind}\n` +
+      `When: ${alert.timestamp.toISOString()}\n` +
+      `Message: ${alert.message}\n\n` +
+      `Stack:\n${alert.stack}\n`
+    const html =
+      `<p><strong>Service:</strong> ${escapeHtml(alert.service)}</p>` +
+      `<p><strong>Kind:</strong> ${escapeHtml(alert.kind)}</p>` +
+      `<p><strong>When:</strong> ${escapeHtml(alert.timestamp.toISOString())}</p>` +
+      `<p><strong>Message:</strong> ${escapeHtml(alert.message)}</p>` +
+      `<pre style="background:#f6f6f6;padding:12px;overflow-x:auto">${escapeHtml(alert.stack)}</pre>`
+    const { error } = await this.client.emails.send({
+      from: this.from,
+      to: this.alertInbox,
       subject,
       text,
       html,
