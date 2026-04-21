@@ -64,19 +64,34 @@ export function LiveGradePage(): JSX.Element {
 
   if (state.phase === 'failed') {
     const isOutage = state.failedKind === 'provider_outage'
+    const isScrapeFail = state.failedKind === 'scrape_failed'
+    const refunded = isOutage || isScrapeFail
+    const label =
+      isOutage ? 'LLM provider outage' :
+      isScrapeFail ? "couldn't fetch that site" :
+      'grade failed'
+    const headline =
+      isOutage ? "Claude or ChatGPT wasn't reachable." :
+      isScrapeFail ? "We couldn't read that page." :
+      state.error ?? 'unknown error'
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="text-xs tracking-wider text-[var(--color-fg-muted)] uppercase">
-          {isOutage ? 'LLM provider outage' : 'grade failed'}
+          {label}
         </div>
         <h2 className="text-xl text-[var(--color-warn)] mt-2 mb-2">
-          {isOutage
-            ? "Claude or ChatGPT wasn't reachable."
-            : state.error ?? 'unknown error'}
+          {headline}
         </h2>
-        {isOutage && (
+        {isScrapeFail && (
+          <p className="text-sm text-[var(--color-fg-dim)] mb-2">
+            Some sites block automated tools. Marketing pages, blogs, and personal sites work best.
+            Reddit, X/Twitter, Facebook, and login-gated apps usually don't.
+          </p>
+        )}
+        {refunded && (
           <p className="text-sm text-[var(--color-fg-dim)] mb-4">
-            This grade didn't count against your daily limit. Give it a minute and try again.
+            This grade didn't count against your daily limit.
+            {isOutage && ' Give it a minute and try again.'}
           </p>
         )}
         <Link to="/" className="text-[var(--color-brand)] underline">try another URL →</Link>
