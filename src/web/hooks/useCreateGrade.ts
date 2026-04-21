@@ -119,12 +119,16 @@ export function useCreateGrade(): UseCreateGradeResult {
     if (result.ok) {
       // A credit was spent server-side; pull the updated balance so the
       // header / account / BuyCreditsCTA reflect the new count before the
-      // user navigates away. Fire-and-forget — if it's slow, the grade
-      // page already navigates.
+      // user navigates away.
       void refreshAuth()
       const peek = await peekForFailure(result.gradeId)
       setPending(false)
       if (peek.kind === 'failed') {
+        // Scrape or outage failed; the worker auto-refunds the credit on
+        // these paths (refundCreditIfRedeemed in run-grade.ts). Pull the
+        // new balance so the inline error appears alongside the restored
+        // count instead of the post-spend one.
+        void refreshAuth()
         setError(messageForFailKind(peek.failKind))
         return
       }

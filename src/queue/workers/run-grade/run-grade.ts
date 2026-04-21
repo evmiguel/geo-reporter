@@ -3,8 +3,39 @@ import { publishGradeEvent } from '../../events.ts'
 import { weightedOverall } from '../../../scoring/composite.ts'
 import { DEFAULT_WEIGHTS, type CategoryId } from '../../../scoring/weights.ts'
 import { refundRateLimit } from '../../../server/middleware/rate-limit.ts'
+import type { GradeStore } from '../../../store/types.ts'
 import type { GradeJob } from '../../queues.ts'
 import { GradeFailure, type RunGradeDeps } from './deps.ts'
+
+/**
+ * Return a credit when a credit-redeemed grade fails before completing.
+ *
+ * /grades/redeem decrements the user's credit at submit time and writes a
+ * paid stripe_payments row (kind='credits'). If scraping or the provider
+ * outage check fails, we owe the credit back: increment the user's
+ * balance, flip the audit row to 'refunded'. Stripe $19 grades can't
+ * reach this path — /billing/checkout requires status='done' — so credit
+ * is the only shape we have to handle here. Plan 15's
+ * autoRefundFailedReport covers post-done failures.
+ */
+async function refundCreditIfRedeemed(store: GradeStore, gradeId: string): Promise<void> {
+  const payments = await store.listStripePaymentsByGrade(gradeId)
+  const paid = payments.find((p) => p.status === 'paid' && p.kind === 'credits')
+  if (!paid) return
+  const grade = await store.getGrade(gradeId)
+  if (!grade?.userId) return
+  try {
+    await store.incrementCredits(grade.userId, 1)
+    await store.updateStripePaymentStatus(paid.sessionId, { status: 'refunded' })
+  } catch (err) {
+    console.error(JSON.stringify({
+      msg: 'credit-refund-failed',
+      gradeId,
+      sessionId: paid.sessionId,
+      error: err instanceof Error ? err.message : String(err),
+    }))
+  }
+}
 import {
   runSeoCategory,
   runRecognitionCategory,
@@ -46,6 +77,7 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await refundRateLimit(deps.redis, deps.store, ip, cookie, gradeId)
+      await refundCreditIfRedeemed(deps.store, gradeId)
       await deps.store.updateGrade(gradeId, { status: 'failed' })
       await publishGradeEvent(deps.redis, gradeId, {
         type: 'failed', kind: 'scrape_failed', error: message,
@@ -72,6 +104,7 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
     const outage = await detectClaudeOrOpenAIOutage(gradeId, deps.store)
     if (outage !== null) {
       await refundRateLimit(deps.redis, deps.store, ip, cookie, gradeId)
+      await refundCreditIfRedeemed(deps.store, gradeId)
       await deps.store.updateGrade(gradeId, { status: 'failed' })
       await publishGradeEvent(deps.redis, gradeId, {
         type: 'failed', kind: 'provider_outage', error: outage.message,
