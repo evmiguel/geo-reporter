@@ -146,6 +146,45 @@ describe('POST /grades', () => {
     })
     expect(res.status).toBe(202)
   })
+
+  it('stores userId=null for an anonymous cookie', async () => {
+    const deps = makeDeps()
+    const app = buildApp(deps)
+    const res = await app.request('/grades', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://acme.com' }),
+    })
+    const { gradeId } = (await res.json()) as { gradeId: string }
+    const store = deps.store as ReturnType<typeof makeFakeStore>
+    expect(store.gradesMap.get(gradeId)?.userId).toBeNull()
+  })
+
+  it('stores the caller userId when the cookie is bound to a verified user', async () => {
+    const deps = makeDeps()
+    const store = deps.store as ReturnType<typeof makeFakeStore>
+    const user = await store.upsertUser('verified@example.com')
+
+    // Issue a cookie first to get the middleware-signed value back.
+    const app = buildApp(deps)
+    const bootstrap = await app.request('/auth/me')
+    const setCookie = bootstrap.headers.get('set-cookie') ?? ''
+    const cookieValue = setCookie.split('ggcookie=')[1]?.split(';')[0]
+    expect(cookieValue).toBeTruthy()
+    const uuid = cookieValue!.split('.')[0]!
+    await store.upsertCookie(uuid, user.id)
+
+    const res = await app.request('/grades', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `ggcookie=${cookieValue}`,
+      },
+      body: JSON.stringify({ url: 'https://acme.com' }),
+    })
+    expect(res.status).toBe(202)
+    const { gradeId } = (await res.json()) as { gradeId: string }
+    expect(store.gradesMap.get(gradeId)?.userId).toBe(user.id)
+  })
 })
 
 describe('GET /grades/:id', () => {
