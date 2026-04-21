@@ -80,7 +80,6 @@ function invokeLookup(
   const lookup = makeSafeLookup(fakeDns as unknown as typeof import('node:dns').lookup)
   return new Promise((resolve) => {
     const cb: LookupCb = (err, addr, family) => { resolve({ err, addr, family }) }
-    // @ts-expect-error undici socket lookup signature is (err, addr, family)
     lookup(hostname, {}, cb)
   })
 }

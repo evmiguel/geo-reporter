@@ -1,6 +1,9 @@
 import { Agent, fetch as undiciFetch } from 'undici'
-import { lookup as dnsLookup } from 'node:dns'
+import { lookup as dnsLookup, type LookupOptions } from 'node:dns'
 import { resolveSafeHost, isPrivateAddress, SSRFBlockedError } from './ssrf.ts'
+
+type SafeLookupCb = (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+type SafeLookup = (hostname: string, options: LookupOptions, cb: SafeLookupCb) => void
 
 /**
  * Socket-level DNS lookup that rejects private IPs. This is the ONLY layer that
@@ -12,11 +15,7 @@ import { resolveSafeHost, isPrivateAddress, SSRFBlockedError } from './ssrf.ts'
  */
 export function makeSafeLookup(
   dns: typeof dnsLookup = dnsLookup,
-): (
-  hostname: string,
-  options: Parameters<typeof dnsLookup>[1],
-  cb: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
-) => void {
+): SafeLookup {
   return (hostname, options, cb) => {
     const opts = typeof options === 'object' && options !== null ? options : {}
     dns(hostname, { all: true, ...opts }, (err, addrs) => {
