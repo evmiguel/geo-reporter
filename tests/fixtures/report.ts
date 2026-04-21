@@ -1,10 +1,10 @@
 import type { ReportRecord } from '../../src/store/types.ts'
 
-export function makeReportRecord(): ReportRecord {
+export function makeReportRecord(overrides: Partial<ReportRecord> = {}): ReportRecord {
   const gradeId = '11111111-1111-1111-1111-111111111111'
   const reportId = '22222222-2222-2222-2222-222222222222'
   const createdAt = new Date('2026-04-19T14:32:00Z')
-  return {
+  const base: ReportRecord = {
     report: { id: reportId, gradeId, token: 't'.repeat(64), createdAt },
     grade: {
       id: gradeId, url: 'https://stripe.com', domain: 'stripe.com',
@@ -31,4 +31,5 @@ export function makeReportRecord(): ReportRecord {
       { id: 'r2', gradeId, rank: 2, title: 'Add llms.txt', category: 'discoverability', impact: 4, effort: 1, rationale: 'Missing signal.', how: 'Create /llms.txt.', createdAt },
     ],
   }
+  return { ...base, ...overrides }
 }

@@ -94,13 +94,25 @@ function buildRawResponseGroups(probes: Probe[]): ProbeGroup[] {
 
 function buildAccuracyProbes(probes: Probe[]): AccuracyProbe[] {
   const accuracyProbes = probes.filter((p) => p.category === 'accuracy')
-  const generators = accuracyProbes.filter((p) => p.provider === null)
-  const verifies = accuracyProbes.filter((p) => p.provider !== null)
+  // Generators and verifies are distinguished by metadata.role, NOT by
+  // provider — the generator runs through Claude (or whichever provider
+  // the accuracy flow chose) and stamps a real provider ID on its probe
+  // row. An older filter here keyed on `provider === null` and found
+  // zero generators, which collapsed the appendix to the empty-state
+  // fallback on every paid report.
+  const generators = accuracyProbes.filter((p) => metaString(p, 'role') === 'generator')
+  const verifies = accuracyProbes.filter((p) => metaString(p, 'role') === 'verify')
 
   return generators.map((gen): AccuracyProbe => {
     const question = gen.response
+    // Prefer the metadata.generatorProbeId foreign key the writer stamps
+    // on each verify row; fall back to prompt-string equality for old
+    // data that predates that field.
     const rows: AccuracyRow[] = verifies
-      .filter((v) => v.prompt === question)
+      .filter((v) => {
+        const fk = metaString(v, 'generatorProbeId')
+        return fk !== null ? fk === gen.id : v.prompt === question
+      })
       .map((v) => ({
         providerId: v.provider as ProviderId,
         providerLabel: PROVIDER_LABEL[v.provider as ProviderId] ?? v.provider ?? '',
