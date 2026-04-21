@@ -14,6 +14,7 @@ import { StripeBillingClient } from '../billing/stripe-client.ts'
 import { ConsoleMailer } from '../mail/console-mailer.ts'
 import { ResendMailer } from '../mail/resend-mailer.ts'
 import type { Mailer } from '../mail/types.ts'
+import { installCrashHandlers } from '../ops/crash-reporter.ts'
 
 interface ShutdownDeps {
   workers: Array<{ close: (drain: boolean) => Promise<void> }>
@@ -79,6 +80,8 @@ function main(): void {
   ]
 
   console.log(JSON.stringify({ msg: 'worker started', workers: workers.length }))
+
+  installCrashHandlers({ service: 'worker', mailer })
 
   const shutdown = buildShutdown({ workers, connection, closeDb, shutdownBrowserPool })
   process.on('SIGTERM', (s) => { void shutdown(s) })

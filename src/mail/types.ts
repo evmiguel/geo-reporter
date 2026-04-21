@@ -17,8 +17,17 @@ export interface ContactMessage {
   body: string
 }
 
+export interface CrashAlert {
+  service: 'web' | 'worker'
+  kind: 'uncaughtException' | 'unhandledRejection'
+  message: string
+  stack: string
+  timestamp: Date
+}
+
 export interface Mailer {
   sendMagicLink(msg: MagicLinkMessage): Promise<void>
   sendRefundNotice(msg: RefundNoticeMessage): Promise<void>
   sendContactMessage(msg: ContactMessage): Promise<void>
+  sendCrashAlert(alert: CrashAlert): Promise<void>
 }

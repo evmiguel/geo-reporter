@@ -7,6 +7,7 @@ import { createRedis } from '../queue/redis.ts'
 import { ConsoleMailer } from '../mail/console-mailer.ts'
 import { ResendMailer } from '../mail/resend-mailer.ts'
 import type { Mailer } from '../mail/types.ts'
+import { installCrashHandlers } from '../ops/crash-reporter.ts'
 import { StripeBillingClient } from '../billing/stripe-client.ts'
 import { getReportQueue } from '../queue/queues.ts'
 import { buildApp } from './app.ts'
@@ -75,6 +76,8 @@ const app = buildApp({
 
 const server = serve({ fetch: app.fetch, port: env.PORT })
 console.log(JSON.stringify({ msg: 'server listening', port: env.PORT }))
+
+installCrashHandlers({ service: 'web', mailer })
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   console.log(JSON.stringify({ msg: 'server shutting down', signal }))

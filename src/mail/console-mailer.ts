@@ -1,4 +1,6 @@
-import type { Mailer, MagicLinkMessage, RefundNoticeMessage, ContactMessage } from './types.ts'
+import type {
+  Mailer, MagicLinkMessage, RefundNoticeMessage, ContactMessage, CrashAlert,
+} from './types.ts'
 
 export class ConsoleMailer implements Mailer {
   async sendMagicLink(msg: MagicLinkMessage): Promise<void> {
@@ -20,6 +22,17 @@ export class ConsoleMailer implements Mailer {
       fromEmail: msg.fromEmail,
       category: msg.category,
       body: msg.body.length > 100 ? msg.body.slice(0, 100) + '…' : msg.body,
+    }))
+  }
+
+  async sendCrashAlert(alert: CrashAlert): Promise<void> {
+    console.error(JSON.stringify({
+      msg: 'crash-alert',
+      service: alert.service,
+      kind: alert.kind,
+      message: alert.message,
+      timestamp: alert.timestamp.toISOString(),
+      stack: alert.stack,
     }))
   }
 }
