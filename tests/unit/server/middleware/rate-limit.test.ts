@@ -51,7 +51,7 @@ function makeStubRedis(): Redis {
 let __gradeCounter = 0
 async function simulateGrade(
   redis: Redis, store: GradeStore, ip: string, cookie: string, now?: number,
-): Promise<{ allowed: boolean; limit: number; used: number; retryAfter: number; paywall: 'email' | 'daily_cap' | 'ip_exhausted' }> {
+): Promise<{ allowed: boolean; limit: number; used: number; retryAfter: number; paywall: 'email' | 'daily_cap' | 'ip_exhausted' | 'user_cap' }> {
   const peek = await peekRateLimit(redis, store, ip, cookie, now)
   if (!peek.allowed) return peek
   const gradeId = `g-${++__gradeCounter}`
@@ -214,6 +214,49 @@ describe('peekRateLimit + commitRateLimit', () => {
     expect(blocked.limit).toBe(5)
   })
 
+  it('per-user cap: a verified user rotating cookies still hits the same 2/day limit', async () => {
+    const store = makeFakeStore()
+    const user = await store.upsertUser('persist@example.com')
+    const redis = makeStubRedis()
+
+    // Two different cookies, both bound to the SAME user, from two different IPs.
+    // Without the per-user bucket this gives 2 × 2 = 4 grades; with it, 2 total.
+    await store.upsertCookie('c-user-a', user.id)
+    await store.upsertCookie('c-user-b', user.id)
+
+    const first  = await simulateGrade(redis, store, '203.0.113.50', 'c-user-a', now)
+    const second = await simulateGrade(redis, store, '203.0.113.51', 'c-user-b', now + 1)
+    expect(first.allowed).toBe(true)
+    expect(second.allowed).toBe(true)
+
+    // Third across ANY cookie/IP for this user is blocked with paywall='user_cap'.
+    const third = await simulateGrade(redis, store, '203.0.113.52', 'c-user-a', now + 2)
+    expect(third.allowed).toBe(false)
+    expect(third.paywall).toBe('user_cap')
+  })
+
+  it('refund clears the per-user bucket too so a verified user can retry', async () => {
+    const store = makeFakeStore()
+    const user = await store.upsertUser('refund-user@example.com')
+    // Two cookies bound to the same user. Saturate the user bucket using
+    // cookie A, then check that cookie B (fresh cookie bucket) surfaces
+    // the user_cap paywall. Refund one, then cookie B goes through.
+    await store.upsertCookie('c-refund-a', user.id)
+    await store.upsertCookie('c-refund-b', user.id)
+    const redis = makeStubRedis()
+    const ip = '203.0.113.60'
+
+    await commitRateLimit(redis, store, ip, 'c-refund-a', 'grade-1', now)
+    await commitRateLimit(redis, store, ip, 'c-refund-a', 'grade-2', now + 1)
+    const blocked = await peekRateLimit(redis, store, ip, 'c-refund-b', now + 2)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.paywall).toBe('user_cap')
+
+    await refundRateLimit(redis, store, ip, 'c-refund-a', 'grade-2')
+    const after = await peekRateLimit(redis, store, ip, 'c-refund-b', now + 3)
+    expect(after.allowed).toBe(true)
+  })
+
   it('verified user is EXEMPT from the anonymous IP ceiling', async () => {
     const store = makeFakeStore()
     // Pre-fill the IP ceiling to its limit with anonymous grades
@@ -244,7 +287,7 @@ describe('peekRateLimit + commitRateLimit', () => {
     expect(blocked.allowed).toBe(false)
 
     // Refund grade-b; now used drops to 1 and a new request is allowed.
-    await refundRateLimit(redis, ip, 'c-refund', 'grade-b')
+    await refundRateLimit(redis, store, ip, 'c-refund', 'grade-b')
     const after = await peekRateLimit(redis, store, ip, 'c-refund', now + 4)
     expect(after.allowed).toBe(true)
     expect(after.used).toBe(1)

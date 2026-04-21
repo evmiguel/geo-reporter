@@ -45,7 +45,7 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      await refundRateLimit(deps.redis, ip, cookie, gradeId)
+      await refundRateLimit(deps.redis, deps.store, ip, cookie, gradeId)
       await deps.store.updateGrade(gradeId, { status: 'failed' })
       await publishGradeEvent(deps.redis, gradeId, {
         type: 'failed', kind: 'scrape_failed', error: message,
@@ -71,7 +71,7 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
 
     const outage = await detectClaudeOrOpenAIOutage(gradeId, deps.store)
     if (outage !== null) {
-      await refundRateLimit(deps.redis, ip, cookie, gradeId)
+      await refundRateLimit(deps.redis, deps.store, ip, cookie, gradeId)
       await deps.store.updateGrade(gradeId, { status: 'failed' })
       await publishGradeEvent(deps.redis, gradeId, {
         type: 'failed', kind: 'provider_outage', error: outage.message,
