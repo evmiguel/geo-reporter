@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { useGradeEvents } from '../hooks/useGradeEvents.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { StatusBar } from '../components/StatusBar.tsx'
@@ -15,10 +15,14 @@ import { ReportProgress } from '../components/ReportProgress.tsx'
 import { CheckoutCanceledToast } from '../components/CheckoutCanceledToast.tsx'
 import { getGrade } from '../lib/api.ts'
 import { CATEGORY_ORDER, CATEGORY_WEIGHTS, type PaidStatus } from '../lib/types.ts'
+import { messageForFailKind, type FailKind } from '../lib/fail-messages.ts'
 
 export function LiveGradePage(): JSX.Element {
   const { id } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const fromSubmit = (location.state as { fromSubmit?: boolean } | null)?.fromSubmit === true
   const [canceledToast, setCanceledToast] = useState<boolean>(params.get('checkout') === 'canceled')
   const [checkoutComplete] = useState<boolean>(params.get('checkout') === 'complete')
   const [gradeMeta, setGradeMeta] = useState<{ url: string; domain: string } | null>(null)
@@ -61,6 +65,27 @@ export function LiveGradePage(): JSX.Element {
   const effectivePaidStatus: PaidStatus =
     state.paidStatus !== 'none' ? state.paidStatus :
     checkoutComplete ? 'checking_out' : 'none'
+
+  // Slow-failure fallback for the submit-from-landing flow: if the grade
+  // fails after the 12s peek already navigated us here, redirect back to
+  // the landing page with the error inline — so we never actually render
+  // the "grade failed" screen for users who just submitted. Direct visits
+  // to a failed grade URL (from account history, shared link) keep the
+  // old in-place error UI because `fromSubmit` will be false.
+  const isPostSubmitFailure = state.phase === 'failed' && fromSubmit
+  useEffect(() => {
+    if (!isPostSubmitFailure) return
+    const failKind: FailKind = (state.failedKind as FailKind | null) ?? 'other'
+    navigate('/', {
+      replace: true,
+      state: { postSubmitFailure: { message: messageForFailKind(failKind) } },
+    })
+  }, [isPostSubmitFailure, state.failedKind, navigate])
+  if (isPostSubmitFailure) {
+    // Render an empty shell while the effect fires the redirect. One frame,
+    // no flash of the failure copy.
+    return <div className="max-w-3xl mx-auto px-4 py-8" />
+  }
 
   if (state.phase === 'failed') {
     const isOutage = state.failedKind === 'provider_outage'

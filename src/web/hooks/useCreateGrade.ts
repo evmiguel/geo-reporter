@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { postGrade, type CreateGradeResponse } from '../lib/api.ts'
 import type { GradeEvent } from '../lib/types.ts'
+import { messageForFailKind, type FailKind } from '../lib/fail-messages.ts'
 
 export interface UseCreateGradeResult {
   create: (url: string, turnstileToken?: string) => Promise<void>
@@ -27,7 +28,6 @@ function formatRetry(seconds: number): string {
 // Window is generous (12s) to cover fetchHtml's 10s timeout + a beat.
 const FAIL_PEEK_TIMEOUT_MS = 12_000
 
-type FailKind = 'scrape_failed' | 'provider_outage' | 'other'
 type PeekResult = { kind: 'failed'; failKind: FailKind; message: string } | { kind: 'continue' }
 
 async function peekForFailure(gradeId: string): Promise<PeekResult> {
@@ -61,20 +61,6 @@ async function peekForFailure(gradeId: string): Promise<PeekResult> {
   })
 }
 
-function messageForFailKind(failKind: FailKind): string {
-  if (failKind === 'scrape_failed') {
-    return "We couldn't read that page. Some sites block automated tools — " +
-      "marketing pages, blogs, and personal sites work best. This didn't " +
-      'count against your daily limit.'
-  }
-  if (failKind === 'provider_outage') {
-    return "Claude or ChatGPT wasn't reachable. Give it a minute and try " +
-      "again. This didn't count against your daily limit."
-  }
-  return "Something went wrong while grading that site. This didn't count " +
-    'against your daily limit — try again, or pick a different URL.'
-}
-
 export function useCreateGrade(): UseCreateGradeResult {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,7 +77,12 @@ export function useCreateGrade(): UseCreateGradeResult {
         setError(messageForFailKind(peek.failKind))
         return
       }
-      navigate(`/g/${result.gradeId}`)
+      // fromSubmit: true tells LiveGradePage this was a freshly-submitted
+      // grade, not a direct visit. If the grade fails post-navigate (slow
+      // scrapes that the 12s peek couldn't catch), LiveGradePage redirects
+      // back to the landing page with the error inline instead of rendering
+      // the "grade failed" screen.
+      navigate(`/g/${result.gradeId}`, { state: { fromSubmit: true } })
       return
     }
     setPending(false)
