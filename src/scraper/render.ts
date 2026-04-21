@@ -29,6 +29,24 @@ class BrowserPool {
       userAgent: 'GeoReporterBot/1.0 (+https://geo-reporter.example)',
       viewport: { width: 1280, height: 800 },
     })
+    // Per-request SSRF guard: Chromium does its own DNS, so we validate every
+    // URL pre-dispatch. Redirects re-enter this handler with the post-redirect
+    // URL, so a public→private redirect chain (the F-1 bypass) is blocked at
+    // the next hop. Subresources that resolve to private IPs are silently
+    // aborted — the main page still loads.
+    await this.context.route('**/*', async (route) => {
+      try {
+        const parsed = new URL(route.request().url())
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          await route.abort('blockedbyclient')
+          return
+        }
+        await resolveSafeHost(parsed.hostname)
+        await route.continue()
+      } catch {
+        await route.abort('blockedbyclient')
+      }
+    })
     return this.context
   }
 
@@ -112,21 +130,25 @@ export async function shutdownBrowserPool(): Promise<void> {
 }
 
 export async function render(url: string, opts: RenderOptions = {}): Promise<RenderResult> {
-  if (process.env.NODE_ENV === 'production') {
-    let parsed: URL
-    try {
-      parsed = new URL(url)
-    } catch (err) {
-      throw new FetchError(`render: invalid url ${url}: ${(err as Error).message}`, 'network')
+  // Fail-fast check before spinning up the browser pool for obviously bad
+  // input. The context.route interceptor inside the pool catches the same
+  // case post-spawn; this just avoids the cost.
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch (err) {
+    throw new FetchError(`render: invalid url ${url}: ${(err as Error).message}`, 'network')
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new FetchError(`ssrf: bad protocol ${parsed.protocol}`, 'network')
+  }
+  try {
+    await resolveSafeHost(parsed.hostname)
+  } catch (err) {
+    if (err instanceof SSRFBlockedError) {
+      throw new FetchError(`ssrf: ${err.message}`, 'network')
     }
-    try {
-      await resolveSafeHost(parsed.hostname)
-    } catch (err) {
-      if (err instanceof SSRFBlockedError) {
-        throw new FetchError(`ssrf: ${err.message}`, 'network')
-      }
-      throw err
-    }
+    throw err
   }
   return getBrowserPool().render(url, opts)
 }

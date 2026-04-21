@@ -1,36 +1,39 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
-import { fetchHtml } from '../../../src/scraper/fetch.ts'
+import { describe, it, expect, vi } from 'vitest'
+import { fetchHtml, FetchError } from '../../../src/scraper/fetch.ts'
+import { SSRFBlockedError } from '../../../src/scraper/ssrf.ts'
+import type { FetchLike } from '../../../src/scraper/safe-fetch.ts'
 
-const savedEnv = process.env.NODE_ENV
-
-afterEach(() => {
-  process.env.NODE_ENV = savedEnv
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
-})
-
-describe('fetchHtml SSRF defense', () => {
-  it('rejects http://10.0.0.1 in production', async () => {
-    process.env.NODE_ENV = 'production'
-    await expect(fetchHtml('http://10.0.0.1/')).rejects.toThrow()
+describe('fetchHtml SSRF defense (always on — no NODE_ENV gate)', () => {
+  it('rejects a hostname that resolves to a private IP, even in dev', async () => {
+    const resolveHost = vi.fn().mockRejectedValue(new SSRFBlockedError('10.0.0.1', '10.0.0.1'))
+    const fetcher = vi.fn()
+    await expect(
+      fetchHtml('http://10.0.0.1/', {}, { resolveHost, fetcher: fetcher as unknown as FetchLike }),
+    ).rejects.toMatchObject({ name: 'FetchError', reason: 'network' })
+    expect(fetcher).not.toHaveBeenCalled()
   })
 
-  it('rejects http://169.254.169.254 (cloud metadata) in production', async () => {
-    process.env.NODE_ENV = 'production'
-    await expect(fetchHtml('http://169.254.169.254/')).rejects.toThrow()
-  })
-
-  it('allows http://127.0.0.1 in development (bypass)', async () => {
-    process.env.NODE_ENV = 'development'
-    const stub = vi.fn(
-      async () =>
-        new Response('<html></html>', {
-          status: 200,
-          headers: { 'content-type': 'text/html' },
-        }),
+  it('rejects cloud metadata IP (169.254.169.254)', async () => {
+    const resolveHost = vi.fn().mockRejectedValue(
+      new SSRFBlockedError('169.254.169.254', '169.254.169.254'),
     )
-    vi.stubGlobal('fetch', stub)
-    const res = await fetchHtml('http://127.0.0.1/')
-    expect(res.html).toBe('<html></html>')
+    const fetcher = vi.fn()
+    await expect(
+      fetchHtml('http://169.254.169.254/', {}, { resolveHost, fetcher: fetcher as unknown as FetchLike }),
+    ).rejects.toBeInstanceOf(FetchError)
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('rejects a public → private redirect chain', async () => {
+    const resolveHost = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new SSRFBlockedError('10.0.0.5', '10.0.0.5'))
+    const fetcher = vi.fn().mockResolvedValueOnce(
+      new Response(null, { status: 302, headers: { location: 'http://10.0.0.5/' } }),
+    )
+    await expect(
+      fetchHtml('https://attacker.example/', {}, { resolveHost, fetcher: fetcher as unknown as FetchLike }),
+    ).rejects.toMatchObject({ name: 'FetchError', reason: 'network' })
+    expect(fetcher).toHaveBeenCalledTimes(1)
   })
 })
