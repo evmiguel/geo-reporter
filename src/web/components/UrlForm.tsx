@@ -6,6 +6,12 @@ export interface UrlFormProps {
   onSubmit: (url: string, turnstileToken?: string) => void
   pending: boolean
   errorMessage?: string
+  /**
+   * Override the submit button's default "grade" label. When the caller
+   * is offering the credit-overflow variant ("grade (1 credit)"), pass
+   * that here and wire the matching handler via onSubmit.
+   */
+  submitLabel?: string
 }
 
 export function UrlForm(props: UrlFormProps): JSX.Element {
@@ -57,7 +63,7 @@ export function UrlForm(props: UrlFormProps): JSX.Element {
           aria-busy={props.pending}
           className="bg-[var(--color-brand)] text-[var(--color-on-brand)] px-4 py-2 font-semibold disabled:opacity-50"
         >
-          {props.pending ? (<><Spinner className="mr-2" /> grading…</>) : 'grade'}
+          {props.pending ? (<><Spinner className="mr-2" /> grading…</>) : (props.submitLabel ?? 'grade')}
         </button>
       </div>
       <Turnstile onToken={onToken} resetKey={resetKey} />

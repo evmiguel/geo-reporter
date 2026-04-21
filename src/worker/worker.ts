@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url'
 import { env } from '../config/env.ts'
 import { closeDb, db } from '../db/client.ts'
 import { createRedis } from '../queue/redis.ts'
+import { getReportQueue } from '../queue/queues.ts'
 import { registerHealthWorker } from '../queue/workers/health.ts'
 import { registerRunGradeWorker } from '../queue/workers/run-grade/index.ts'
 import { registerGenerateReportWorker } from '../queue/workers/generate-report/index.ts'
@@ -69,9 +70,11 @@ function main(): void {
     }))
   }
 
+  const reportQueue = getReportQueue(connection)
+
   const workers = [
     registerHealthWorker(connection),
-    registerRunGradeWorker({ store, redis: connection, providers, scrapeFn: scrape }, connection),
+    registerRunGradeWorker({ store, redis: connection, providers, scrapeFn: scrape, reportQueue }, connection),
     registerGenerateReportWorker(
       { store, redis: connection, providers, billing, mailer },
       connection,

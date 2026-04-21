@@ -105,6 +105,27 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
     await publishGradeEvent(deps.redis, gradeId, {
       type: 'done', overall: overall.overall, letter: overall.letter, scores,
     })
+
+    // Credit-overflow path: /grades/redeem writes a paid stripe_payments row
+    // at grade creation time so we'd auto-promote to the full paid report
+    // once the free-tier scoring is done. This keeps the Stripe-after-grade
+    // flow working unchanged (webhook still drives enqueue; deterministic
+    // jobId means BullMQ dedups on the overlap case).
+    if (deps.reportQueue) {
+      const payments = await deps.store.listStripePaymentsByGrade(gradeId)
+      const paid = payments.find((p) => p.status === 'paid')
+      if (paid) {
+        await deps.reportQueue.add(
+          'generate-report',
+          { gradeId, sessionId: paid.sessionId },
+          {
+            jobId: `generate-report-auto-${gradeId}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5_000 },
+          },
+        )
+      }
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     await deps.store.updateGrade(gradeId, { status: 'failed' })

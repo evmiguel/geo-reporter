@@ -1,13 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { postGrade, type CreateGradeResponse } from '../lib/api.ts'
+import { postGrade, postGradeRedeem, type CreateGradeResponse } from '../lib/api.ts'
 import type { GradeEvent } from '../lib/types.ts'
 import { messageForFailKind, type FailKind } from '../lib/fail-messages.ts'
 
+export type RateLimitedPaywall = 'daily_cap' | 'user_cap'
+
 export interface UseCreateGradeResult {
   create: (url: string, turnstileToken?: string) => Promise<void>
+  /** Spend 1 credit to run an additional grade beyond the 2/day free cap. */
+  createWithCredit: (url: string, turnstileToken?: string) => Promise<void>
   pending: boolean
   error: string | null
+  /**
+   * When non-null, the last submit was blocked by a rate limit that a
+   * credit can bypass. LandingPage uses this (combined with useAuth.credits)
+   * to decide whether to show the "Grade (1 credit)" button.
+   */
+  rateLimited: RateLimitedPaywall | null
 }
 
 function formatRetry(seconds: number): string {
@@ -19,13 +29,6 @@ function formatRetry(seconds: number): string {
   return leftoverMinutes > 0 ? `${hours}h ${leftoverMinutes}m` : `${hours}h`
 }
 
-// Short SSE peek after submit: a grade that fails before any visible
-// progress should stay on the landing page, not flash the user through
-// /g/<uuid>. We catch ANY failure kind in this window — scrape_failed
-// (Reddit/X block us), provider_outage (Claude/GPT down), and 'other'
-// (exceptions during category runs). Happy path — scraped / probe.started
-// arriving first — means the grade is real; we navigate normally.
-// Window is generous (12s) to cover fetchHtml's 10s timeout + a beat.
 const FAIL_PEEK_TIMEOUT_MS = 12_000
 
 type PeekResult = { kind: 'failed'; failKind: FailKind; message: string } | { kind: 'continue' }
@@ -46,15 +49,7 @@ async function peekForFailure(gradeId: string): Promise<PeekResult> {
         finish({ kind: 'failed', failKind: event.kind, message: event.error })
         return
       }
-      // IMPORTANT: ignore `running`. The server synthesizes a `running`
-      // event at connect time for ANY non-terminal grade (see
-      // src/server/routes/grades-events.ts:40-42). If we treated it as
-      // "grade is real" we'd navigate before the worker published the
-      // real failure event — exactly the race that kept showing the
-      // "grade failed" screen on Reddit/etc. Keep waiting.
       if (event.type === 'running') return
-      // Any other event — scraped, probe.started, done, category.completed —
-      // means actual progress. Grade is real; LiveGradePage can take over.
       finish({ kind: 'continue' })
     }
     es.onerror = (): void => finish({ kind: 'continue' })
@@ -64,11 +59,13 @@ async function peekForFailure(gradeId: string): Promise<PeekResult> {
 export function useCreateGrade(): UseCreateGradeResult {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rateLimited, setRateLimited] = useState<RateLimitedPaywall | null>(null)
   const navigate = useNavigate()
 
   async function create(url: string, turnstileToken?: string): Promise<void> {
     setPending(true)
     setError(null)
+    setRateLimited(null)
     const result: CreateGradeResponse = await postGrade(url, turnstileToken)
     if (result.ok) {
       const peek = await peekForFailure(result.gradeId)
@@ -77,32 +74,27 @@ export function useCreateGrade(): UseCreateGradeResult {
         setError(messageForFailKind(peek.failKind))
         return
       }
-      // fromSubmit: true tells LiveGradePage this was a freshly-submitted
-      // grade, not a direct visit. If the grade fails post-navigate (slow
-      // scrapes that the 12s peek couldn't catch), LiveGradePage redirects
-      // back to the landing page with the error inline instead of rendering
-      // the "grade failed" screen.
       navigate(`/g/${result.gradeId}`, { state: { fromSubmit: true } })
       return
     }
     setPending(false)
     if (result.kind === 'rate_limited') {
-      if (result.paywall === 'daily_cap') {
-        // Credit holders hitting 10/24h aren't a paywall problem — just a wait.
-        // Keep them on the page with a clear message instead of bouncing them
-        // to the email-verify gate (which would show wrong copy).
+      if (result.paywall === 'daily_cap' || result.paywall === 'user_cap') {
+        // Verified caller hit the 2/day free cap. LandingPage consumes this
+        // signal + useAuth.credits to decide whether to offer the
+        // "Grade (1 credit)" overflow. Message is a fallback for users with
+        // zero credits.
+        setRateLimited(result.paywall)
         setError(`Daily cap reached (${result.limit}/24h). Try again in ${formatRetry(result.retryAfter)}.`)
         return
       }
       if (result.paywall === 'ip_exhausted') {
-        // Per-IP anonymous ceiling. Likely incognito abuse or shared-IP
-        // overlap. Sign-in (identity) lifts this limit, so route to the
-        // email gate with a distinct retry hint.
         setError(
           `Too many grades from this network today. Sign in with email for more — or try again in ${formatRetry(result.retryAfter)}.`,
         )
         return
       }
+      // paywall === 'email' — anon caller, route to sign-in gate.
       navigate(`/email?retry=${result.retryAfter}`)
       return
     }
@@ -117,5 +109,44 @@ export function useCreateGrade(): UseCreateGradeResult {
     setError(`Request failed (${result.status})`)
   }
 
-  return { create, pending, error }
+  async function createWithCredit(url: string, turnstileToken?: string): Promise<void> {
+    setPending(true)
+    setError(null)
+    setRateLimited(null)
+    const result = await postGradeRedeem(url, turnstileToken)
+    if (result.ok) {
+      const peek = await peekForFailure(result.gradeId)
+      setPending(false)
+      if (peek.kind === 'failed') {
+        setError(messageForFailKind(peek.failKind))
+        return
+      }
+      navigate(`/g/${result.gradeId}`, { state: { fromSubmit: true } })
+      return
+    }
+    setPending(false)
+    if (result.kind === 'no_credits') {
+      setError("You're out of credits. Buy more below.")
+      return
+    }
+    if (result.kind === 'must_verify_email') {
+      setError('Please sign in first.')
+      return
+    }
+    if (result.kind === 'captcha_failed') {
+      setError("Couldn't verify you're human — please try again.")
+      return
+    }
+    if (result.kind === 'validation') {
+      setError(result.message ?? 'Invalid URL')
+      return
+    }
+    if (result.kind === 'unknown') {
+      setError(`Request failed (${result.status})`)
+      return
+    }
+    setError('Request failed')
+  }
+
+  return { create, createWithCredit, pending, error, rateLimited }
 }

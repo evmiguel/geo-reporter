@@ -11,7 +11,7 @@ import { ContactForm } from '../components/ContactForm.tsx'
 interface PostSubmitFailureState { message: string }
 
 export function LandingPage(): JSX.Element {
-  const { create, pending, error: hookError } = useCreateGrade()
+  const { create, createWithCredit, pending, error: hookError, rateLimited } = useCreateGrade()
   const { verified, credits, refresh } = useAuth()
   const [params, setParams] = useSearchParams()
   const location = useLocation()
@@ -57,9 +57,20 @@ export function LandingPage(): JSX.Element {
   // Hook clears its own error at the start of every submit; mirror that
   // for the redirect error so a fresh submit wipes the banner.
   const error = hookError ?? redirectError
+
+  // Offer the credit overflow when a verified caller hit the 2/day free
+  // cap AND has credits on hand. The button label shifts to "grade (1
+  // credit)" and the handler changes to createWithCredit so the submit
+  // goes to POST /grades/redeem.
+  const offerCreditOverflow = rateLimited !== null && credits > 0
+
   function handleSubmit(url: string, token?: string): void {
     setRedirectError(null)
-    void create(url, token)
+    if (offerCreditOverflow) {
+      void createWithCredit(url, token)
+    } else {
+      void create(url, token)
+    }
   }
 
   return (
@@ -81,6 +92,7 @@ export function LandingPage(): JSX.Element {
         onSubmit={handleSubmit}
         pending={pending}
         {...(error !== null ? { errorMessage: error } : {})}
+        {...(offerCreditOverflow ? { submitLabel: `grade (1 credit — ${credits} left)` } : {})}
       />
 
       {verified && credits === 0 && <BuyCreditsCTA />}

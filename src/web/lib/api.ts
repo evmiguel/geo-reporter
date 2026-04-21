@@ -25,7 +25,7 @@ export interface CreateGradeOk { ok: true; gradeId: string }
 export interface CreateGradeRateLimited {
   ok: false
   kind: 'rate_limited'
-  paywall: 'email' | 'daily_cap' | 'ip_exhausted'
+  paywall: 'email' | 'daily_cap' | 'ip_exhausted' | 'user_cap'
   limit: number
   used: number
   retryAfter: number
@@ -67,6 +67,49 @@ export async function postGrade(url: string, turnstileToken?: string): Promise<C
   if (res.status === 403) {
     return { ok: false, kind: 'captcha_failed' }
   }
+  if (res.status === 400) {
+    let message = 'Invalid URL'
+    try {
+      const body = (await res.json()) as { error?: { issues?: { message: string }[] } }
+      const first = body.error?.issues?.[0]
+      if (first) message = first.message
+    } catch { /* keep default */ }
+    return { ok: false, kind: 'validation', message }
+  }
+  return { ok: false, kind: 'unknown', status: res.status }
+}
+
+export type RedeemGradeResponse =
+  | { ok: true; gradeId: string }
+  | { ok: false; kind: 'must_verify_email' | 'no_credits' | 'captcha_failed' | 'validation'; message?: string }
+  | { ok: false; kind: 'unknown'; status: number }
+
+export async function postGradeRedeem(url: string, turnstileToken?: string): Promise<RedeemGradeResponse> {
+  let res: Response
+  try {
+    const body: { url: string; turnstileToken?: string } = { url }
+    if (turnstileToken !== undefined) body.turnstileToken = turnstileToken
+    res = await fetch('/grades/redeem', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return { ok: false, kind: 'unknown', status: 0 }
+  }
+
+  if (res.status === 202) {
+    const body = (await res.json()) as { gradeId: string }
+    return { ok: true, gradeId: body.gradeId }
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    if (body.error === 'no_credits') return { ok: false, kind: 'no_credits' }
+    if (body.error === 'must_verify_email') return { ok: false, kind: 'must_verify_email' }
+    return { ok: false, kind: 'unknown', status: 409 }
+  }
+  if (res.status === 403) return { ok: false, kind: 'captcha_failed' }
   if (res.status === 400) {
     let message = 'Invalid URL'
     try {
