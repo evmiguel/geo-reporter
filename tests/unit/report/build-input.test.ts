@@ -34,6 +34,59 @@ describe('buildReportInput', () => {
     expect(input.accuracyProbes[0]!.rows.length).toBeGreaterThan(0)
   })
 
+  it('pairs generator/verify probes when the generator has a real provider stamped (real-world shape)', () => {
+    // Reflects what's actually in prod: generator probes run through Claude
+    // and carry provider='claude' + metadata.role='generator'. Verify rows
+    // cross-reference via metadata.generatorProbeId rather than prompt match.
+    // Regression guard for the empty-appendix bug where build-input keyed
+    // generators on provider===null.
+    const createdAt = new Date('2026-04-21T12:00:00Z')
+    const record = makeReportRecord({
+      probes: [
+        {
+          id: 'gen-1', gradeId: 'grade-1', category: 'accuracy',
+          provider: 'claude', prompt: '[big scrape context]',
+          response: 'What is the starting price of Sunbase pricing plans?',
+          score: null,
+          metadata: { role: 'generator', model: 'claude-sonnet-4-6' } as never,
+          createdAt,
+        },
+        {
+          id: 'v-claude', gradeId: 'grade-1', category: 'accuracy',
+          provider: 'claude',
+          prompt: 'What is the starting price of Sunbase pricing plans?',
+          response: 'I do not have specific pricing information.',
+          score: 0,
+          metadata: {
+            role: 'verify', model: 'claude-sonnet-4-6',
+            generatorProbeId: 'gen-1', rationale: 'Scrape says $59/user/month.',
+          } as never,
+          createdAt,
+        },
+        {
+          id: 'v-gpt', gradeId: 'grade-1', category: 'accuracy',
+          provider: 'gpt',
+          prompt: 'What is the starting price of Sunbase pricing plans?',
+          response: '$5/user/month',
+          score: 0,
+          metadata: {
+            role: 'verify', model: 'gpt-4.1-mini',
+            generatorProbeId: 'gen-1', rationale: 'Scrape says $59/user/month.',
+          } as never,
+          createdAt,
+        },
+      ],
+    })
+    const input = buildReportInput(record)
+    expect(input.accuracyProbes).toHaveLength(1)
+    const probe = input.accuracyProbes[0]!
+    expect(probe.question).toBe('What is the starting price of Sunbase pricing plans?')
+    expect(probe.rows).toHaveLength(2)
+    expect(probe.rows.map((r) => r.providerId).sort()).toEqual(['claude', 'gpt'])
+    expect(probe.rows.every((r) => r.ruling === 'wrong')).toBe(true)
+    expect(probe.summary).toBe('0 of 2 correct.')
+  })
+
   it('extracts SEO findings from SEO-category probes', () => {
     const input = buildReportInput(record)
     expect(input.seoFindings.map((s) => s.label).sort()).toEqual(['llms_txt', 'robots_txt'])
