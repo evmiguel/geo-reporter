@@ -116,19 +116,24 @@ describe('cookie middleware — Plan 7 HMAC', () => {
     expect(newRaw).toContain('.')
   })
 
-  it('grace path: accepts a plain UUID cookie and re-signs it', async () => {
-    const uuid = crypto.randomUUID()
+  it('bare UUID cookie (no HMAC) is rejected — issues a FRESH UUID, does not accept the one in the cookie', async () => {
+    // F-2: removed the plain-UUID grace path. Previously a leaked UUID
+    // would be re-signed and bound; now it's treated like any other
+    // malformed cookie — discard, issue a brand-new UUID.
+    const leaked = crypto.randomUUID()
     const store = makeFakeStore()
-    await store.upsertCookie(uuid)
+    await store.upsertCookie(leaked)
     const { app } = buildTestApp(store)
-    const res = await app.request('/', { headers: { cookie: `ggcookie=${uuid}` } })
+    const res = await app.request('/', { headers: { cookie: `ggcookie=${leaked}` } })
     expect(res.status).toBe(200)
     const setCookie = res.headers.get('set-cookie')
     expect(setCookie).toContain('ggcookie=')
-    const newRaw = setCookie!.split('ggcookie=')[1]!.split(';')[0]
-    expect(newRaw).toBe(signCookie(uuid, HMAC_KEY))
+    const newRaw = setCookie!.split('ggcookie=')[1]!.split(';')[0]!
+    // New cookie must be signed AND must NOT be the leaked UUID re-signed.
+    expect(newRaw).toContain('.')
+    expect(newRaw).not.toBe(signCookie(leaked, HMAC_KEY))
     const body = (await res.json()) as { cookie: string }
-    expect(body.cookie).toBe(uuid)
+    expect(body.cookie).not.toBe(leaked)
   })
 
   it('malformed cookie triggers fresh issuance', async () => {

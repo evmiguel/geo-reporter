@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from '../../../../src/server/app.ts'
+import { signCookie } from '../../../../src/server/middleware/cookie-sign.ts'
 import { makeFakeStore } from '../../_helpers/fake-store.ts'
 import { FakeMailer } from '../../_helpers/fake-mailer.ts'
 import type { ServerDeps } from '../../../../src/server/deps.ts'
 import type Redis from 'ioredis'
 import type { Queue } from 'bullmq'
+
+const HMAC_KEY = 'test-key-exactly-32-chars-long-aa'
+const sign = (uuid: string): string => signCookie(uuid, HMAC_KEY)
 
 vi.mock('../../../../src/queue/events.ts', () => ({
   subscribeToGrade: vi.fn(async function* () {
@@ -110,7 +114,7 @@ describe('GET /grades/:id/events (unit — early exit paths)', () => {
     })
     const app = buildApp(deps)
     const res = await app.request(`/grades/${grade.id}/events`, {
-      headers: { cookie: `ggcookie=${cookieValue}` },
+      headers: { cookie: `ggcookie=${sign(cookieValue)}` },
     })
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toMatch(/text\/event-stream/)
@@ -136,7 +140,7 @@ describe('GET /grades/:id/events (unit — early exit paths)', () => {
     })
     const app = buildApp(deps)
     const res = await app.request(`/grades/${grade.id}/events`, {
-      headers: { cookie: `ggcookie=${cookieValue}` },
+      headers: { cookie: `ggcookie=${sign(cookieValue)}` },
     })
     const text = await res.text()
     const dataLines = text.split('\n').filter((l) => l.startsWith('data: ')).map((l) => JSON.parse(l.slice(6)))
