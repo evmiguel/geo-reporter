@@ -65,9 +65,18 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
     if (!grade) throw new GradeFailure(`grade ${gradeId} not found`)
 
     // Scrape is isolated in its own try/catch: when it fails (site blocks bots,
-    // DNS miss, render timeout, login wall producing <100 chars) we refund the
-    // rate-limit slot and return gracefully. Throwing here would be re-retried
-    // by BullMQ — pointless when the target site is rejecting us deterministically.
+    // DNS miss, render timeout, login wall producing <100 chars) we return
+    // gracefully without throwing (avoiding BullMQ retry on a deterministic
+    // failure).
+    //
+    // NOTE: scrape failures do NOT refund the rate-limit slot. The user
+    // chose the URL; if reddit/x.com/hostile sites keep rejecting us, that's
+    // their pick — not our infrastructure. Refunding here would let a
+    // scripted attacker chew through Playwright's worker pool indefinitely
+    // (each attempt eats ~25s of wall-clock before refunding and freeing
+    // the slot). Credit refunds still fire — money must not vanish for a
+    // failed scrape — and provider_outage (Claude/GPT down, our fault)
+    // keeps refunding both.
     let scrape: Awaited<ReturnType<typeof deps.scrapeFn>>
     try {
       scrape = await deps.scrapeFn(grade.url)
@@ -76,7 +85,6 @@ export async function runGrade(job: Job<GradeJob>, deps: RunGradeDeps): Promise<
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      await refundRateLimit(deps.redis, deps.store, ip, cookie, gradeId)
       await refundCreditIfRedeemed(deps.store, gradeId)
       await deps.store.updateGrade(gradeId, { status: 'failed' })
       await publishGradeEvent(deps.redis, gradeId, {
