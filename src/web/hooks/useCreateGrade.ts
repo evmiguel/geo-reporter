@@ -18,37 +18,54 @@ function formatRetry(seconds: number): string {
   return leftoverMinutes > 0 ? `${hours}h ${leftoverMinutes}m` : `${hours}h`
 }
 
-// Short SSE peek after submit: if the scrape fails fast (Reddit/X/etc.,
-// which resolve in well under a second on the happy "block" path), catch
-// it here and keep the user on the landing page with an inline error —
-// avoids flashing through /g/<uuid> just to show a failure. On any other
-// first event (or a 5s timeout) we navigate normally.
-const SCRAPE_PEEK_TIMEOUT_MS = 5000
+// Short SSE peek after submit: a grade that fails before any visible
+// progress should stay on the landing page, not flash the user through
+// /g/<uuid>. We catch ANY failure kind in this window — scrape_failed
+// (Reddit/X block us), provider_outage (Claude/GPT down), and 'other'
+// (exceptions during category runs). Happy path — scraped / probe.started
+// arriving first — means the grade is real; we navigate normally.
+// Window is generous (12s) to cover fetchHtml's 10s timeout + a beat.
+const FAIL_PEEK_TIMEOUT_MS = 12_000
 
-type ScrapePeekResult = { kind: 'scrape_failed'; message: string } | { kind: 'continue' }
+type FailKind = 'scrape_failed' | 'provider_outage' | 'other'
+type PeekResult = { kind: 'failed'; failKind: FailKind; message: string } | { kind: 'continue' }
 
-async function peekForScrapeFailure(gradeId: string): Promise<ScrapePeekResult> {
+async function peekForFailure(gradeId: string): Promise<PeekResult> {
   return new Promise((resolve) => {
     const es = new EventSource(`/grades/${gradeId}/events`, { withCredentials: true })
-    const finish = (result: ScrapePeekResult): void => {
+    const finish = (result: PeekResult): void => {
       clearTimeout(timer)
       es.close()
       resolve(result)
     }
-    const timer = setTimeout(() => finish({ kind: 'continue' }), SCRAPE_PEEK_TIMEOUT_MS)
+    const timer = setTimeout(() => finish({ kind: 'continue' }), FAIL_PEEK_TIMEOUT_MS)
     es.onmessage = (ev: MessageEvent<string>): void => {
       let event: GradeEvent
       try { event = JSON.parse(ev.data) as GradeEvent } catch { return }
-      if (event.type === 'failed' && event.kind === 'scrape_failed') {
-        finish({ kind: 'scrape_failed', message: event.error })
+      if (event.type === 'failed') {
+        finish({ kind: 'failed', failKind: event.kind, message: event.error })
         return
       }
-      // Any other first event — scraped, probe.started, done — means the grade
-      // is real. Let LiveGradePage take over.
+      // Any non-failed first event — scraped, probe.started, running, done —
+      // means the grade is real. Let LiveGradePage take over.
       finish({ kind: 'continue' })
     }
     es.onerror = (): void => finish({ kind: 'continue' })
   })
+}
+
+function messageForFailKind(failKind: FailKind): string {
+  if (failKind === 'scrape_failed') {
+    return "We couldn't read that page. Some sites block automated tools — " +
+      "marketing pages, blogs, and personal sites work best. This didn't " +
+      'count against your daily limit.'
+  }
+  if (failKind === 'provider_outage') {
+    return "Claude or ChatGPT wasn't reachable. Give it a minute and try " +
+      "again. This didn't count against your daily limit."
+  }
+  return "Something went wrong while grading that site. This didn't count " +
+    'against your daily limit — try again, or pick a different URL.'
 }
 
 export function useCreateGrade(): UseCreateGradeResult {
@@ -61,14 +78,10 @@ export function useCreateGrade(): UseCreateGradeResult {
     setError(null)
     const result: CreateGradeResponse = await postGrade(url, turnstileToken)
     if (result.ok) {
-      const peek = await peekForScrapeFailure(result.gradeId)
+      const peek = await peekForFailure(result.gradeId)
       setPending(false)
-      if (peek.kind === 'scrape_failed') {
-        setError(
-          "We couldn't read that page. Some sites block automated tools — " +
-          'marketing pages, blogs, and personal sites work best. This didn\'t ' +
-          'count against your daily limit.',
-        )
+      if (peek.kind === 'failed') {
+        setError(messageForFailKind(peek.failKind))
         return
       }
       navigate(`/g/${result.gradeId}`)
