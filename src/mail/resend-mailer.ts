@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import type { Mailer, MagicLinkMessage, RefundNoticeMessage } from './types.ts'
+import type { Mailer, MagicLinkMessage, RefundNoticeMessage, ContactMessage } from './types.ts'
 
 interface ResendLikeClient {
   emails: {
@@ -9,6 +9,7 @@ interface ResendLikeClient {
       subject: string
       text: string
       html: string
+      replyTo?: string
     }) => Promise<{
       data: { id: string } | null
       error: { name: string; message: string } | null
@@ -20,6 +21,8 @@ export interface ResendMailerOptions {
   apiKey: string
   from: string
   client?: ResendLikeClient
+  /** Inbox for contact-form messages. Defaults to hello@geo.erikamiguel.com. */
+  contactInbox?: string
 }
 
 export class MailerError extends Error {
@@ -45,13 +48,33 @@ function htmlBody(url: string, expiresIn: string): string {
   </body></html>`
 }
 
+function labelForCategory(c: ContactMessage['category']): string {
+  switch (c) {
+    case 'refund': return 'Refund issue'
+    case 'bug': return 'Bug report'
+    case 'feature': return 'Feature request'
+    case 'other': return 'Question'
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export class ResendMailer implements Mailer {
   private readonly client: ResendLikeClient
   private readonly from: string
+  private readonly contactInbox: string
 
   constructor(opts: ResendMailerOptions) {
     this.client = opts.client ?? (new Resend(opts.apiKey) as unknown as ResendLikeClient)
     this.from = opts.from
+    this.contactInbox = opts.contactInbox ?? 'hello@geo.erikamiguel.com'
   }
 
   async sendMagicLink(input: MagicLinkMessage): Promise<void> {
@@ -77,6 +100,23 @@ export class ResendMailer implements Mailer {
     const { error } = await this.client.emails.send({
       from: this.from,
       to: msg.to,
+      subject,
+      text,
+      html,
+    })
+    if (error) throw new MailerError(`resend: ${error.message}`)
+  }
+
+  async sendContactMessage(msg: ContactMessage): Promise<void> {
+    const subject = `[GEO Reporter] ${labelForCategory(msg.category)} from ${msg.fromEmail}`
+    const text = `From: ${msg.fromEmail}\nCategory: ${msg.category}\n\n${msg.body}\n`
+    const html = `<p><strong>From:</strong> ${escapeHtml(msg.fromEmail)}</p>` +
+                 `<p><strong>Category:</strong> ${escapeHtml(msg.category)}</p>` +
+                 `<hr/><p>${escapeHtml(msg.body).replace(/\n/g, '<br/>')}</p>`
+    const { error } = await this.client.emails.send({
+      from: this.from,
+      to: this.contactInbox,
+      replyTo: msg.fromEmail,
       subject,
       text,
       html,
