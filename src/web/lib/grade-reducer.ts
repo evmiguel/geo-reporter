@@ -14,6 +14,7 @@ export function initialGradeState(): GradeState {
     error: null,
     failedKind: null,
     paidStatus: 'none',
+    paidRefundKind: null,
     reportPhase: null,
     reportId: null,
     reportToken: null,
@@ -129,6 +130,13 @@ export function reduceGradeEvents(state: GradeState, event: GradeAction, now: nu
       }
     case 'report.failed':
       return { ...state, paidStatus: 'failed', reportPhase: null, error: event.error }
+    case 'report.refunded':
+      return {
+        ...state,
+        paidStatus: 'refunded',
+        paidRefundKind: event.refundKind,
+        reportPhase: null,
+      }
     case 'hydrate_paid':
       return {
         ...state, paidStatus: 'ready', reportPhase: null,

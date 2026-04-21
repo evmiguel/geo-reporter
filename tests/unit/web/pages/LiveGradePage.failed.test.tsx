@@ -28,7 +28,7 @@ vi.mock('../../../../src/web/hooks/useGradeEvents.ts', () => ({
       categoryScores: { discoverability: null, recognition: null, accuracy: null, coverage: null, citation: null, seo: null },
       overall: null, letter: null, error: currentError, failedKind: currentFailedKind,
       paidStatus: 'none' as const, reportId: null, reportToken: null, reportProbeCount: 0,
-    reportPhase: null,
+    reportPhase: null, paidRefundKind: null,
     },
     dispatch: vi.fn(),
     connected: true,
