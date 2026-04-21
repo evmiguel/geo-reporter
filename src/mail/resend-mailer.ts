@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import type { Mailer, MagicLinkMessage } from './types.ts'
+import type { Mailer, MagicLinkMessage, RefundNoticeMessage } from './types.ts'
 
 interface ResendLikeClient {
   emails: {
@@ -62,6 +62,24 @@ export class ResendMailer implements Mailer {
       subject: 'Sign in to GEO Reporter',
       text: `Click to sign in: ${input.url}\n\nThis link expires ${expiresIn}.`,
       html: htmlBody(input.url, expiresIn),
+    })
+    if (error) throw new MailerError(`resend: ${error.message}`)
+  }
+
+  async sendRefundNotice(msg: RefundNoticeMessage): Promise<void> {
+    const subject = 'Your GEO Report refund'
+    const intro = `Your GEO Report for ${msg.domain} couldn't be generated after three tries.`
+    const detail = msg.kind === 'credit'
+      ? "Your credit is back on your account — try again whenever you're ready."
+      : 'Your $19 payment has been refunded to your card. It takes 5–10 business days to appear.'
+    const text = `${intro}\n\n${detail}\n\nSorry about that. If you have questions, reply to this email.\n`
+    const html = `<p>${intro}</p><p>${detail}</p><p>Sorry about that. If you have questions, reply to this email.</p>`
+    const { error } = await this.client.emails.send({
+      from: this.from,
+      to: msg.to,
+      subject,
+      text,
+      html,
     })
     if (error) throw new MailerError(`resend: ${error.message}`)
   }
