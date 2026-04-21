@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { postGrade, postGradeRedeem, type CreateGradeResponse } from '../lib/api.ts'
 import type { GradeEvent } from '../lib/types.ts'
 import { messageForFailKind, type FailKind } from '../lib/fail-messages.ts'
+import { useAuth } from './useAuth.ts'
 
 export type RateLimitedPaywall = 'daily_cap' | 'user_cap'
 
@@ -61,6 +62,7 @@ export function useCreateGrade(): UseCreateGradeResult {
   const [error, setError] = useState<string | null>(null)
   const [rateLimited, setRateLimited] = useState<RateLimitedPaywall | null>(null)
   const navigate = useNavigate()
+  const { refresh: refreshAuth } = useAuth()
 
   async function create(url: string, turnstileToken?: string): Promise<void> {
     setPending(true)
@@ -115,6 +117,11 @@ export function useCreateGrade(): UseCreateGradeResult {
     setRateLimited(null)
     const result = await postGradeRedeem(url, turnstileToken)
     if (result.ok) {
+      // A credit was spent server-side; pull the updated balance so the
+      // header / account / BuyCreditsCTA reflect the new count before the
+      // user navigates away. Fire-and-forget — if it's slow, the grade
+      // page already navigates.
+      void refreshAuth()
       const peek = await peekForFailure(result.gradeId)
       setPending(false)
       if (peek.kind === 'failed') {
