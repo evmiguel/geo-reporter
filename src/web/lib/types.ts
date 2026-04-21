@@ -35,6 +35,7 @@ export type GradeEvent =
   | { type: 'report.recommendations.completed'; count: number }
   | { type: 'report.done'; reportId: string; token: string }
   | { type: 'report.failed'; error: string }
+  | { type: 'report.refunded'; refundKind: 'credit' | 'stripe'; reason?: string }
 
 // Client-only actions dispatched outside the SSE stream (e.g. rehydrating
 // paid-report state from `GET /grades/:id` on page refresh).
@@ -43,7 +44,7 @@ export type GradeAction =
   | { type: 'hydrate_paid'; reportId: string; reportToken: string }
   | { type: 'hydrate_generating' }
 
-export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed'
+export type PaidStatus = 'none' | 'checking_out' | 'generating' | 'ready' | 'failed' | 'refunded'
 
 /**
  * Sub-phase within paidStatus='generating'. Drives ReportProgress so users
@@ -82,6 +83,7 @@ export interface GradeState {
   error: string | null
   failedKind: 'provider_outage' | 'other' | null
   paidStatus: PaidStatus
+  paidRefundKind: 'credit' | 'stripe' | null
   reportPhase: ReportPhase
   reportId: string | null
   reportToken: string | null

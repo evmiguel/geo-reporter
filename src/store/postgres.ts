@@ -331,7 +331,11 @@ export class PostgresStore implements GradeStore {
 
   async updateStripePaymentStatus(
     sessionId: string,
-    patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+    patch: {
+      status: 'paid' | 'refunded' | 'refund_pending' | 'failed'
+      amountCents?: number
+      currency?: string
+    },
   ): Promise<void> {
     await this.db.update(schema.stripePayments)
       .set({
@@ -377,6 +381,16 @@ export class PostgresStore implements GradeStore {
       .returning({ credits: schema.users.credits })
     if (!row) return { ok: false }
     return { ok: true, remaining: row.credits }
+  }
+
+  async incrementCredits(userId: string, delta: number): Promise<number> {
+    const [row] = await this.db
+      .update(schema.users)
+      .set({ credits: sql`${schema.users.credits} + ${delta}` })
+      .where(eq(schema.users.id, userId))
+      .returning({ credits: schema.users.credits })
+    if (!row) throw new Error(`incrementCredits: user ${userId} not found`)
+    return row.credits
   }
 
   async getCookieWithUserAndCredits(cookie: string): Promise<{

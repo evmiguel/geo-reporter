@@ -1,11 +1,21 @@
 import type Redis from 'ioredis'
 
-// Minimal Redis stub that supports the sorted-set ops used by peekBucket/addToBucket.
-// Kept intentionally tiny — unit tests that need full Redis semantics should use
-// testcontainers via the integration suite.
-export function makeStubRedis(): Redis {
+export interface StubRedis extends Redis {
+  published: { channel: string; message: string }[]
+}
+
+// Minimal Redis stub that supports the sorted-set ops used by peekBucket/addToBucket
+// plus a trivial `publish` sink for SSE events. Kept intentionally tiny — unit tests
+// that need full Redis semantics should use testcontainers via the integration suite.
+export function makeStubRedis(): StubRedis {
   const zsets = new Map<string, Array<{ score: number; member: string }>>()
+  const published: { channel: string; message: string }[] = []
   return {
+    published,
+    async publish(channel: string, message: string): Promise<number> {
+      published.push({ channel, message })
+      return 1
+    },
     async zremrangebyscore(key: string, _min: string, max: string) {
       const arr = zsets.get(key) ?? []
       const cutoff = Number(max)
@@ -34,5 +44,5 @@ export function makeStubRedis(): Redis {
       return flat
     },
     async expire() { return 1 },
-  } as unknown as Redis
+  } as unknown as StubRedis
 }

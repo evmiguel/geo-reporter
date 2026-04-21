@@ -189,6 +189,20 @@ describe('grade-reducer failed event with kind', () => {
   })
 })
 
+describe('grade-reducer — report.refunded', () => {
+  it('reduces report.refunded → paidStatus=refunded + paidRefundKind captured', () => {
+    const state = { ...initialGradeState(), paidStatus: 'generating' as const }
+    const next = reduceGradeEvents(
+      state,
+      { type: 'report.refunded', refundKind: 'credit' },
+      0,
+    )
+    expect(next.paidStatus).toBe('refunded')
+    expect(next.paidRefundKind).toBe('credit')
+    expect(next.reportPhase).toBeNull()
+  })
+})
+
 describe('grade-reducer — reportProbeCount', () => {
   it('resets reportProbeCount on report.started', () => {
     const base = { ...initialGradeState(), reportProbeCount: 5 }

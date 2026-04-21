@@ -39,6 +39,7 @@ export type GradeEvent =
   | { type: 'report.recommendations.completed'; count: number }
   | { type: 'report.done'; reportId: string; token: string }
   | { type: 'report.failed'; error: string }
+  | { type: 'report.refunded'; refundKind: 'credit' | 'stripe'; reason?: string }
 
 export function channelFor(gradeId: string): string {
   return `grade:${gradeId}`
@@ -94,7 +95,8 @@ export function subscribeToGrade(
           event.type === 'done' ||
           event.type === 'failed' ||
           event.type === 'report.done' ||
-          event.type === 'report.failed'
+          event.type === 'report.failed' ||
+          event.type === 'report.refunded'
         ) finish()
       }
 

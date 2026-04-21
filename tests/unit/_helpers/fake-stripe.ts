@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import type { BillingClient, CheckoutSession, CheckoutSessionInput, WebhookEvent } from '../../../src/billing/types.ts'
+import type { BillingClient, CheckoutSession, CheckoutSessionInput, RefundResult, WebhookEvent } from '../../../src/billing/types.ts'
 
 interface StoredSession extends CheckoutSession {
   _payment_intent?: string
@@ -13,9 +13,23 @@ export interface ConstructedWebhookEvent {
 export class FakeStripe implements BillingClient {
   readonly createdSessions: CheckoutSessionInput[] = []
   readonly sessions = new Map<string, StoredSession>()
+  public readonly refunds: { sessionId: string }[] = []
+  private readonly failRefundsSet = new Set<string>()
   private counter = 0
 
   constructor(readonly webhookSecret: string = 'whsec_test_fake') {}
+
+  failRefundsFor(sessionId: string): void {
+    this.failRefundsSet.add(sessionId)
+  }
+
+  async refund(sessionId: string): Promise<RefundResult> {
+    if (this.failRefundsSet.has(sessionId)) {
+      return { ok: false, errorMessage: 'simulated refund failure' }
+    }
+    this.refunds.push({ sessionId })
+    return { ok: true, amountRefunded: 1900 }
+  }
 
   async createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSession> {
     this.createdSessions.push(input)

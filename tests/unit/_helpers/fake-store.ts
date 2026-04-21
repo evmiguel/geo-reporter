@@ -295,6 +295,13 @@ export function makeFakeStore(): FakeGradeStore {
       usersMap.set(userId, { ...user, credits: remaining })
       return { ok: true, remaining }
     },
+    async incrementCredits(userId: string, delta: number): Promise<number> {
+      const user = usersMap.get(userId)
+      if (!user) throw new Error(`incrementCredits: user ${userId} not found`)
+      const credits = user.credits + delta
+      usersMap.set(userId, { ...user, credits })
+      return credits
+    },
     async getCookieWithUserAndCredits(cookie: string): Promise<{
       cookie: string; userId: string | null; email: string | null; credits: number
     }> {
@@ -314,7 +321,11 @@ export function makeFakeStore(): FakeGradeStore {
     },
     async updateStripePaymentStatus(
       sessionId: string,
-      patch: { status: 'paid' | 'refunded' | 'failed'; amountCents?: number; currency?: string },
+      patch: {
+        status: 'paid' | 'refunded' | 'refund_pending' | 'failed'
+        amountCents?: number
+        currency?: string
+      },
     ): Promise<void> {
       const existing = stripePaymentsMap.get(sessionId)
       if (!existing) return

@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import type { BillingClient, CheckoutSession, CheckoutSessionInput, WebhookEvent } from './types.ts'
+import type { BillingClient, CheckoutSession, CheckoutSessionInput, RefundResult, WebhookEvent } from './types.ts'
 
 export interface StripeBillingClientOptions {
   secretKey: string
@@ -33,6 +33,24 @@ export class StripeBillingClient implements BillingClient {
   async retrieveCheckoutSession(sessionId: string): Promise<CheckoutSession> {
     const session = await this.stripe.checkout.sessions.retrieve(sessionId)
     return this.toSession(session)
+  }
+
+  async refund(sessionId: string): Promise<RefundResult> {
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['payment_intent'],
+      })
+      const pi = session.payment_intent
+      const piId = typeof pi === 'string' ? pi : pi?.id
+      if (!piId) {
+        return { ok: false, errorMessage: 'session has no payment_intent (probably not paid)' }
+      }
+      const refund = await this.stripe.refunds.create({ payment_intent: piId })
+      return { ok: true, amountRefunded: refund.amount }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { ok: false, errorMessage: `stripe refund: ${message}` }
+    }
   }
 
   verifyWebhookSignature(rawBody: string, signature: string, secret: string): WebhookEvent {

@@ -145,13 +145,14 @@ export function LiveGradePage(): JSX.Element {
           reportProbeCount={state.reportProbeCount}
         />
       )}
-      {(effectivePaidStatus === 'ready' || effectivePaidStatus === 'failed') && (
+      {(effectivePaidStatus === 'ready' || effectivePaidStatus === 'failed' || effectivePaidStatus === 'refunded') && (
         <>
           <PaidReportStatus
             status={effectivePaidStatus}
             reportId={state.reportId}
             reportToken={state.reportToken}
             error={state.error}
+            refundKind={state.paidRefundKind}
           />
           {effectivePaidStatus === 'ready' && credits === 0 && <BuyCreditsCTA />}
         </>

@@ -90,7 +90,7 @@ export const stripePayments = pgTable('stripe_payments', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   sessionId: text('session_id').notNull().unique(),
   kind: text('kind', { enum: ['report', 'credits'] }).notNull().default('report'),
-  status: text('status', { enum: ['pending', 'paid', 'refunded', 'failed'] }).notNull().default('pending'),
+  status: text('status', { enum: ['pending', 'paid', 'refunded', 'refund_pending', 'failed'] }).notNull().default('pending'),
   amountCents: integer('amount_cents').notNull(),
   currency: text('currency').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
