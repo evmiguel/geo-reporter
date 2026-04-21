@@ -13,6 +13,13 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.6.0 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Build-time env vars for the Vite bundle. Railway passes these as build args
+# when declared here; the ENV line then exposes them to the `pnpm build`
+# process so Vite can bake VITE_* values into the client JS. Server-only
+# secrets (TURNSTILE_SECRET_KEY, API keys, etc.) stay as runtime-only vars
+# on the runtime stage — no need to declare them here.
+ARG VITE_TURNSTILE_SITE_KEY
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
 RUN pnpm build
 
 # ---- runtime ----
