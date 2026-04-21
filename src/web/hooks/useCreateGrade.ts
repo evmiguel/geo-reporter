@@ -46,8 +46,15 @@ async function peekForFailure(gradeId: string): Promise<PeekResult> {
         finish({ kind: 'failed', failKind: event.kind, message: event.error })
         return
       }
-      // Any non-failed first event — scraped, probe.started, running, done —
-      // means the grade is real. Let LiveGradePage take over.
+      // IMPORTANT: ignore `running`. The server synthesizes a `running`
+      // event at connect time for ANY non-terminal grade (see
+      // src/server/routes/grades-events.ts:40-42). If we treated it as
+      // "grade is real" we'd navigate before the worker published the
+      // real failure event — exactly the race that kept showing the
+      // "grade failed" screen on Reddit/etc. Keep waiting.
+      if (event.type === 'running') return
+      // Any other event — scraped, probe.started, done, category.completed —
+      // means actual progress. Grade is real; LiveGradePage can take over.
       finish({ kind: 'continue' })
     }
     es.onerror = (): void => finish({ kind: 'continue' })
